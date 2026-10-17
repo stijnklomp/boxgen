@@ -10,11 +10,26 @@ use clap::Parser;
 
 use boxgen::cli::{self, Cli};
 use boxgen::config::Config;
-use boxgen::error::BoxgenError;
+use boxgen::error::{BoxgenError, ExitCode};
 use boxgen::logging;
 
 fn main() -> ProcessExitCode {
-    match run() {
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(error) => {
+            // clap uses 2 for usage errors, but the generator contract reserves
+            // 2 for invalid specs. Help and version still exit successfully.
+            let code = if error.use_stderr() {
+                ExitCode::Failure
+            } else {
+                ExitCode::Success
+            };
+            let _ = error.print();
+            return ProcessExitCode::from(code.code());
+        }
+    };
+
+    match run(cli) {
         Ok(()) => ProcessExitCode::SUCCESS,
         Err(error) => {
             eprintln!("boxgen: {error}");
@@ -23,8 +38,7 @@ fn main() -> ProcessExitCode {
     }
 }
 
-fn run() -> Result<(), BoxgenError> {
-    let cli = Cli::parse();
+fn run(cli: Cli) -> Result<(), BoxgenError> {
     let config = Config::load()?;
     logging::init(&config)?;
     cli::run(cli, &config)

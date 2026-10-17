@@ -58,7 +58,7 @@ Exit codes are part of the contract:
 | Code | Meaning |
 | --- | --- |
 | 0 | Success |
-| 1 | Not implemented in this bootstrap; not a contract failure code |
+| 1 | Usage error, not implemented in this bootstrap, or unclassified failure; not a contract failure code |
 | 2 | Invalid spec (unreadable, malformed, or a validation rule failed) |
 | 3 | Geometry or build failure (FreeCAD error, export failure) |
 | 4 | Environment error (missing or wrong `freecadcmd`, bad configuration) |

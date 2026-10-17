@@ -29,7 +29,7 @@ One of the five commands fixed by `docs/generator.md` §5: `validate`, `build`, 
 _Avoid_: subcommand (fine in clap context, but "contract command" in docs).
 
 **Exit code**:
-The process result fixed by the generator contract: 0 success, 2 invalid spec, 3 geometry/build failure, 4 environment. 1 marks an unimplemented bootstrap command and is not a contract failure code.
+The process result fixed by the generator contract: 0 success, 2 invalid spec, 3 geometry/build failure, 4 environment. 1 covers usage errors and unimplemented bootstrap commands; it is not a contract failure code.
 _Avoid_: error code, status (use exit code for the process result).
 
 **Stub**:

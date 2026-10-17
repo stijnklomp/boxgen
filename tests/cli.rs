@@ -73,3 +73,14 @@ fn invalid_configuration_exits_with_the_environment_code() {
         .code(4)
         .stderr(predicate::str::contains("BOXGEN_LOG"));
 }
+
+#[test]
+fn usage_errors_do_not_reuse_the_invalid_spec_exit_code() {
+    let mut command = boxgen();
+    command
+        .arg("validate")
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("required"));
+}

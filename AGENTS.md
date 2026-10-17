@@ -32,7 +32,7 @@ docker run --rm -u "$(id -u):$(id -g)" \
 
 - **FreeCAD is the only geometry engine.** Rust validates, renders the Python build script, invokes `freecadcmd`, and records results. Never implement mesh or CSG geometry in Rust.
 - **The spec is the source of truth.** `spec.yaml` defines one box; `build/<id>/` is generated and never hand-edited; `boxes/<id>/` changes only through a successful `--publish`.
-- **One error contract.** Return `BoxgenError` from commands; map it to a process code only in `src/error.rs`. Exit codes are fixed: 0 success, 2 invalid spec, 3 geometry/build failure, 4 environment. Code 1 is reserved for commands that are not implemented during the bootstrap.
+- **One error contract.** Return `BoxgenError` from commands; map it to a process code only in `src/error.rs`. Exit codes are fixed: 0 success, 2 invalid spec, 3 geometry/build failure, 4 environment. Code 1 covers usage errors and commands that are not implemented during the bootstrap; it is never a contract failure code.
 - **No server infrastructure.** Do not add axum, a tokio server, sqlx, Postgres, Valkey/Redis, RabbitMQ/lapin, pact, utoipa/OpenAPI, migrations, k8s, or compose services. v1 is a local CLI; a web UI is explicitly a v2 non-goal.
 - **Config lives in `src/config.rs`.** Add a typed setting there (`BOXGEN_*`), never an ad-hoc `env::var` in command code.
 - **stdout is for reports, stderr is for logs.** Keep it that way so `validate` and `index` output can be piped.

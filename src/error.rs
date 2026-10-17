@@ -19,7 +19,7 @@ use thiserror::Error;
 pub enum ExitCode {
     /// Command succeeded.
     Success = 0,
-    /// Command is not implemented yet, or failed for an unclassified reason.
+    /// Command is not implemented yet, or failed without a contract code.
     Failure = 1,
     /// The spec is unreadable, malformed, or violates a validation rule.
     InvalidSpec = 2,
