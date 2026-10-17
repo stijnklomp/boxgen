@@ -1,0 +1,6 @@
+system: SYS-1.0
+id: 1x1-6U-minimal-v1
+footprint: [1, 1]
+height_u: 6
+lid: false
+divisions: { compartment: "Minimal" }

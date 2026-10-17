@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: Pinned toolchain gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Read the pinned FreeCAD version
+        run: |
+          # The justfile is the single source of the pin; this also fails the
+          # job if the variable is renamed instead of silently using a stale
+          # version.
+          version="$(sed -n 's/^freecad_version := "\([^"]*\)"$/\1/p' justfile)"
+          if [ -z "$version" ]; then
+            echo "::error::could not read freecad_version from justfile"
+            exit 1
+          fi
+          echo "FREECAD_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Build the pinned FreeCAD image
+        run: |
+          docker build \
+            --build-arg FREECAD_VERSION="$FREECAD_VERSION" \
+            -f docker/freecad.Dockerfile \
+            -t "boxgen/freecad:$FREECAD_VERSION" \
+            .
+
+      - name: Run the gate in the pinned image
+        run: |
+          docker run --rm -u "$(id -u):$(id -g)" \
+            -e HOME=/tmp/boxgen-home \
+            -e FREECAD_USER_HOME=/tmp/boxgen-freecad \
+            -e CARGO_HOME=/tmp/boxgen-cargo \
+            -e CARGO_TARGET_DIR=/tmp/boxgen-target \
+            -e BOXGEN_REQUIRE_FREECAD=1 \
+            -v "$PWD":/app -w /app \
+            "boxgen/freecad:$FREECAD_VERSION" \
+            just check

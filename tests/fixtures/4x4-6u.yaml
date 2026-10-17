@@ -1,0 +1,25 @@
+system: SYS-1.0
+id: 4x4-6U-example-v1
+footprint: [4, 4]
+height_u: 6
+lid: true
+notes: "Example 4x4 body"
+contents:
+  description: "Example contents"
+  max_length_mm: 200
+  max_width_mm: 80
+  max_height_mm: 25
+  weight_kg: 1.2
+divisions:
+  axis: x
+  at_mm: 80
+  near:
+    axis: y
+    at_mm: 60
+    near: { compartment: "USB-C short" }
+    far: { compartment: "USB-C long" }
+  far:
+    axis: y
+    at_mm: 80
+    near: { compartment: "Power" }
+    far: { compartment: "Adapters" }

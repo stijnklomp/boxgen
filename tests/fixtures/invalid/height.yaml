@@ -1,0 +1,6 @@
+system: SYS-1.0
+id: 1x1-3u-bits-v1
+footprint: [1, 1]
+height_u: 7
+lid: false
+divisions: { compartment: "Bits" }

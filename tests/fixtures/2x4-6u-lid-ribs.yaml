@@ -1,0 +1,7 @@
+system: SYS-1.0
+id: 2x4-6U-lid-ribs-v1
+footprint: [2, 4]
+height_u: 6
+lid: true
+lid_ribs: true
+divisions: { compartment: "Ribbed lid box" }

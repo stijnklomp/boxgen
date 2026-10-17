@@ -1,0 +1,21 @@
+# The engine cannot reach the inner corner arc with a valid tree: a divider
+# face may only land on the 1.75 mm corner band if its far child is below the
+# 12 mm leaf minimum, and `boxgen validate` rejects that. This is the
+# smallest spec that would land a y divider's far face on the +x/+y corner
+# arc (the far face at y = 80.25, the band starting at 80.0); the far child
+# is 1.5 mm deep. `cad/dividers.py` still handles the case defensively and
+# `cad/tests/dividers.py` forces it with a synthetic tree.
+system: SYS-1.0
+id: 4x4-6U-corner-invalid-v1
+footprint: [4, 4]
+height_u: 6
+lid: false
+divisions:
+  axis: x
+  at_mm: 80
+  near: { compartment: "A" }
+  far:
+    axis: y
+    at_mm: 160
+    near: { compartment: "B" }
+    far: { compartment: "C" }

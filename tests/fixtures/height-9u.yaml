@@ -1,0 +1,6 @@
+system: SYS-1.0
+id: 2x2-9u-cables-v1
+footprint: [2, 2]
+height_u: 9
+lid: false
+divisions: { compartment: "Cables" }

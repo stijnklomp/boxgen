@@ -1,0 +1,33 @@
+# boxgen divide formatting fixture: comments must survive an edit
+# that changes only the target split.
+
+system: SYS-1.0
+id: 4x4-6U-divide-comments-v1
+footprint: [4, 4]        # footprint comment
+height_u: 6              # height comment
+lid: false
+notes: "comment preservation"
+
+# contents comment
+contents:
+  description: "divide fixture"
+  max_length_mm: 200
+  max_width_mm: 80
+  max_height_mm: 25
+  weight_kg: 1.2
+
+# division tree comment
+divisions:
+  axis: x        # root axis comment
+  at_mm: 80      # root position comment
+  near:
+    # nested split comment
+    axis: y          # near axis comment
+    at_mm: 60        # near position comment
+    near: { compartment: "USB-C short" }   # near leaf comment
+    far:  { compartment: "USB-C long" }
+  far:
+    axis: y
+    at_mm: 80
+    near: { compartment: "Power" }
+    far:  { compartment: "Adapters" }

@@ -1,0 +1,14 @@
+system: SYS-1.0
+id: 4x4-6U-divide-coincident-v1
+footprint: [4, 4]
+height_u: 6
+lid: false
+divisions:
+  axis: x
+  at_mm: 80
+  near:
+    axis: x
+    at_mm: 30
+    near: { compartment: "A" }
+    far: { compartment: "B" }
+  far: { compartment: "C" }

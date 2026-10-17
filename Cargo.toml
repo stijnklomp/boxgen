@@ -1,0 +1,31 @@
+[package]
+name = "boxgen"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+description = "SYS-1.0 spec compiler: YAML box specs to FreeCAD geometry and print files"
+license = "MIT"
+default-run = "boxgen"
+
+[dependencies]
+clap = { version = "4.6", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml_ng = "0.10"
+thiserror = "2"
+yaml-edit = "0.3.2"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[dev-dependencies]
+assert_cmd = "2.2"
+predicates = "3"
+tempfile = "3"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+strip = "symbols"

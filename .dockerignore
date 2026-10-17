@@ -1,0 +1,4 @@
+# Keep image build contexts small and deterministic.
+.git
+target/
+build/

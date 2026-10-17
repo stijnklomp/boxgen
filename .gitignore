@@ -1,0 +1,18 @@
+# Build artifacts
+/target
+/build
+
+# Editor and OS scratch
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python bytecode caches (the FreeCAD master is Python)
+__pycache__/
+*.pyc
+
+# Personal environment overrides (the CLI reads BOXGEN_* from the environment)
+.env

@@ -1,0 +1,19 @@
+system: SYS-1.0
+id: 4x4-6U-tree-v1
+footprint: [4, 4]
+height_u: 6
+lid: false
+notes: "The contract's golden 4x4 division tree"
+divisions:
+  axis: x
+  at_mm: 80
+  near:
+    axis: y
+    at_mm: 50
+    near: { compartment: "A" }
+    far: { compartment: "B" }
+  far:
+    axis: x
+    at_mm: 40
+    near: { compartment: "C" }
+    far: { compartment: "D" }

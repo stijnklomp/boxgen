@@ -1,0 +1,10 @@
+system: SYS-1.0
+id: 1x1-3u-warning-v1
+footprint: [1, 1]
+height_u: 3
+lid: false
+divisions:
+  axis: x
+  at_mm: 14
+  near: { compartment: "Thin" }
+  far: { compartment: "Wide" }

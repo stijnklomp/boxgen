@@ -1,0 +1,6 @@
+system: SYS-9.9
+id: Bad_ID
+footprint: [5, 4]
+height_u: 7
+lid: false
+divisions: { compartment: "Bits" }

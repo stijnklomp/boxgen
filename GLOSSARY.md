@@ -1,0 +1,49 @@
+# boxgen
+
+Vocabulary for the SYS-1.0 spec compiler. The authoritative domain glossary — body, lid, divider, compartment, footprint, height, coupon — lives in the spec repository (`../research/3d-printed-stackable-portable-storage/GLOSSARY.md`); use its terms and spellings.
+
+## Repository concepts
+
+**Spec compiler**:
+`boxgen` itself: it validates a YAML spec, renders a FreeCAD Python build script, runs it headless, and records the result. It is not a CAD kernel.
+_Avoid_: generator app, box maker, CAD tool.
+
+**Spec**:
+The YAML file for one body: system version, box ID, footprint, height, lid flag, the optional `lid_ribs` switch, notes, the optional contents record (with the `soft` rigid/soft fit-clearance switch), and the division tree. The source of truth for that body.
+_Avoid_: config, parameters, design file.
+
+**Master**:
+The FreeCAD Python modules under `cad/` that implement the fixed architecture and pinned Gridfinity profiles. `build(spec, out_dir) -> dict` is its entry point.
+_Avoid_: template, FreeCAD script (that is the generated `box.py`).
+
+**Build directory**:
+`build/<id>/`: generated `box.py`, `box.FCStd`, exports, and `report.json`. Never hand-edited.
+_Avoid_: output folder, artifacts (be specific).
+
+**Coupon**:
+The calibration build: a 1 × 1 × 6U body with one 2.0 mm T-divider fused to the floor and one wall, plus the ribbed friction lid, built by `boxgen coupon` into `build/coupon` through the same master path as every body. It is an internal spec (`coupon: true`), never a user spec, and it is the only iteration before production boxes (spec repository `docs/calibration.md`).
+_Avoid_: test box, sample, prototype.
+
+**Publish**:
+Copying accepted `box.step`, `body.stl`, `lid.stl`, and `notes.md` into `boxes/<id>/`. Only `build --publish` does it; a successful build alone leaves the registry untouched. It verifies every required artifact before the first copy, never rewrites `spec.yaml`, and never overwrites an existing `notes.md`.
+_Avoid_: deploy, release, export (export is the FreeCAD step).
+
+**Registry index**:
+`boxes/INDEX.md`: the generated table of every box with its footprint, height, contents, stack group, and print date. `boxgen index` regenerates it from the box specs; it is never hand-edited.
+_Avoid_: catalog, listing, manifest.
+
+**Contract command**:
+One of the five commands fixed by `docs/generator.md` §5: `validate`, `build`, `divide`, `index`, `coupon`. Their names and argument shapes are the public interface; all five are implemented after ticket #10.
+_Avoid_: subcommand (fine in clap context, but "contract command" in docs).
+
+**Exit code**:
+The process result fixed by the generator contract: 0 success, 2 invalid spec, 3 geometry/build failure, 4 environment. 1 covers usage errors and unimplemented bootstrap commands; it is not a contract failure code.
+_Avoid_: error code, status (use exit code for the process result).
+
+**Stub**:
+A contract command that parses and validates its arguments but returns `BoxgenError::NotImplemented` (exit 1) until its feature ticket lands. Stubs keep `--help` and the command surface stable. No stub remains after ticket #10; the concept and the error variant stay for future contract commands.
+_Avoid_: placeholder, fake, mock.
+
+**Divide**:
+The `boxgen divide` helper: edit one split in a spec's division tree in place, addressed by a `root`/`.near`/`.far` path, then re-validate before writing. A leaf target becomes a split; a named leaf keeps its compartment on the near child.
+_Avoid_: split command, tree editor.
