@@ -1,0 +1,14 @@
+# Build artifacts
+/target
+/build
+
+# Editor and OS scratch
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Personal environment overrides (the CLI reads BOXGEN_* from the environment)
+.env
