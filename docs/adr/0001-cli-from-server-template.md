@@ -9,7 +9,7 @@
 **Adapted:**
 
 - The service logged JSON to stdout. A CLI reserves stdout for reports, so logs are human-readable on stderr and `BOXGEN_LOG` sets the level.
-- The service used cargo-nextest, sqlx offline checks, pact, cargo-deny, and SBOM recipes. The CLI gate is plain `cargo test` plus fmt and clippy; supply-chain and FreeCAD tooling are separate tickets, not baseline requirements.
+- The service used cargo-nextest, sqlx offline checks, pact, cargo-deny, and SBOM recipes. The CLI gate is plain `cargo test` plus fmt and clippy; supply-chain checks and FreeCAD tooling are not bootstrap requirements.
 - Configuration shrank from `APP_ENV`/`DATABASE_URL`/broker endpoints to `BOXGEN_LOG` and `BOXGEN_FREECADCMD`.
 - The error contract became process exit codes 0/2/3/4 from the generator contract, with 1 reserved for stubs during the bootstrap. `BoxgenError` is the only error type commands return.
 
