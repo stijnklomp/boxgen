@@ -410,7 +410,7 @@ impl BodyDto {
             interior_depth_mm: geometry.interior_depth_mm,
             interior_height_mm: geometry.interior_height_mm,
             divider_height_mm: geometry.divider_height_mm,
-            divider_top_mm: crate::tree::BASE_HEIGHT_MM + geometry.divider_height_mm,
+            divider_top_mm: crate::tree::FLOOR_TOP_MM + geometry.divider_height_mm,
         }
     }
 }
@@ -546,8 +546,10 @@ pub(crate) struct StandardResponse {
 pub(crate) struct WallsDto {
     /// Wall thickness.
     pub wall_mm: f64,
-    /// Solid base zone height; the floor is its top face.
+    /// Pinned base profile height below the floor slab (standard §3).
     pub base_zone_mm: f64,
+    /// Floor slab above the base profile (standard §4, ADR-0014).
+    pub floor_mm: f64,
     /// Outer vertical corner radius.
     pub outer_radius_mm: f64,
     /// Inner vertical corner radius.

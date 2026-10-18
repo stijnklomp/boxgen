@@ -553,6 +553,7 @@ export function renderStandardView(root) {
       ${table([
         ["Wall thickness", `${mm(standard.walls.wall_mm)} mm`],
         ["Base zone (solid)", `${mm(standard.walls.base_zone_mm)} mm`],
+        ["Floor slab", `${mm(standard.walls.floor_mm)} mm`],
         ["Outer corner radius", `${mm(standard.walls.outer_radius_mm)} mm`],
         ["Inner corner radius", `${mm(standard.walls.inner_radius_mm)} mm`],
         ["Floor fillet", `${mm(standard.walls.floor_fillet_mm)} mm`],

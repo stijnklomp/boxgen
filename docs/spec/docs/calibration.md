@@ -23,7 +23,7 @@ One coupon is a 1 × 1 body section with:
 | Height | 6U (42 mm total) |
 | Base zone | Standard Gridfinity base profile, solid (ADR-0013) |
 | Body zone | 2.0 mm wall, 2.0 mm lip |
-| Floor | Top face of the solid base zone at 4.75 mm |
+| Floor | 0.8 mm slab on the solid base zone; top at 5.55 mm |
 | Divider | One 2.0 mm T-divider fused to the floor and one wall, 10 mm below the lip |
 | Outer corner radius | 3.75 mm |
 | Inner corner radius | 1.75 mm |

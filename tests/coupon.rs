@@ -189,7 +189,7 @@ fn coupon_builds_end_to_end() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("id: coupon-1x1-6U-v1"), "{stdout}");
     assert!(stdout.contains("outer: 41.5 x 41.5 x 42.0 mm"), "{stdout}");
-    assert!(stdout.contains("interior depth: 33.25 mm"), "{stdout}");
+    assert!(stdout.contains("interior depth: 32.45 mm"), "{stdout}");
     assert!(stdout.contains("ribs: yes"), "{stdout}");
     assert!(stdout.contains("warnings: none"), "{stdout}");
     assert!(stdout.contains("print two coupons and one lid"), "{stdout}");
@@ -248,7 +248,7 @@ fn coupon_builds_end_to_end() {
     // kernel's section tolerance.
     common::assert_near(
         common::number(&report, "interior_depth_mm"),
-        33.25,
+        32.45,
         0.05,
         "interior depth",
     );
@@ -406,7 +406,7 @@ fn the_coupon_body_carries_the_calibration_features() {
         PROBE_TOLERANCE,
         "T-divider top",
     );
-    common::assert_close(common::number(report, "body.z_floor_mm"), 4.75, "floor top");
+    common::assert_close(common::number(report, "body.z_floor_mm"), 5.55, "floor top");
     common::assert_close(
         common::number(report, "body.divider_top_mm"),
         28.0,
@@ -745,7 +745,7 @@ fn the_coupon_feature_set_matches_the_calibration_document() {
     assert_eq!(spec.height_u, 6);
     assert!((body.outer_width_mm - COUPON_OUTER_MM).abs() < EPS);
     assert!((body.total_height_mm - COUPON_HEIGHT_MM).abs() < EPS);
-    let divider_top = boxgen::tree::BASE_HEIGHT_MM + body.divider_height_mm;
+    let divider_top = boxgen::tree::FLOOR_TOP_MM + body.divider_height_mm;
     let lip_bottom = body.total_height_mm - boxgen::tree::LIP_HEIGHT_MM;
     assert!(
         (lip_bottom - divider_top - T_DIVIDER_LIP_GAP_MM).abs() < EPS,
@@ -793,7 +793,7 @@ fn fake_coupon_report() -> String {
     serde_json::to_string(&serde_json::json!({
         "id": COUPON_ID,
         "dimensions": {"outer_x_mm": 41.5, "outer_y_mm": 41.5, "height_mm": 42.0},
-        "interior_depth_mm": 33.25,
+        "interior_depth_mm": 32.45,
         "body": {
             "volume_mm3": 19393.0,
             "area_mm2": 1.0,
@@ -823,7 +823,7 @@ fn fake_coupon_report() -> String {
             "wall": "-y",
             "length_mm": 20.0,
             "thickness_mm": 2.0,
-            "height_above_floor_mm": 23.25,
+            "height_above_floor_mm": 22.45,
             "top_mm": 28.0,
             "top_chamfer_mm": 0.4,
         },

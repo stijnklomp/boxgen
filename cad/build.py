@@ -15,7 +15,7 @@ The report records the floor-to-wall fillet radius actually applied in
 ``body.floor_fillet_mm`` (2.0 mm, or the 1.0 mm fallback), the resolved
 divider rectangles in ``dividers``, the usable interior depth measured from
 the built body (standard §4.2: floor top to lip bottom; the design formula
-``U * 7 - 8.75`` stays the reference in :mod:`cad.shell`), and the lid's
+``U * 7 - 9.55`` stays the reference in :mod:`cad.shell`), and the lid's
 actual measurements in ``lid`` (including the top roundover that was applied
 and whether the friction ribs are present), adding a deterministic warning
 when a standard radius had to be reduced. The radii and the reduce-then-fail
@@ -44,7 +44,6 @@ import Import
 import MeshPart
 
 from . import dividers as dividers_module
-from . import gridfinity as gf
 from . import lid as lid_module
 from . import shell
 
@@ -173,7 +172,7 @@ def _dividers_report(spec: shell.BodySpec, divisions: dict) -> dict:
     return {
         "count": len(plan),
         "height_above_floor_mm": _round(height),
-        "top_mm": _round(gf.BASE_HEIGHT + height),
+        "top_mm": _round(shell.FLOOR_TOP + height),
         "plan": [
             {
                 "axis": divider.axis,
@@ -303,7 +302,7 @@ def build(spec: dict, out_dir: str) -> dict:
                 dividers_module.divider_height(body_spec.height_u)
             ),
             "top_mm": _round(
-                gf.BASE_HEIGHT + dividers_module.divider_height(body_spec.height_u)
+                shell.FLOOR_TOP + dividers_module.divider_height(body_spec.height_u)
             ),
             "top_chamfer_mm": _round(dividers_module.DIVIDER_TOP_CHAMFER),
         }

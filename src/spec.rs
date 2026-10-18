@@ -1195,9 +1195,9 @@ divisions: { compartment: Bits }
     /// where rigid items get 2 mm per side and 5 mm above.
     #[test]
     fn soft_contents_get_the_soft_clearances() {
-        // 1x1 3U: interior width 37.5 mm, interior height 12.25 mm. The same
+        // 1x1 3U: interior width 37.5 mm, interior height 11.45 mm. The same
         // item passes the rigid rules and fails the soft ones.
-        let rigid = format!("{MINIMAL}contents:\n  max_width_mm: 30\n  max_height_mm: 7\n");
+        let rigid = format!("{MINIMAL}contents:\n  max_width_mm: 30\n  max_height_mm: 6\n");
         assert!(
             warnings(&rigid).is_empty(),
             "rigid boundary values must pass: {:?}",
@@ -1223,9 +1223,9 @@ divisions: { compartment: Bits }
         );
 
         // The soft boundary values fit: width + 2 * 5 <= 37.5 and
-        // height + 10 <= 12.25.
+        // height + 10 <= 11.45.
         let fitting =
-            format!("{MINIMAL}contents:\n  soft: true\n  max_width_mm: 27\n  max_height_mm: 2\n");
+            format!("{MINIMAL}contents:\n  soft: true\n  max_width_mm: 27\n  max_height_mm: 1\n");
         assert!(
             warnings(&fitting).is_empty(),
             "soft boundary values must pass: {:?}",
@@ -1261,7 +1261,7 @@ divisions: { compartment: Bits }
     #[test]
     fn contents_within_the_limits_do_not_warn() {
         let yaml = format!(
-            "{MINIMAL}contents:\n  max_length_mm: 43\n  max_width_mm: 33\n  max_height_mm: 7\n  weight_kg: 10\n"
+            "{MINIMAL}contents:\n  max_length_mm: 43\n  max_width_mm: 33\n  max_height_mm: 6\n  weight_kg: 10\n"
         );
 
         assert!(
@@ -1289,7 +1289,7 @@ divisions: { compartment: Bits }
         assert!(!fit.fits());
         assert!(!fit.length_ok, "60 mm exceeds the 43.0 mm usable diagonal");
         assert!(!fit.width_ok, "30 + 10 mm exceeds the 37.5 mm width");
-        assert!(!fit.height_ok, "7 + 10 mm exceeds the 12.25 mm height");
+        assert!(!fit.height_ok, "7 + 10 mm exceeds the 11.45 mm height");
         assert!(!fit.weight_ok, "11 kg exceeds the 10 kg limit");
         assert_eq!(fit.per_side_mm, CONTENTS_SOFT_CLEARANCE_PER_SIDE_MM);
         assert_eq!(fit.height_clearance_mm, CONTENTS_SOFT_HEIGHT_CLEARANCE_MM);
@@ -1411,7 +1411,7 @@ divisions: { compartment: Bits }
             "id: 4x4-6U-example-v1",
             "footprint: 4 x 4 (outer 167.5 x 167.5 mm)",
             "height: 6U (42 mm total)",
-            "interior: 163.5 x 163.5 x 33.25 mm",
+            "interior: 163.5 x 163.5 x 32.45 mm",
             "lid: yes",
             "compartments: 4",
             "USB-C short",

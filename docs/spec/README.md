@@ -8,7 +8,7 @@ A 3D-printed storage system for household equipment: Gridfinity-compatible bodie
 
 **Fixed — the architecture:**
 - Gridfinity 42 × 42 × 7 mm base and stacking lip.
-- 2.0 mm walls; a solid 4.75 mm base zone with the floor as its top face (ADR-0013); the base prints filled on the bed.
+- 2.0 mm walls; a solid 4.75 mm base zone with a 0.8 mm floor slab on top (ADR-0013, ADR-0014); the base prints filled on the bed.
 - Integral dividers connected to the walls; no separate inserts.
 - Inset friction lid, 2.0 mm plate and skirt; no latch, magnet, or hinge.
 - PETG Basic, 0.4 mm nozzle, 0.2 mm layers, 5 wall loops, 40% gyroid infill.
@@ -59,7 +59,7 @@ The fixed part is the "one strong design"; the variable part is generated per bo
 
 All of the following are locked in `SYS-1.0`:
 
-1. **Shell:** 2.0 mm body, lip, dividers, and lid; a solid 4.75 mm base zone whose top face is the floor (ADR-0013); no underside cavity and no floor-thickness fallback.
+1. **Shell:** 2.0 mm body, lip, dividers, and lid; a solid 4.75 mm base zone with a 0.8 mm floor slab on top (ADR-0013, ADR-0014); no underside cavity and no floor-thickness fallback.
 2. **Division model:** recursive tree with integer-millimetre positions, near-face measured.
 3. **Divider height:** interior depth − 10 mm; 3U uses interior depth − 2 mm.
 4. **Default height:** 6U; 3U/9U/12U as exceptions; maximum 12U.

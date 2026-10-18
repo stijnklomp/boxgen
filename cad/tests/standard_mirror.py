@@ -39,6 +39,8 @@ def main() -> int:
         "shell": {
             "wall_mm": shell.WALL,
             "height_unit_mm": shell.HEIGHT_UNIT,
+            "floor_mm": shell.FLOOR,
+            "floor_top_mm": shell.FLOOR_TOP,
             "inner_radius_mm": shell.INNER_RADIUS,
             "floor_fillet_mm": shell.FLOOR_FILLET,
         },

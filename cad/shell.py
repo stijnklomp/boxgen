@@ -7,15 +7,16 @@ built beside it.
 The recipe is the verified FreeCAD 1.0.0 one: a rounded-rectangle prism for
 the body wall, one pinned Gridfinity foot per 42 mm cell (lifted 0.2 mm into
 the body so the fuse overlaps instead of sharing a face), a pre-filleted
-interior cutter for the 2.0 mm floor-to-wall cove, cell webs that cap the
-0.5 mm Gridfinity grooves over the lift band so interior feet stay fused, and
+interior cutter for the 2.0 mm floor-to-wall cove, a solid 0.8 mm floor slab
+above the base profile that closes the floor over the per-cell grooves, and
 the pinned stacking-lip void.
 
-The base zone is solid: the floor is the top face of the base profile and the
-underside is the full foot face, so the bottom prints on the bed instead of
-bridging a hidden cavity. The hidden 1.2 mm-side-shell cavity of ADR-0007 was
-removed by ADR-0013 after the coupon showed that its 35 mm unsupported
-ceiling cannot be printed in PETG.
+The base zone is solid: the pinned foot per cell is filled and the underside
+is the full foot face, so the bottom prints on the bed instead of bridging a
+hidden cavity (ADR-0013). The profile's top face cannot itself be the floor:
+the 0.5 mm inter-cell grooves must stay open up to the plane a baseplate's
+mating ridge reaches, so the floor is a slab on top of the profile
+(``FLOOR``, ADR-0014), exactly as community Gridfinity bins are built.
 
 Every fuse and cut is checked for exactly one solid with positive volume.
 Internal fillets are made by filleting the cutting solid, never the fused
@@ -44,7 +45,9 @@ __all__ = [
     "BodyResult",
     "BodySpec",
     "FILLET_FALLBACK",
+    "FLOOR",
     "FLOOR_FILLET",
+    "FLOOR_TOP",
     "GeometryError",
     "HEIGHT_UNIT",
     "INNER_RADIUS",
@@ -53,20 +56,28 @@ __all__ = [
     "build_body",
     "edges_at_z",
     "interior_depth_mm",
-    "make_cell_webs",
     "measure_interior_depth_mm",
 ]
 
 #: Height of one Gridfinity unit in millimetres.
 HEIGHT_UNIT = 7.0
 
-#: Body wall thickness (standard §4). The base zone below the floor is solid;
-#: its top face is the floor (see :func:`measure_interior_depth_mm`).
+#: Body wall thickness (standard §4).
 WALL = 2.0
 
-#: Half-width of the z band the floor-top bisection searches around the base
-#: top: the floor top is the top of the solid base zone, so the band only
-#: needs to straddle ``gf.BASE_HEIGHT``.
+#: Floor slab above the pinned base profile (standard §4; ADR-0014). The
+#: profile's top face cannot be continuous across the per-cell feet: the
+#: 0.5 mm inter-cell grooves must stay open to the plane where a baseplate's
+#: mating ridge reaches. The floor is therefore a slab on top of the profile
+#: (0.8 mm, the community Gridfinity reference's bottom thickness).
+FLOOR = 0.8
+
+#: The interior floor surface: the top of the solid base zone (the profile
+#: plus the floor slab). The interior cutter and every floor cove start here.
+FLOOR_TOP = gf.BASE_HEIGHT + FLOOR
+
+#: Half-width of the z band the floor-top bisection searches around
+#: ``FLOOR_TOP``.
 _FLOOR_PROBE_BAND = 1.0
 
 #: Inner vertical corner radius: outer radius minus the 2.0 mm wall.
@@ -77,13 +88,6 @@ FLOOR_FILLET = 2.0
 
 #: How far each base foot is lifted into the body so the fuse overlaps.
 BASE_LIFT = 0.2
-
-#: The Gridfinity groove between adjacent base feet (one clearance per side).
-CELL_GROOVE = gf.GRID - gf.NOMINAL_WIDTH_1U
-
-#: Width of the cell-boundary web: the groove plus an overlap into the two
-#: neighbouring feet, so the fuse never relies on coincident faces.
-WEB_WIDTH = CELL_GROOVE + 2.0 * BASE_LIFT
 
 #: The body interior cutter stops this far below the lip bottom. The lip
 #: profile starts narrowing 2.4 mm below the lip bottom; 2.3 mm leaves the
@@ -136,13 +140,15 @@ def edges_at_z(shape: Part.Shape, z: float, tolerance: float = 1e-6) -> list[Par
 
 
 def interior_depth_mm(height_u: int) -> float:
-    """Design interior depth: ``U * 7 - 4.75 - 4.0`` (standard §4.2 table).
+    """Design interior depth: ``U * 7 - 5.55 - 4.0`` (standard §4.2 table).
 
-    This is the standard's design figure (``U * 7 - 8.75``); the build report
-    carries the value measured from the built body instead, see
+    This is the standard's design figure (``U * 7 - 9.55``): the base zone
+    below the floor is ``gf.BASE_HEIGHT`` (4.75 mm) plus the ``FLOOR`` slab
+    (0.8 mm), and the lip adds 4.0 mm. The build report carries the value
+    measured from the built body instead, see
     :func:`measure_interior_depth_mm`.
     """
-    return height_u * HEIGHT_UNIT - gf.BASE_HEIGHT - gf.LIP_HEIGHT
+    return height_u * HEIGHT_UNIT - FLOOR_TOP - gf.LIP_HEIGHT
 
 
 #: Bisection steps for the measured interior-depth boundaries.
@@ -183,8 +189,8 @@ def measure_interior_depth_mm(body: Part.Shape, height_u: int) -> float:
     table states; the build report carries this measurement of the model:
 
     * the **floor top** is the lowest z whose horizontal section is hollow:
-      the interior opening appears above the solid base zone, so the
-      bisection runs around the base top and finds the floor's top face;
+      the interior opening appears above the floor slab, so the bisection
+      runs around ``FLOOR_TOP`` and finds the floor's top face;
     * the **lip bottom** is the highest z at which the lip's inner opening is
       still at the neck's minimum width: the neck plateau ends exactly at the
       lip bottom, where the pinned profile starts widening toward the lip's
@@ -197,8 +203,8 @@ def measure_interior_depth_mm(body: Part.Shape, height_u: int) -> float:
     total_h = height_u * HEIGHT_UNIT
     z_lip = total_h - gf.LIP_HEIGHT
 
-    low = gf.BASE_HEIGHT - _FLOOR_PROBE_BAND
-    high = gf.BASE_HEIGHT + _FLOOR_PROBE_BAND
+    low = FLOOR_TOP - _FLOOR_PROBE_BAND
+    high = FLOOR_TOP + _FLOOR_PROBE_BAND
     for _ in range(_DEPTH_BISECTIONS):
         middle = (low + high) / 2.0
         if _section_openings(body, middle):
@@ -232,53 +238,6 @@ def measure_interior_depth_mm(body: Part.Shape, height_u: int) -> float:
     return depth
 
 
-def make_cell_webs(
-    spec: BodySpec, z0: float, height: float
-) -> list[Part.Shape]:
-    """One web per internal 42 mm cell boundary, capping the base grooves.
-
-    The interior cutter removes the body prism above the base zone, so an
-    interior foot stands below the void with nothing but its own edges to
-    hold it: the 0.5 mm Gridfinity groove between adjacent feet separates
-    them, so without a web the interior feet of a 4 x 4 body would be
-    separate solids (the shell would come out as five). A web fills each
-    internal groove over a band above the base top and overlaps both
-    neighbouring feet by :data:`BASE_LIFT`, tying every interior foot to the
-    body wall.
-
-    The web cannot affect the Gridfinity fit: it sits at ``z0 >=
-    BASE_HEIGHT`` (the top of the base zone), where a standard baseplate's
-    cell rib has narrowed to zero width, and its ends run 1.0 mm into the
-    walls (the span is the outer width minus ``2 * (WALL - 1.0)``), where
-    the body prism already fills the band.
-    """
-    span_x = gf.outer_width(spec.units_x) - 2.0 * (WALL - 1.0)
-    span_y = gf.outer_width(spec.units_y) - 2.0 * (WALL - 1.0)
-
-    webs = []
-    for index_x in range(1, spec.units_x):
-        centre = (index_x - spec.units_x / 2.0) * gf.GRID
-        webs.append(
-            Part.makeBox(
-                WEB_WIDTH,
-                span_y,
-                height,
-                App.Vector(centre - WEB_WIDTH / 2.0, -span_y / 2.0, z0),
-            )
-        )
-    for index_y in range(1, spec.units_y):
-        centre = (index_y - spec.units_y / 2.0) * gf.GRID
-        webs.append(
-            Part.makeBox(
-                span_x,
-                WEB_WIDTH,
-                height,
-                App.Vector(-span_x / 2.0, centre - WEB_WIDTH / 2.0, z0),
-            )
-        )
-    return webs
-
-
 def _fuse(shape: Part.Shape, other: Part.Shape, what: str) -> Part.Shape:
     return require_one_solid(shape.fuse(other), what)
 
@@ -293,8 +252,9 @@ def build_body(spec: BodySpec) -> BodyResult:
     The base zone is solid (ADR-0013): one pinned Gridfinity foot per cell,
     fused to the wall prism, with no underside cavity, so the bottom layers
     print on the bed instead of bridging a hidden void. The interior floor is
-    the top of that base zone (``gf.BASE_HEIGHT``), and the interior floor
-    walls meet it in the standard's 2.0 mm cove.
+    the top of the ``FLOOR`` slab above that base profile (``FLOOR_TOP``,
+    ADR-0014), and the interior floor walls meet it in the standard's 2.0 mm
+    cove.
 
     The body is centred in X/Y, ``z = 0`` is the bed face, and all dimensions
     are millimetres. The body contains the bare shell only; the division
@@ -312,7 +272,7 @@ def build_body(spec: BodySpec) -> BodyResult:
     total_h = spec.height_u * HEIGHT_UNIT
     z_floor = gf.BASE_HEIGHT
     z_lip = total_h - gf.LIP_HEIGHT
-    if z_lip - LIP_CUTTER_GAP <= z_floor:
+    if z_lip - LIP_CUTTER_GAP <= FLOOR_TOP:
         raise GeometryError(
             f"{spec.height_u}U leaves no body interior between the floor and the lip"
         )
@@ -343,24 +303,20 @@ def build_body(spec: BodySpec) -> BodyResult:
         width - 2.0 * WALL,
         depth - 2.0 * WALL,
         INNER_RADIUS,
-        z_floor,
+        FLOOR_TOP,
         z_lip - LIP_CUTTER_GAP,
     )
     inner, floor_fillet_mm = fillet_with_fallback(
         inner,
         FLOOR_FILLET,
-        edges_at_z(inner, z_floor),
+        edges_at_z(inner, FLOOR_TOP),
         fallback=FILLET_FALLBACK,
         what="body interior floor fillet",
     )
-    body = body.cut(inner)
-
-    # The interior cut separates base feet that do not reach a wall (a 4 x 4
-    # body's four centre feet); the cell webs tie every foot back to the
-    # prism, so the one-solid invariant is checked after the webs.
-    for web in make_cell_webs(spec, z_floor, BASE_LIFT):
-        body = body.fuse(web)
-    body = require_one_solid(body, "body interior with cell webs")
+    # The prism material between the base profile and FLOOR_TOP is the floor
+    # slab: it spans the 0.5 mm cell grooves and keeps the interior feet tied
+    # to the wall, so the cut leaves exactly one solid.
+    body = _cut(body, inner, "body interior")
 
     lip_wire = gf.rounded_rect_wire(width, depth, gf.OUTER_RADIUS, z_lip)
     body = _cut(body, gf.make_lip_cut(lip_wire), "stacking lip void")

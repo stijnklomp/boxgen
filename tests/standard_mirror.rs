@@ -47,6 +47,8 @@ fn the_rust_constants_and_the_python_master_agree() {
 
     assert_mirror("shell.wall_mm", tree::WALL_MM);
     assert_mirror("shell.height_unit_mm", tree::HEIGHT_UNIT_MM);
+    assert_mirror("shell.floor_mm", tree::FLOOR_MM);
+    assert_mirror("shell.floor_top_mm", tree::FLOOR_TOP_MM);
     assert_mirror("shell.inner_radius_mm", tree::INNER_RADIUS_MM);
     assert_mirror("shell.floor_fillet_mm", tree::FLOOR_FILLET_MM);
 

@@ -94,8 +94,8 @@ HEIGHT_TREE = {
 }
 
 #: One split of a 4 x 4 body. The divider does not pass over the four centre
-#: feet, so this tree pins the shell's cell webs: without them the centre
-#: feet would be separate solids.
+#: feet, so this tree pins the shell's floor slab: the slab spans the cell
+#: grooves, so the centre feet stay one solid with the wall.
 SINGLE_SPLIT_TREE = {
     "axis": "x",
     "at_mm": 80,
@@ -195,9 +195,9 @@ def _golden_body(module, shell):
 def _measure_golden(module, shell, gf) -> dict[str, object]:
     """Build the 4 x 4 x 6U golden tree and measure it by slicing."""
     fused = _golden_body(module, shell)
-    out = _describe(fused, gf.BASE_HEIGHT)
+    out = _describe(fused, shell.FLOOR_TOP)
 
-    top = gf.BASE_HEIGHT + module.divider_height(6)
+    top = shell.FLOOR_TOP + module.divider_height(6)
     out["divider_top_mm"] = harness.round6(top)
     out["section_z20"] = _compartments(fused, 20.0)
     out["section_z30"] = _compartments(fused, 30.0)
@@ -206,10 +206,10 @@ def _measure_golden(module, shell, gf) -> dict[str, object]:
 
     # Junction coves: the void inset from a face at height z is
     # 2.0 - sqrt(4 - (z - floor - 2.0)^2), 2.0 at the floor tapering to 0.
-    floor = gf.BASE_HEIGHT
-    out["section_z5_0"] = _compartments(fused, floor + 0.25)
-    out["section_z6_7"] = _compartments(fused, floor + 1.95)
-    out["section_z7_5"] = _compartments(fused, floor + 2.75)
+    floor = shell.FLOOR_TOP
+    out["section_floor_0_25"] = _compartments(fused, floor + 0.25)
+    out["section_floor_1_95"] = _compartments(fused, floor + 1.95)
+    out["section_floor_2_75"] = _compartments(fused, floor + 2.75)
 
     # Junction probes. Compartment A's far corner is the T junction of the y
     # divider on the x divider at (-1.75, -31.75); the root divider's end at
@@ -228,7 +228,7 @@ def _measure_corner(module, shell, gf) -> dict[str, object]:
         shell.BodySpec(4, 4, 6),
         CORNER_TREE,
     )
-    out = _describe(fused, gf.BASE_HEIGHT)
+    out = _describe(fused, shell.FLOOR_TOP)
     inner_half = (gf.outer_width(4) - 2.0 * 2.0) / 2.0
 
     # Far face y = 80.25 meets the +x inner corner arc; the notch tip is the
@@ -263,7 +263,7 @@ def _measure_corner_cross(module, shell, gf) -> dict[str, object]:
         shell.BodySpec(4, 4, 6),
         CORNER_CROSS_TREE,
     )
-    out = _describe(fused, gf.BASE_HEIGHT)
+    out = _describe(fused, shell.FLOOR_TOP)
     inner_half = (gf.outer_width(4) - 2.0 * 2.0) / 2.0
 
     # The divider side face x = 80.25 meets the +y inner corner arc; the
@@ -293,7 +293,7 @@ def _measure_heights(module, shell, gf) -> dict[str, object]:
             fused,
             0.25,
             0.0,
-            gf.BASE_HEIGHT + 0.5,
+            shell.FLOOR_TOP + 0.5,
             height_u * 7.0 - gf.LIP_HEIGHT,
         )
         out[str(height_u)] = {
@@ -308,13 +308,13 @@ def _measure_heights(module, shell, gf) -> dict[str, object]:
 
 
 def _measure_single_split(module, shell, gf) -> dict[str, object]:
-    """One 4 x 4 split whose divider misses the centre feet (cell webs)."""
+    """One 4 x 4 split whose divider misses the centre feet (floor slab)."""
     fused = module.build_dividers(
         shell.build_body(shell.BodySpec(4, 4, 6)).shape,
         shell.BodySpec(4, 4, 6),
         SINGLE_SPLIT_TREE,
     )
-    out = _describe(fused, gf.BASE_HEIGHT)
+    out = _describe(fused, shell.FLOOR_TOP)
     out["section_z20"] = _compartments(fused, 20.0)
     return out
 

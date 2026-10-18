@@ -14,14 +14,15 @@ The script covers the ticket #7 contract:
 * ``cad/shell.py::measure_interior_depth_mm`` measures the usable depth from
   the built body (floor top to lip bottom) for every legal height; the report
   carries that measurement, and ``interior_depth_mm`` stays the standard's
-  design formula (``U * 7 - 8.75``).
+  design formula (``U * 7 - 9.55``).
 * The built 1x1x6U and 1x1x3U bodies: horizontal slices measure the outer
   3.75 mm and inner 1.75 mm vertical corner arcs and the lip rows
   (``OUTER_RADIUS - offset``), a vertical slice measures the 2.0 mm floor
   cove, and every circular edge above the base is at least 1.0 mm. The solid
   base zone keeps the pinned profile's grades: its sharpest circular edge is
   the 0.8 mm bottom chamfer radius (ADR-0013; the hidden cavity and its
-  0.4 mm clamp are gone).
+  0.4 mm clamp are gone), and the floor is the 0.8 mm slab above the profile
+  (ADR-0014).
 
 Why synthetic shapes for the reduce and failure paths: the real 1x1 3U
 interior cutter -- the smallest legal interior -- still takes the 2.0 mm
@@ -177,7 +178,8 @@ def _measure_body(module, gf, units_x: int, units_y: int, height_u: int) -> dict
     body = result.shape
     total_h = height_u * module.HEIGHT_UNIT
     z_lip = total_h - gf.LIP_HEIGHT
-    z_floor = gf.BASE_HEIGHT
+    z_base = gf.BASE_HEIGHT
+    z_floor = module.FLOOR_TOP
 
     mid = _horizontal_section(body, z_lip - 3.0)
     just_above_floor = _horizontal_section(body, z_floor + 0.25)
@@ -196,13 +198,13 @@ def _measure_body(module, gf, units_x: int, units_y: int, height_u: int) -> dict
 
     circles = _circle_radii(body)
     above_base = [
-        circle for circle in circles if circle["z_min_mm"] >= z_floor - 1e-6
+        circle for circle in circles if circle["z_min_mm"] >= z_base - 1e-6
     ]
     # No hidden cavity: the base zone's circular edges are the pinned profile's
     # shelves (0.8 / 1.6 / 3.75 mm), so the sharpest is the 0.8 mm bottom
     # chamfer radius.
     base_zone = [
-        circle for circle in circles if circle["z_max_mm"] <= z_floor + 1e-6
+        circle for circle in circles if circle["z_max_mm"] <= z_base + 1e-6
     ]
 
     box = body.BoundBox
@@ -229,7 +231,7 @@ def _measure_body(module, gf, units_x: int, units_y: int, height_u: int) -> dict
 def _measure_interior_depth(module) -> dict[str, object]:
     """The measured usable depth for every legal height (standard section 4.2).
 
-    ``design_mm`` is the standard's formula (``U * 7 - 8.75``); ``measured_mm``
+    ``design_mm`` is the standard's formula (``U * 7 - 9.55``); ``measured_mm``
     is ``cad/shell.py::measure_interior_depth_mm`` on the built 1 x 1 body.
     """
     out: dict[str, object] = {}
@@ -250,6 +252,8 @@ def main() -> int:
     report: dict[str, object] = {
         "module_imported": True,
         "constants": {
+            "FLOOR": harness.round6(shell.FLOOR),
+            "FLOOR_TOP": harness.round6(shell.FLOOR_TOP),
             "FLOOR_FILLET": harness.round6(shell.FLOOR_FILLET),
             "FILLET_FALLBACK": harness.round6(fillets.FILLET_FALLBACK),
             "WALL": harness.round6(shell.WALL),
@@ -266,14 +270,14 @@ def main() -> int:
         inner_width,
         inner_width,
         shell.INNER_RADIUS,
-        gf.BASE_HEIGHT,
+        shell.FLOOR_TOP,
         3 * shell.HEIGHT_UNIT - gf.LIP_HEIGHT - shell.LIP_CUTTER_GAP,
     )
     report["helper_standard"] = _fillet_case(
         fillets,
         inner_3u,
         shell.FLOOR_FILLET,
-        shell.edges_at_z(inner_3u, gf.BASE_HEIGHT),
+        shell.edges_at_z(inner_3u, shell.FLOOR_TOP),
     )
 
     # 10 x 10 x 1.5 mm: 2.0 mm cannot attach to the 1.5 mm bottom edge, 1.0

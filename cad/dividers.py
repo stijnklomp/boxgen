@@ -220,7 +220,9 @@ def divider_height(height_u: int) -> float:
     if height_u < 3:
         raise GeometryError(f"height must be at least 3U, got {height_u}U")
     gap = DIVIDER_GAP_3U if height_u == 3 else DIVIDER_GAP
-    height = shell.interior_depth_mm(height_u) - gap
+    # Grouped as one subtraction so the f64 result is the clean decimal for
+    # every accepted height (22.45, 9.45, ...).
+    height = height_u * shell.HEIGHT_UNIT - (shell.FLOOR_TOP + gf.LIP_HEIGHT + gap)
     if height <= 0.0:
         raise GeometryError(f"{height_u}U leaves no divider height above the floor")
     return height
@@ -452,7 +454,7 @@ def build_dividers(
         raise GeometryError(
             f"footprint must be at least 1 x 1, got {spec.units_x} x {spec.units_y}"
         )
-    z_floor = gf.BASE_HEIGHT
+    z_floor = shell.FLOOR_TOP
     top = z_floor + divider_height(spec.height_u)
     shape = body
 
@@ -498,7 +500,7 @@ def build_coupon_divider(body: Part.Shape, spec: shell.BodySpec) -> Part.Shape:
             f"{spec.height_u}U"
         )
 
-    z_floor = gf.BASE_HEIGHT
+    z_floor = shell.FLOOR_TOP
     top = z_floor + divider_height(spec.height_u)
     wall_face = -(gf.outer_width(spec.units_y) - 2.0 * shell.WALL) / 2.0
     free_end = wall_face + COUPON_DIVIDER_LENGTH

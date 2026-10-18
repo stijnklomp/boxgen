@@ -1017,7 +1017,7 @@ fn validate_report(report: &BuildReport, spec: &Spec) -> Result<(), BoxgenError>
                     ),
                 ));
             }
-            let expected_top = tree::BASE_HEIGHT_MM + body.divider_height_mm;
+            let expected_top = tree::FLOOR_TOP_MM + body.divider_height_mm;
             if (coupon.top_mm - expected_top).abs() > 1e-6 {
                 return Err(build_error(
                     id,
@@ -1563,12 +1563,12 @@ mod tests {
         assert_eq!(spec.divisions, Node::leaf(Some("Coupon")));
 
         // The coupon body is the standard 1 x 1 x 6U geometry: 41.5 mm outer,
-        // 42.0 mm tall, divider top at base + 23.25 = 28.0 mm.
+        // 42.0 mm tall, divider top at floor + 22.45 = 28.0 mm.
         let body = spec.body();
         assert!((body.outer_width_mm - 41.5).abs() < 1e-9);
         assert!((body.total_height_mm - 42.0).abs() < 1e-9);
         assert!(
-            (tree::BASE_HEIGHT_MM + body.divider_height_mm - 28.0).abs() < 1e-9,
+            (tree::FLOOR_TOP_MM + body.divider_height_mm - 28.0).abs() < 1e-9,
             "the 6U coupon divider top must be 28.0 mm"
         );
     }
@@ -1609,7 +1609,7 @@ mod tests {
         let mut value = json!({
             "id": id,
             "dimensions": {"outer_x_mm": 167.5, "outer_y_mm": 167.5, "height_mm": 42.0},
-            "interior_depth_mm": 33.25,
+            "interior_depth_mm": 32.45,
             "body": {
                 "volume_mm3": 1.0,
                 "area_mm2": 1.0,
@@ -1716,7 +1716,7 @@ mod tests {
             "wall": "-y",
             "length_mm": 20.0,
             "thickness_mm": 2.0,
-            "height_above_floor_mm": 23.25,
+            "height_above_floor_mm": 22.45,
             "top_mm": 28.0,
             "top_chamfer_mm": 0.4,
         });
@@ -1957,7 +1957,7 @@ mod tests {
             report: parsed_report(&json!({
                 "id": "1x1-6U-minimal-v1",
                 "dimensions": {"outer_x_mm": 41.5, "outer_y_mm": 41.5, "height_mm": 42.0},
-                "interior_depth_mm": 33.25,
+                "interior_depth_mm": 32.45,
                 "body": {
                     "volume_mm3": 18397.5,
                     "area_mm2": 3456.7,
@@ -1982,7 +1982,7 @@ mod tests {
             "id: 1x1-6U-minimal-v1\n\
              output: /tmp/boxgen/out\n\
              outer: 41.5 x 41.5 x 42.0 mm\n\
-             interior depth: 33.25 mm\n\
+             interior depth: 32.45 mm\n\
              body: 18397.5 mm3, 12 faces, 3456.7 mm2 surface\n\
              floor fillet: 2.0 mm (standard 2.0, fallback 1.0)\n\
              stl: 1234 facets, 18301.0 mm3, watertight\n\
@@ -1998,7 +1998,7 @@ mod tests {
             report: parsed_report(&json!({
                 "id": "4x4-6U-lid-v1",
                 "dimensions": {"outer_x_mm": 167.5, "outer_y_mm": 167.5, "height_mm": 42.0},
-                "interior_depth_mm": 33.25,
+                "interior_depth_mm": 32.45,
                 "body": {
                     "volume_mm3": 100000.0,
                     "area_mm2": 3456.7,
@@ -2034,7 +2034,7 @@ mod tests {
             "id: 4x4-6U-lid-v1\n\
              output: /tmp/boxgen/lid\n\
              outer: 167.5 x 167.5 x 42.0 mm\n\
-             interior depth: 33.25 mm\n\
+             interior depth: 32.45 mm\n\
              body: 100000.0 mm3, 12 faces, 3456.7 mm2 surface\n\
              lid: 2584.7 mm3, 10 faces, 1234.5 mm2 surface, ribs: yes, roundover: 1.0 mm\n\
              floor fillet: 2.0 mm (standard 2.0, fallback 1.0)\n\

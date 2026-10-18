@@ -76,7 +76,7 @@ def _measure_body(dividers, gf, shell) -> dict[str, object]:
     """Build the coupon body and measure the T-divider and its junctions."""
     spec = shell.BodySpec(UNITS_X, UNITS_Y, HEIGHT_U)
     fused = dividers.build_coupon_divider(shell.build_body(spec).shape, spec)
-    z_floor = gf.BASE_HEIGHT
+    z_floor = shell.FLOOR_TOP
     top = z_floor + dividers.divider_height(HEIGHT_U)
     wall_face = -(gf.outer_width(UNITS_Y) - 2.0 * shell.WALL) / 2.0
     shells = fused.Shells

@@ -14,7 +14,7 @@ A storage system for household equipment — cables, measuring equipment, tools,
 The system is:
 - **Gridfinity-compatible** at the base and stacking lip, so it works with an open ecosystem and is not tied to any company.
 - **Local and reproducible**: FreeCAD is the geometry engine; the generator is a local CLI; no website dependency.
-- **Maximum-thickness and heavy-duty**: 2.0 mm walls, a solid 4.75 mm base zone, integral compartments; every feature at the maximum the Gridfinity profile allows.
+- **Maximum-thickness and heavy-duty**: 2.0 mm walls, a solid 4.75 mm base zone with a 0.8 mm floor slab, integral compartments; every feature at the maximum the Gridfinity profile allows.
 - **Flat-sided**: nothing protrudes beyond the footprint; stacks are stable and the exterior is smooth.
 
 ## 2. Fixed and variable
@@ -23,7 +23,7 @@ The system is:
 | --- | --- |
 | Gridfinity base profile | Footprint N × M (1 × 1 to 4 × 4) |
 | Gridfinity stacking lip | Height U (3U, 6U, 9U, 12U; default 6U) |
-| 2.0 mm walls; solid 4.75 mm base zone | Compartment division tree |
+| 2.0 mm walls; solid 4.75 mm base zone + 0.8 mm floor slab | Compartment division tree |
 | 2.0 mm integral dividers | Notes and contents record |
 | Inset friction lid | |
 | PETG print recipe | |
@@ -53,18 +53,18 @@ The **4 × 4 module** is the reference unit of the system: any body from 1 × 1 
 
 ## 4. Body architecture
 
-A body is made of four zones plus the lid interface. **Every wall above the base is 2.0 mm, and the base zone is solid: the floor is the top face of the standard Gridfinity base profile, not a separate slab.**
+A body is made of four zones plus the lid interface. **Every wall above the base is 2.0 mm, and the base zone is solid: the pinned Gridfinity base profile is filled to its 4.75 mm top, and the floor is a 0.8 mm slab above it (ADR-0014).**
 
 | Zone | Thickness | Notes |
 | --- | --- | --- |
 | Base zone | Solid, 4.75 mm tall | Standard Gridfinity base profile, filled; sits on baseplates and in other bodies' lips |
 | Body zone | 2.0 mm | Vertical wall from the base to the lip; carries the stack load |
 | Lip zone | 2.0 mm | Standard stacking lip; accepts the next body's base |
-| Floor | Top of the base zone | The interior floor surface at 4.75 mm; the base below it is material, so the bottom prints on the bed |
+| Floor | 0.8 mm slab on the base zone | The interior floor surface at 5.55 mm; the profile's grooves stay open below it to the baseplate plane, and the slab sits on the filled feet so the bottom prints on the bed |
 | Divider | 2.0 mm | Integral, fused to floor and wall |
 | Lid | 2.0 mm plate, 2.0 mm skirt | Inset; not in the stack load path |
 
-2.0 mm is the maximum wall thickness that keeps the standard Gridfinity lip fit (about 2.25 mm is the hard limit). The base zone is solid so that every bottom layer prints on the bed: an earlier hidden underside cavity could only be closed by bridging a ~35 mm unsupported ceiling per cell, which sags and strings in PETG (see [ADR-0013](adr/0013-solid-base.md)). A solid base also removes any floor-deflection question: the floor is the top of 4.75 mm of material supported by the whole base grid. See [`docs/research/gridfinity-wall-thickness.md`](research/gridfinity-wall-thickness.md), [ADR-0007](adr/0007-maximum-thickness-shell.md), and [ADR-0013](adr/0013-solid-base.md).
+2.0 mm is the maximum wall thickness that keeps the standard Gridfinity lip fit (about 2.25 mm is the hard limit). The base zone is solid so that every bottom layer prints on the bed: an earlier hidden underside cavity could only be closed by bridging a ~35 mm unsupported ceiling per cell, which sags and strings in PETG (see [ADR-0013](adr/0013-solid-base.md)). The floor is a 0.8 mm slab above the pinned profile rather than the profile's top face: a foot-per-cell base must keep its 0.5 mm inter-cell grooves open to the baseplate's mating plane, so its top cannot be continuous ([ADR-0014](adr/0014-floor-slab-above-base-profile.md)). The slab sits on the filled feet, so the base still has no bridged ceiling and the floor load goes into the solid base zone. See [`docs/research/gridfinity-wall-thickness.md`](research/gridfinity-wall-thickness.md), [ADR-0007](adr/0007-maximum-thickness-shell.md), [ADR-0013](adr/0013-solid-base.md), and [ADR-0014](adr/0014-floor-slab-above-base-profile.md).
 
 ### 4.1 Corner radii
 
@@ -89,17 +89,17 @@ No internal corner above the base may be sharper than 1.0 mm. The base zone's pr
 Total height is `U × 7 mm`. Nominal interior depth is:
 
 ```
-interior_depth = U × 7 − 4.75 (solid base zone; the floor is its top face) − 4.0 (lip) = U × 7 − 8.75 mm
+interior_depth = U × 7 − 4.75 (solid base profile) − 0.8 (floor slab) − 4.0 (lip) = U × 7 − 9.55 mm
 ```
 
 | Height | Total height | Nominal interior depth | Use |
 | --- | --- | --- | --- |
-| 3U | 21.0 mm | 12.25 mm | Flat items: a single layer of bolts, bits, adapters |
-| 6U | 42.0 mm | 33.25 mm | Universal default: pens, tools, measuring equipment |
-| 9U | 63.0 mm | 54.25 mm | Cables, medium tools, power supplies |
-| 12U | 84.0 mm | 75.25 mm | Bulky cables, large tools; shelf or deep drawer only |
+| 3U | 21.0 mm | 11.45 mm | Flat items: a single layer of bolts, bits, adapters |
+| 6U | 42.0 mm | 32.45 mm | Universal default: pens, tools, measuring equipment |
+| 9U | 63.0 mm | 53.45 mm | Cables, medium tools, power supplies |
+| 12U | 84.0 mm | 74.45 mm | Bulky cables, large tools; shelf or deep drawer only |
 
-The floor is the top face of the solid base zone at 4.75 mm; it is not a slab above the base. The lid skirt intrudes 1.0 mm below the lip bottom; the sizing rules leave 2 mm below the lid, which covers it. The generator reports the exact usable depth from the model; the table is the design figure. The default height is **6U**; see section 9.
+The floor is the top of the 0.8 mm slab at 5.55 mm; the base profile below it is solid and its 0.5 mm grooves stay open to the baseplate plane. The lid skirt intrudes 1.0 mm below the lip bottom; the sizing rules leave 2 mm below the lid, which covers it. The generator reports the exact usable depth from the model; the table is the design figure. The default height is **6U**; see section 9.
 
 ### 4.3 Compartment division tree
 
@@ -257,15 +257,15 @@ The step-by-step workflow, the generator contract, and the FreeCAD patterns are 
 
 `SYS-1.0` was frozen on 2026-10-17. All of the following are locked; any change requires a system version bump and an ADR.
 
-One pre-release correction is recorded in [ADR-0013](adr/0013-solid-base.md): the base zone is solid (rows 1 and 5 below), decided before any box was produced and before the coupon passed, so the system version stays SYS-1.0 for that single amendment.
+Two pre-release corrections are recorded in [ADR-0013](adr/0013-solid-base.md) (the base zone is solid) and [ADR-0014](adr/0014-floor-slab-above-base-profile.md) (the floor is a 0.8 mm slab above the base profile), both decided before the system was released, so the system version stays SYS-1.0 for those amendments.
 
 | # | Decision | Value |
 | --- | --- | --- |
-| 1 | Shell thickness | 2.0 mm walls; solid 4.75 mm base zone with the floor as its top face |
+| 1 | Shell thickness | 2.0 mm walls; solid 4.75 mm base zone with a 0.8 mm floor slab |
 | 2 | Compartment model | Recursive division tree with 1 mm positions |
 | 3 | Divider height | Interior depth − 10 mm; 3U uses interior depth − 2 mm |
 | 4 | Default height | 6U; 3U/9U/12U as exceptions |
-| 5 | Floor | Top of the solid base zone; no added slab, no deflection fallback (ADR-0013) |
+| 5 | Floor | 0.8 mm slab above the base profile; no deflection fallback (ADR-0014) |
 | 6 | Corner radii | Outer 3.75, inner 1.75, joints 2.0, lid 1.40 |
 | 7 | Generator | Rust CLI, YAML specs, FreeCAD Python master, `freecadcmd` |
 | 8 | Labels | None |

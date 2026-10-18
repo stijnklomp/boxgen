@@ -25,15 +25,15 @@
 | [`docs/workflow.md`](workflow.md) | Manual and generated paths from an item to a recorded box. |
 | [`docs/calibration.md`](calibration.md) | Coupon geometry, nine tests, acceptance criteria, record table. |
 | [`GLOSSARY.md`](../GLOSSARY.md) | Project vocabulary. Use these terms. |
-| [`docs/adr/`](adr/) | The thirteen architecture decisions and their reasoning. |
+| [`docs/adr/`](adr/) | The fourteen architecture decisions and their reasoning. |
 | [`templates/box-spec.yaml`](../templates/box-spec.yaml) | Copy-ready box spec. |
 | [`boxes/README.md`](../boxes/README.md) | Box folder layout. |
 
-**Fixed:** Gridfinity base and stacking lip; 2.0 mm walls; solid 4.75 mm base zone (the floor is its top face, ADR-0013); 2.0 mm integral dividers; inset friction lid; PETG Basic print recipe; 10 kg per body, maximum 3 high; same-footprint stacking; no labels.
+**Fixed:** Gridfinity base and stacking lip; 2.0 mm walls; solid 4.75 mm base zone with a 0.8 mm floor slab (ADR-0013, ADR-0014); 2.0 mm integral dividers; inset friction lid; PETG Basic print recipe; 10 kg per body, maximum 3 high; same-footprint stacking; no labels.
 
 **Variable:** footprint 1 × 1 to 4 × 4; height 3U, 6U, 9U, or 12U (default 6U); the recursive division tree.
 
-A change to a fixed property is a system version bump plus an ADR; ADR-0013 is the single pre-release exception (the solid base, still SYS-1.0, because no box had been produced). A new compartment layout is a new spec, not a design change.
+A change to a fixed property is a system version bump plus an ADR; ADR-0013 and ADR-0014 are the pre-release exceptions (the solid base and the floor slab, still SYS-1.0, because the checkpoints had only exercised the 1 × 1 coupon). A new compartment layout is a new spec, not a design change.
 
 ## Human checkpoints
 
@@ -55,7 +55,7 @@ Two tickets are physical and must be run by a human. An agent may prepare the bu
 
 Generate the coupon with `boxgen coupon` (#10). Print two coupons and one lid in the production recipe, then run all nine tests in [`docs/calibration.md`](calibration.md): base fit, stack fit, lid fit, shell thickness, corner radii, divider joint, stack load, floor deflection, and surface. Record date, filament/spool, nozzle, and result in the calibration record table. Only a pass unblocks #14.
 
-If a criterion fails, change only the permitted parameter and reprint. The 2.4 mm-floor fallback is gone: the base is solid (ADR-0013), so a floor-deflection reading above 1.0 mm is a system decision, not a reprint parameter.
+If a criterion fails, change only the permitted parameter and reprint. The 2.4 mm-floor fallback is gone: the base zone is solid (ADR-0013) with the 0.8 mm floor slab on top (ADR-0014), so a floor-deflection reading above 1.0 mm is a system decision, not a reprint parameter.
 
 ### #14 — 4 × 4 × 6U test box
 

@@ -45,6 +45,7 @@ pub(crate) fn standard() -> StandardResponse {
         walls: WallsDto {
             wall_mm: tree::WALL_MM,
             base_zone_mm: tree::BASE_HEIGHT_MM,
+            floor_mm: tree::FLOOR_MM,
             outer_radius_mm: tree::OUTER_RADIUS_MM,
             inner_radius_mm: tree::INNER_RADIUS_MM,
             floor_fillet_mm: tree::FLOOR_FILLET_MM,
@@ -115,7 +116,7 @@ pub(crate) fn standard() -> StandardResponse {
 
 /// The divider top per accepted height, above the bed.
 ///
-/// The divider top is the solid base zone plus the divider height above the
+/// The divider top is the floor surface plus the divider height above the
 /// floor, which is why the panel can derive it from the same constants the
 /// geometry uses instead of listing four literals.
 fn divider_tops() -> Vec<DividerTopDto> {
@@ -126,7 +127,7 @@ fn divider_tops() -> Vec<DividerTopDto> {
             DividerTopDto {
                 height_u,
                 divider_height_mm,
-                top_mm: tree::BASE_HEIGHT_MM + divider_height_mm,
+                top_mm: tree::FLOOR_TOP_MM + divider_height_mm,
             }
         })
         .collect()

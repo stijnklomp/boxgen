@@ -169,7 +169,7 @@ Rules:
 
 - Use millimetres; origin at the centre of the outer footprint, z = 0 at the bottom.
 - Import the pinned profiles from `cad/gridfinity.py`; never call an installed workbench.
-- Base zone: solid; the pinned Gridfinity base profile filled to its 4.75 mm top, with the interior floor as its top face (ADR-0013).
+- Base zone: solid; the pinned Gridfinity base profile filled to its 4.75 mm top, with a 0.8 mm floor slab above it (ADR-0013, ADR-0014).
 - Body, lip, dividers, and lid: 2.0 mm.
 - Build the body and lid as separate solids in one document.
 - Apply the corner radii from the standard. If a 2.0 mm fillet fails, reduce to 1.0 mm; if that fails, raise a geometry error. Never leave a sharp internal corner above the base; the base zone keeps the pinned profile's own shelf radii.

@@ -27,10 +27,10 @@ Interior diagonal: **231.2 mm** for 4 × 4. An item can lie diagonally if its le
 
 | Height | Total height | Interior depth | Typical use |
 | --- | --- | --- | --- |
-| 3U | 21.0 mm | 12.25 mm | A single layer of flat items: bolts, bits, adapters |
-| 6U | 42.0 mm | 33.25 mm | Default: pens, measuring equipment, hand tools |
-| 9U | 63.0 mm | 54.25 mm | Cables, medium tools, power supplies |
-| 12U | 84.0 mm | 75.25 mm | Bulky cables, large tools; shelf or deep drawer |
+| 3U | 21.0 mm | 11.45 mm | A single layer of flat items: bolts, bits, adapters |
+| 6U | 42.0 mm | 32.45 mm | Default: pens, measuring equipment, hand tools |
+| 9U | 63.0 mm | 53.45 mm | Cables, medium tools, power supplies |
+| 12U | 84.0 mm | 74.45 mm | Bulky cables, large tools; shelf or deep drawer |
 
 Maximum height is 12U. 6U is the most universally compatible height and the default for new boxes. See [`docs/research/furniture-dimensions.md`](research/furniture-dimensions.md).
 

@@ -12,7 +12,7 @@
 - The **base zone's side shell** is a second constraint: the standard base profile's chamfers and internal fillets cap the internal side shell at about **1.2 mm** before the fillet collapses. The master applies a 0.4 mm minimum fillet to the hidden cavity. The floor above it can be thicker because it is cut into the top of the base, not offset from the outer profile. (Superseded by ADR-0013: the base zone is solid; the cavity it described cannot be printed, because its 35 mm ceiling has to be bridged.)
 - The base profile and lip are what must stay standard; the wall thickness above the base is the free variable.
 
-**Decision:** use **2.0 mm** for the body, lip, dividers, and lid, and a **solid base zone** whose top face is the floor (ADR-0013, amending [ADR-0007](../adr/0007-maximum-thickness-shell.md): the 1.2 mm side shell left an unprintable 35 mm bridged ceiling).
+**Decision:** use **2.0 mm** for the body, lip, dividers, and lid, and a **solid base zone** with a **0.8 mm floor slab above the base profile** (ADR-0013 amending [ADR-0007](../adr/0007-maximum-thickness-shell.md): the 1.2 mm side shell left an unprintable 35 mm bridged ceiling; ADR-0014: the per-cell profile's grooves must stay open to the baseplate, so the floor is a slab above it).
 
 **Sources:**
 - FreeCAD Gridfinity Workbench constants: <https://github.com/Stu142/FreeCAD-Gridfinity-Workbench/blob/master/freecad/gridfinity_workbench/const.py>

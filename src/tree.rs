@@ -43,8 +43,19 @@ pub const BASE_HEIGHT_MM: f64 = 4.75;
 /// top chamfer; mirrors `cad/gridfinity.py::LIP_HEIGHT`.
 pub const LIP_HEIGHT_MM: f64 = 4.0;
 
-/// Base zone (4.75 mm) plus stacking lip (4.0 mm), standard §4.2.
-pub const BASE_AND_LIP_MM: f64 = BASE_HEIGHT_MM + LIP_HEIGHT_MM;
+/// Floor slab above the pinned base profile, standard §4; mirrors
+/// `cad/shell.py::FLOOR`. The profile's top face cannot be continuous across
+/// the per-cell feet (the 0.5 mm grooves must stay open to the baseplate's
+/// mating plane), so the interior floor is this slab on top of it (ADR-0014).
+pub const FLOOR_MM: f64 = 0.8;
+
+/// The interior floor surface above the bed: the base profile plus the floor
+/// slab; mirrors `cad/shell.py::FLOOR_TOP`.
+pub const FLOOR_TOP_MM: f64 = BASE_HEIGHT_MM + FLOOR_MM;
+
+/// Base zone (4.75 mm profile + 0.8 mm floor slab) plus stacking lip (4.0 mm),
+/// standard §4.2.
+pub const BASE_AND_LIP_MM: f64 = FLOOR_TOP_MM + LIP_HEIGHT_MM;
 
 /// Divider-to-lip gap on 3U bodies, standard §4.3; mirrors
 /// `cad/dividers.py::DIVIDER_GAP_3U`.
@@ -272,7 +283,9 @@ impl BodyGeometry {
             interior_width_mm: outer_width_mm - 2.0 * WALL_MM,
             interior_depth_mm: outer_depth_mm - 2.0 * WALL_MM,
             interior_height_mm,
-            divider_height_mm: interior_height_mm - divider_gap_mm,
+            // Grouped as one subtraction so the f64 result is the clean
+            // decimal for every accepted height (22.45, 9.45, ...).
+            divider_height_mm: total_height_mm - (BASE_AND_LIP_MM + divider_gap_mm),
         }
     }
 
@@ -300,7 +313,8 @@ impl BodyGeometry {
     ///
     /// Assumptions:
     /// - The body is a closed prism: outer box volume minus the interior
-    ///   cavity. The base zone below the floor is solid (ADR-0013), so the
+    ///   cavity. The base zone below the floor is solid (ADR-0013) and the
+    ///   0.8 mm floor slab sits on it (ADR-0014), so the
     ///   estimate treats the interior as a single void; the rounded corners,
     ///   the base grooves, and the lip still make it an overestimate.
     /// - Every divider is 2.0 mm thick, spans its parent rectangle, and is
@@ -1076,16 +1090,16 @@ mod tests {
         assert_mm(body.total_height_mm, 42.0);
         assert_mm(body.interior_width_mm, 163.5);
         assert_mm(body.interior_depth_mm, 163.5);
-        assert_mm(body.interior_height_mm, 33.25);
-        assert_mm(body.divider_height_mm, 23.25);
+        assert_mm(body.interior_height_mm, 32.45);
+        assert_mm(body.divider_height_mm, 22.45);
 
         let small = small_body();
         assert_mm(small.outer_width_mm, 41.5);
         assert_mm(small.total_height_mm, 21.0);
         assert_mm(small.interior_width_mm, 37.5);
         assert_mm(small.interior_depth_mm, 37.5);
-        assert_mm(small.interior_height_mm, 12.25);
-        assert_mm(small.divider_height_mm, 10.25);
+        assert_mm(small.interior_height_mm, 11.45);
+        assert_mm(small.divider_height_mm, 9.45);
     }
 
     /// The fixed-architecture constants mirror the frozen SYS-1.0 standard
@@ -1098,6 +1112,8 @@ mod tests {
         assert_eq!(OUTER_CLEARANCE_MM, 0.5);
         assert_eq!(HEIGHT_UNIT_MM, 7.0);
         assert_eq!(BASE_HEIGHT_MM, 4.75);
+        assert_eq!(FLOOR_MM, 0.8);
+        assert_eq!(FLOOR_TOP_MM, 5.55);
         assert_eq!(LIP_HEIGHT_MM, 4.0);
         assert_eq!(WALL_MM, 2.0);
         assert_eq!(OUTER_RADIUS_MM, 3.75);
@@ -1347,7 +1363,7 @@ mod tests {
             leaf("C"),
         ));
 
-        assert_mm(report.divider_volume_mm3, 7602.75 + 3720.0);
+        assert_mm(report.divider_volume_mm3, 7341.15 + 3592.0);
     }
 
     #[test]

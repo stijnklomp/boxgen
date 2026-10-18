@@ -25,7 +25,7 @@ fn a_valid_minimal_spec_prints_a_report_and_exits_zero() {
             "footprint: 1 x 1 (outer 41.5 x 41.5 mm)",
         ))
         .stdout(predicate::str::contains("height: 3U (21 mm total)"))
-        .stdout(predicate::str::contains("interior: 37.5 x 37.5 x 12.25 mm"))
+        .stdout(predicate::str::contains("interior: 37.5 x 37.5 x 11.45 mm"))
         .stdout(predicate::str::contains("lid: no"))
         .stdout(predicate::str::contains("compartments: 1"))
         .stdout(predicate::str::contains("Bits"))

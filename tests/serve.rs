@@ -302,6 +302,7 @@ async fn standard_panel_numbers_equal_the_rust_constants() {
 
     assert_mm(&body, "/walls/wall_mm", tree::WALL_MM);
     assert_mm(&body, "/walls/base_zone_mm", tree::BASE_HEIGHT_MM);
+    assert_mm(&body, "/walls/floor_mm", tree::FLOOR_MM);
     assert_mm(&body, "/walls/outer_radius_mm", tree::OUTER_RADIUS_MM);
     assert_mm(&body, "/walls/inner_radius_mm", tree::INNER_RADIUS_MM);
     assert_mm(&body, "/walls/floor_fillet_mm", tree::FLOOR_FILLET_MM);
@@ -332,7 +333,7 @@ async fn standard_panel_numbers_equal_the_rust_constants() {
         assert_mm(
             &body,
             &format!("/dividers/tops_mm/{index}/top_mm"),
-            tree::BASE_HEIGHT_MM + geometry.divider_height_mm,
+            tree::FLOOR_TOP_MM + geometry.divider_height_mm,
         );
     }
 
@@ -505,7 +506,7 @@ async fn save_canonicalizes_notes_and_contents() {
         "soft": true,
         "max_length_mm": 40.0,
         "max_width_mm": 25.0,
-        "max_height_mm": 2.0,
+        "max_height_mm": 1.0,
         "weight_kg": 1.5,
     });
 
@@ -906,11 +907,11 @@ async fn plan_matches_the_golden_tree() {
     assert_eq!(plan["errors"], serde_json::json!([]));
     assert_eq!(plan["warnings"], serde_json::json!([]));
 
-    // 4x4 6U: outer 167.5, interior 163.5 x 163.5 x 33.25, divider top 28.
+    // 4x4 6U: outer 167.5, interior 163.5 x 163.5 x 32.45, divider top 28.
     assert_mm(&plan, "/body/outer_width_mm", 167.5);
     assert_mm(&plan, "/body/interior_width_mm", 163.5);
-    assert_mm(&plan, "/body/interior_height_mm", 33.25);
-    assert_mm(&plan, "/body/divider_height_mm", 23.25);
+    assert_mm(&plan, "/body/interior_height_mm", 32.45);
+    assert_mm(&plan, "/body/divider_height_mm", 22.45);
     assert_mm(&plan, "/body/divider_top_mm", 28.0);
 
     // Compartments in near-before-far order, as absolute rectangles.

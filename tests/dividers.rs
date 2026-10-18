@@ -344,16 +344,16 @@ fn the_golden_floor_junctions_are_filleted() {
     }
     let report = report();
 
-    // Compartment A at z = 5.0: 1.0318 mm inset from every face.
+    // Compartment A 0.25 mm above the floor (z = 5.8): 1.0318 mm inset.
     let inset = 2.0 - (4.0 - 1.75_f64.powi(2)).sqrt();
-    let a = wire_box_matching("golden.section_z5_0", |box_| box_[1] < -60.0);
+    let a = wire_box_matching("golden.section_floor_0_25", |box_| box_[1] < -60.0);
     common::assert_near(a[0], -81.75 + inset, COVE_TOLERANCE, "A cove inset (west)");
     common::assert_near(a[2], -1.75 - inset, COVE_TOLERANCE, "A cove inset (east)");
     common::assert_near(a[1], -81.75 + inset, COVE_TOLERANCE, "A cove inset (south)");
     common::assert_near(a[3], -31.75 - inset, COVE_TOLERANCE, "A cove inset (north)");
 
-    // The cove is gone at z = 6.7 (2.0 mm above the floor): flush to the face.
-    let b = wire_box_matching("golden.section_z6_7", |box_| box_[1] < -60.0);
+    // The cove is gone 1.95 mm above the floor (z = 7.5): flush to the face.
+    let b = wire_box_matching("golden.section_floor_1_95", |box_| box_[1] < -60.0);
     common::assert_near(
         b[0],
         -81.75,
@@ -375,7 +375,7 @@ fn the_golden_floor_junctions_are_filleted() {
             [0.25, -81.75, 40.25, 81.75],
             [42.25, -81.75, 81.75, 81.75],
         ],
-        "golden.section_z7_5",
+        "golden.section_floor_2_75",
         EPS,
         "compartments 2.75 mm above the floor",
     );
@@ -409,10 +409,10 @@ fn divider_heights_follow_the_standard() {
     let report = report();
 
     for (height_u, above_floor, top) in [
-        (3, 10.25, 15.0),
-        (6, 23.25, 28.0),
-        (9, 44.25, 49.0),
-        (12, 65.25, 70.0),
+        (3, 9.45, 15.0),
+        (6, 22.45, 28.0),
+        (9, 43.45, 49.0),
+        (12, 64.45, 70.0),
     ] {
         let path = format!("heights.{height_u}");
         common::assert_close(
@@ -539,7 +539,7 @@ fn a_cross_position_on_the_corner_arc_leaves_no_sharp_corner() {
 }
 
 /// One split of a 4 x 4 body: the divider misses the four centre feet, so
-/// this pins the shell's cell webs (without them the body is five solids).
+/// this pins the shell's floor slab (which ties the centre feet into one solid).
 #[test]
 fn a_single_split_of_a_four_by_four_body_stays_one_solid() {
     if !common::freecad_required() {

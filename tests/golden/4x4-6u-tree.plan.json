@@ -8,8 +8,8 @@
     "total_height_mm": 42.0,
     "interior_width_mm": 163.5,
     "interior_depth_mm": 163.5,
-    "interior_height_mm": 33.25,
-    "divider_height_mm": 23.25,
+    "interior_height_mm": 32.45,
+    "divider_height_mm": 22.45,
     "divider_top_mm": 28.0
   },
   "leaves": [
@@ -91,8 +91,8 @@
     }
   ],
   "estimate": {
-    "volume_mm3": 308440.6875,
-    "mass_g": 391.719673125,
-    "print_hours": 15.5778125
+    "volume_mm3": 329175.2874999999,
+    "mass_g": 418.0526151249999,
+    "print_hours": 16.625014520202015
   }
 }

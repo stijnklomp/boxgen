@@ -24,12 +24,12 @@ use std::sync::OnceLock;
 use serde_json::Value;
 
 /// The measured 1x1x6U body volume under the pinned FreeCAD, with the solid
-/// base zone of ADR-0013. The test allows +/- 3% for a geometry-kernel drift,
-/// like `tests/build.rs`.
-const EXPECTED_VOLUME_6U_MM3: f64 = 18_397.5;
+/// base zone of ADR-0013 and the 0.8 mm floor slab of ADR-0014. The test
+/// allows +/- 3% for a geometry-kernel drift, like `tests/build.rs`.
+const EXPECTED_VOLUME_6U_MM3: f64 = 19_520.354125;
 
 /// The measured 1x1x3U boundary body volume (the smallest legal interior).
-const EXPECTED_VOLUME_3U_MM3: f64 = 11_959.7;
+const EXPECTED_VOLUME_3U_MM3: f64 = 13_082.646221;
 
 /// Runs `cad/tests/radii.py` under `freecadcmd` once and parses its JSON.
 fn report() -> &'static Value {
@@ -63,6 +63,12 @@ fn fillet_helper_constants_pin_the_standard() {
         Some(true),
         "cad/tests/radii.py did not import"
     );
+    common::assert_close(common::number(report, "constants.FLOOR"), 0.8, "floor slab");
+    common::assert_close(
+        common::number(report, "constants.FLOOR_TOP"),
+        5.55,
+        "floor top",
+    );
     common::assert_close(
         common::number(report, "constants.FLOOR_FILLET"),
         2.0,
@@ -93,7 +99,7 @@ fn fillet_helper_constants_pin_the_standard() {
 /// The report's interior depth is measured from the built model, not from the
 /// design formula (standard §4.2: "The generator reports the exact usable
 /// depth from the model; the table is the design figure"): the floor top and
-/// the lip bottom are found on the shape, so 12.25 / 33.25 / 54.25 / 75.25 mm
+/// the lip bottom are found on the shape, so 11.45 / 32.45 / 53.45 / 74.45 mm
 /// for 3U / 6U / 9U / 12U within the 0.05 mm section tolerance.
 #[test]
 fn the_interior_depth_is_measured_from_the_model() {
@@ -102,7 +108,7 @@ fn the_interior_depth_is_measured_from_the_model() {
     }
     let report = report();
 
-    for (height_u, depth) in [(3, 12.25), (6, 33.25), (9, 54.25), (12, 75.25)] {
+    for (height_u, depth) in [(3, 11.45), (6, 32.45), (9, 53.45), (12, 74.45)] {
         let path = format!("interior_depth.{height_u}");
         common::assert_near(
             common::number(report, &format!("{path}.measured_mm")),
