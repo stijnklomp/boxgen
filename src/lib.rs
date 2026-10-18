@@ -6,7 +6,8 @@
 //!
 //! The command surface is in [`cli`], the process error contract in [`error`],
 //! and the fixed module responsibilities in [`spec`], [`tree`], [`build`] and
-//! [`index`]. The authoritative generator contract is the SYS-1.0 spec
+//! [`index`]. The v2 local web UI is [`serve`], one non-contract command
+//! (ADR-0002). The authoritative generator contract is the SYS-1.0 spec
 //! vendored at `docs/spec/`: `docs/spec/docs/generator.md`.
 
 pub mod build;
@@ -15,5 +16,6 @@ pub mod config;
 pub mod error;
 pub mod index;
 pub mod logging;
+pub mod serve;
 pub mod spec;
 pub mod tree;

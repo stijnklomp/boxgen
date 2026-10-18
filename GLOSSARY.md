@@ -47,3 +47,11 @@ _Avoid_: placeholder, fake, mock.
 **Divide**:
 The `boxgen divide` helper: edit one split in a spec's division tree in place, addressed by a `root`/`.near`/`.far` path, then re-validate before writing. A leaf target becomes a split; a named leaf keeps its compartment on the near child.
 _Avoid_: split command, tree editor.
+
+**Serve**:
+The `boxgen serve` command: the one local web UI (v2, ADR-0002) over the same terms as the CLI — Spec, Division tree, Body, Compartment, Lid. The API's `design` field is the wire name for a Spec (the ticket #16 name for the same object, not a separate concept). It binds `127.0.0.1` only (one local user, no auth), serves the embedded frontend, and answers every edit through the Rust validator and every build through the one build pipeline: it owns no geometry and no rules.
+_Avoid_: web app, frontend, dashboard.
+
+**Calibrated preset**:
+The UI editor's fixed starting design: 4 × 4 · 6U · lid · ribs, the architecture the 2026-10-18 coupon calibration covers. Every legal deviation (3/9/12U, another footprint, lid or ribs off) shows an amber "custom" badge with a diff; red is reserved for invalid, and resetting to the preset is always one click.
+_Avoid_: default box, sample, template.

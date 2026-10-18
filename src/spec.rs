@@ -16,7 +16,7 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::error::BoxgenError;
-use crate::tree::{self, Axis, BodyGeometry, Estimate, Leaf, Node, TreeReport, fmt_mm};
+use crate::tree::{self, Axis, BodyGeometry, Divider, Estimate, Leaf, Node, TreeReport, fmt_mm};
 
 /// The only system version this compiler accepts (contract §3).
 pub const SYSTEM_VERSION: &str = "SYS-1.0";
@@ -44,6 +44,53 @@ pub const CONTENTS_DIAGONAL_MARGIN_MM: f64 = 10.0;
 
 /// Maximum contents weight per body, standard §4.5.
 pub const MAX_CONTENTS_KG: f64 = 10.0;
+
+/// Standard §8 clearances for one contents kind: `(per side, above)`.
+pub fn contents_clearances(soft: bool) -> (f64, f64) {
+    if soft {
+        (
+            CONTENTS_SOFT_CLEARANCE_PER_SIDE_MM,
+            CONTENTS_SOFT_HEIGHT_CLEARANCE_MM,
+        )
+    } else {
+        (CONTENTS_CLEARANCE_PER_SIDE_MM, CONTENTS_HEIGHT_CLEARANCE_MM)
+    }
+}
+
+/// Standard §4.5: a missing weight is fine; the limit is inclusive.
+pub fn weight_within_limit(weight_kg: Option<f64>) -> bool {
+    weight_kg.is_none_or(|weight| weight <= MAX_CONTENTS_KG)
+}
+
+/// One item's standard §8 fit result against one body interior.
+///
+/// This is the one contents-fit predicate: [`Spec::validate`] warns from it
+/// and the local UI's fit assistant answers from it, so a warning and a
+/// viability answer can never disagree.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ContentsFit {
+    /// Clearance applied on each side for this contents kind.
+    pub per_side_mm: f64,
+    /// Clearance applied above the item for this contents kind.
+    pub height_clearance_mm: f64,
+    /// Usable interior diagonal: the diagonal minus the diagonal margin.
+    pub diagonal_limit_mm: f64,
+    /// `max_length_mm` is absent or within the diagonal limit.
+    pub length_ok: bool,
+    /// `max_width_mm` is absent or fits with the side clearances.
+    pub width_ok: bool,
+    /// `max_height_mm` is absent or fits with the vertical clearance.
+    pub height_ok: bool,
+    /// `weight_kg` is absent or within the per-body limit.
+    pub weight_ok: bool,
+}
+
+impl ContentsFit {
+    /// True when every present check passes.
+    pub fn fits(&self) -> bool {
+        self.length_ok && self.width_ok && self.height_ok && self.weight_ok
+    }
+}
 
 /// A parsed and structurally valid box spec.
 #[derive(Debug, Clone, PartialEq)]
@@ -119,6 +166,9 @@ pub struct Validation {
     pub warnings: Vec<String>,
     /// Leaves in traversal order, used by the report.
     pub leaves: Vec<Leaf>,
+    /// Divider plates in traversal order, positioned absolutely in the body
+    /// interior (the layout the local UI plans and previews).
+    pub dividers: Vec<Divider>,
     /// Documented mass and print-time estimate.
     pub estimate: Estimate,
 }
@@ -202,10 +252,76 @@ pub fn validate(path: &Path) -> Result<(), BoxgenError> {
     Ok(())
 }
 
+impl Contents {
+    /// Applies the standard §8 fit rules against one body interior.
+    pub fn fit(&self, body: &BodyGeometry) -> ContentsFit {
+        let (per_side_mm, height_clearance_mm) = contents_clearances(self.soft);
+        let diagonal_limit_mm =
+            body.interior_width_mm.hypot(body.interior_depth_mm) - CONTENTS_DIAGONAL_MARGIN_MM;
+
+        ContentsFit {
+            per_side_mm,
+            height_clearance_mm,
+            diagonal_limit_mm,
+            length_ok: self
+                .max_length_mm
+                .is_none_or(|length| length <= diagonal_limit_mm),
+            width_ok: self
+                .max_width_mm
+                .is_none_or(|width| width + 2.0 * per_side_mm <= body.interior_width_mm),
+            height_ok: self
+                .max_height_mm
+                .is_none_or(|height| height + height_clearance_mm <= body.interior_height_mm),
+            weight_ok: weight_within_limit(self.weight_kg),
+        }
+    }
+}
+
 impl Spec {
     /// Resolves the fixed body geometry for this spec.
     pub fn body(&self) -> BodyGeometry {
         BodyGeometry::new(self.footprint, self.height_u)
+    }
+
+    /// Renders the canonical `spec.yaml` for this spec.
+    ///
+    /// This is the one writer for specs the local UI saves (`boxgen serve`,
+    /// ticket #17): the output is deterministic, re-parses to an equal
+    /// [`Spec`], and drops comments and layout — the CLI's `divide` stays the
+    /// lossless editor. Fixed architecture values are never emitted, and the
+    /// internal `coupon` flag stays internal.
+    pub fn to_yaml(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "system: {}", self.system);
+        let _ = writeln!(out, "id: {}", self.id);
+        let _ = writeln!(
+            out,
+            "footprint: [{}, {}]",
+            self.footprint[0], self.footprint[1]
+        );
+        let _ = writeln!(out, "height_u: {}", self.height_u);
+        let _ = writeln!(out, "lid: {}", self.lid);
+        if self.lid_ribs {
+            let _ = writeln!(out, "lid_ribs: true");
+        }
+        if let Some(notes) = &self.notes {
+            let _ = writeln!(out, "notes: {}", yaml_string(notes));
+        }
+        match self.contents.as_ref().map(contents_yaml) {
+            Some(lines) if !lines.is_empty() => {
+                let _ = writeln!(out, "contents:");
+                for line in lines {
+                    let _ = writeln!(out, "  {line}");
+                }
+            }
+            Some(_) => {
+                let _ = writeln!(out, "contents: {{}}");
+            }
+            None => {}
+        }
+        let _ = write!(out, "divisions:");
+        write_node(&mut out, &self.divisions, 0);
+        out
     }
 
     /// Applies every schema and contract validation rule.
@@ -216,8 +332,9 @@ impl Spec {
         let mut validation = Validation::default();
         self.validate_schema(&mut validation);
 
-        let footprint_valid = self.footprint.iter().all(|side| (1..=4).contains(side));
-        let height_valid = matches!(self.height_u, 3 | 6 | 9 | 12);
+        let in_range = tree::MIN_FOOTPRINT_UNITS..=tree::MAX_FOOTPRINT_UNITS;
+        let footprint_valid = self.footprint.iter().all(|side| in_range.contains(side));
+        let height_valid = tree::HEIGHTS_U.contains(&self.height_u);
         if !(footprint_valid && height_valid) {
             return validation;
         }
@@ -227,6 +344,7 @@ impl Spec {
 
         let TreeReport {
             leaves,
+            dividers,
             errors,
             warnings,
             divider_volume_mm3,
@@ -234,6 +352,7 @@ impl Spec {
         validation.errors.extend(errors);
         validation.warnings.extend(warnings);
         validation.leaves = leaves;
+        validation.dividers = dividers;
         validation.estimate = body.estimate(divider_volume_mm3, self.lid);
 
         if let Some(contents) = &self.contents {
@@ -343,16 +462,19 @@ impl Spec {
         }
 
         for (index, side) in self.footprint.iter().enumerate() {
-            if !(1..=4).contains(side) {
-                validation
-                    .errors
-                    .push(format!("footprint[{index}]: {side} is outside 1..=4"));
+            let in_range = tree::MIN_FOOTPRINT_UNITS..=tree::MAX_FOOTPRINT_UNITS;
+            if !in_range.contains(side) {
+                let (min, max) = (tree::MIN_FOOTPRINT_UNITS, tree::MAX_FOOTPRINT_UNITS);
+                validation.errors.push(format!(
+                    "footprint[{index}]: {side} is outside {min}..={max}"
+                ));
             }
         }
 
-        if !matches!(self.height_u, 3 | 6 | 9 | 12) {
+        if !tree::HEIGHTS_U.contains(&self.height_u) {
+            let heights = tree::HEIGHTS_U.map(|height| height.to_string()).join(", ");
             validation.errors.push(format!(
-                "height_u: {} is not one of 3, 6, 9, 12",
+                "height_u: {} is not one of {heights}",
                 self.height_u
             ));
         }
@@ -382,51 +504,124 @@ impl Spec {
         contents: &Contents,
         validation: &mut Validation,
     ) {
-        let (per_side, height_clearance) = if contents.soft {
-            (
-                CONTENTS_SOFT_CLEARANCE_PER_SIDE_MM,
-                CONTENTS_SOFT_HEIGHT_CLEARANCE_MM,
-            )
-        } else {
-            (CONTENTS_CLEARANCE_PER_SIDE_MM, CONTENTS_HEIGHT_CLEARANCE_MM)
-        };
+        let fit = contents.fit(body);
 
-        if let Some(length) = contents.max_length_mm {
+        if let Some(length) = contents.max_length_mm
+            && !fit.length_ok
+        {
             let diagonal = body.interior_width_mm.hypot(body.interior_depth_mm);
-            let limit = diagonal - CONTENTS_DIAGONAL_MARGIN_MM;
-            if length > limit {
-                validation.warnings.push(format!(
-                    "contents.max_length_mm: {length:.1} mm exceeds the {limit:.1} mm usable diagonal (interior diagonal {diagonal:.1} mm minus {CONTENTS_DIAGONAL_MARGIN_MM:.0} mm)"
-                ));
-            }
+            validation.warnings.push(format!(
+                "contents.max_length_mm: {length:.1} mm exceeds the {:.1} mm usable diagonal (interior diagonal {diagonal:.1} mm minus {CONTENTS_DIAGONAL_MARGIN_MM:.0} mm)",
+                fit.diagonal_limit_mm
+            ));
         }
 
-        if let Some(width) = contents.max_width_mm {
+        if let Some(width) = contents.max_width_mm
+            && !fit.width_ok
+        {
+            let per_side = fit.per_side_mm;
             let required = width + 2.0 * per_side;
-            if required > body.interior_width_mm {
-                validation.warnings.push(format!(
-                    "contents.max_width_mm: {width:.1} mm plus {per_side:.0} mm per side needs {required:.1} mm, more than the {:.1} mm interior width",
-                    body.interior_width_mm
-                ));
-            }
+            validation.warnings.push(format!(
+                "contents.max_width_mm: {width:.1} mm plus {per_side:.0} mm per side needs {required:.1} mm, more than the {:.1} mm interior width",
+                body.interior_width_mm
+            ));
         }
 
-        if let Some(height) = contents.max_height_mm {
+        if let Some(height) = contents.max_height_mm
+            && !fit.height_ok
+        {
+            let height_clearance = fit.height_clearance_mm;
             let required = height + height_clearance;
-            if required > body.interior_height_mm {
-                validation.warnings.push(format!(
-                    "contents.max_height_mm: {height:.1} mm plus {height_clearance:.0} mm clearance needs {required:.1} mm, more than the {:.1} mm interior depth",
-                    body.interior_height_mm
-                ));
-            }
+            validation.warnings.push(format!(
+                "contents.max_height_mm: {height:.1} mm plus {height_clearance:.0} mm clearance needs {required:.1} mm, more than the {:.1} mm interior depth",
+                body.interior_height_mm
+            ));
         }
 
         if let Some(weight) = contents.weight_kg
-            && weight > MAX_CONTENTS_KG
+            && !fit.weight_ok
         {
             validation.warnings.push(format!(
                 "contents.weight_kg: {weight:.1} kg exceeds the {MAX_CONTENTS_KG:.0} kg per-body limit"
             ));
+        }
+    }
+}
+
+/// Quotes a string as a YAML double-quoted scalar.
+///
+/// JSON string escaping is a subset of YAML double-quoted escaping, so
+/// `serde_json` supplies the quoting for free; notes and compartment names
+/// are free text.
+fn yaml_string(value: &str) -> String {
+    serde_json::to_string(value).expect("a string always serializes")
+}
+
+/// Formats a number so the canonical form is visibly a float (`25` would
+/// parse as an integer, which is legal but not the canonical spelling).
+fn yaml_number(value: f64) -> String {
+    let text = format!("{value}");
+    if text.contains('.') || text.contains('e') || text.contains('E') {
+        text
+    } else {
+        format!("{text}.0")
+    }
+}
+
+/// Renders the `contents` block's lines; the caller indents them.
+fn contents_yaml(contents: &Contents) -> Vec<String> {
+    let mut lines = Vec::new();
+    if let Some(description) = &contents.description {
+        lines.push(format!("description: {}", yaml_string(description)));
+    }
+    if contents.soft {
+        lines.push("soft: true".to_owned());
+    }
+    for (key, value) in [
+        ("max_length_mm", contents.max_length_mm),
+        ("max_width_mm", contents.max_width_mm),
+        ("max_height_mm", contents.max_height_mm),
+        ("weight_kg", contents.weight_kg),
+    ] {
+        if let Some(value) = value {
+            lines.push(format!("{key}: {}", yaml_number(value)));
+        }
+    }
+    lines
+}
+
+/// Appends one division node to `out`, whose prefix (`divisions:`, `near:`)
+/// has already been written.
+///
+/// A leaf continues the caller's line as a flow mapping; a split starts a
+/// block two spaces deeper. This keeps the canonical text free of trailing
+/// whitespace.
+fn write_node(out: &mut String, node: &Node, indent: usize) {
+    match node {
+        Node::Leaf { compartment } => {
+            out.push(' ');
+            match compartment {
+                Some(name) => {
+                    let _ = write!(out, "{{compartment: {}}}", yaml_string(name));
+                }
+                None => out.push_str("{}"),
+            }
+            out.push('\n');
+        }
+        Node::Split {
+            axis,
+            at_mm,
+            near,
+            far,
+        } => {
+            let pad = " ".repeat(indent + 2);
+            out.push('\n');
+            let _ = writeln!(out, "{pad}axis: {}", axis.as_str());
+            let _ = writeln!(out, "{pad}at_mm: {at_mm}");
+            let _ = write!(out, "{pad}near:");
+            write_node(out, near, indent + 2);
+            let _ = write!(out, "{pad}far:");
+            write_node(out, far, indent + 2);
         }
     }
 }
@@ -1076,6 +1271,62 @@ divisions: { compartment: Bits }
         );
     }
 
+    /// The one fit predicate reports each standard §8 check independently;
+    /// the validator's warnings and the UI fit assistant both read it.
+    #[test]
+    fn contents_fit_reports_every_check_independently() {
+        let body = BodyGeometry::new([1, 1], 3);
+        let contents = Contents {
+            description: None,
+            soft: true,
+            max_length_mm: Some(60.0),
+            max_width_mm: Some(30.0),
+            max_height_mm: Some(7.0),
+            weight_kg: Some(11.0),
+        };
+        let fit = contents.fit(&body);
+
+        assert!(!fit.fits());
+        assert!(!fit.length_ok, "60 mm exceeds the 43.0 mm usable diagonal");
+        assert!(!fit.width_ok, "30 + 10 mm exceeds the 37.5 mm width");
+        assert!(!fit.height_ok, "7 + 10 mm exceeds the 12.25 mm height");
+        assert!(!fit.weight_ok, "11 kg exceeds the 10 kg limit");
+        assert_eq!(fit.per_side_mm, CONTENTS_SOFT_CLEARANCE_PER_SIDE_MM);
+        assert_eq!(fit.height_clearance_mm, CONTENTS_SOFT_HEIGHT_CLEARANCE_MM);
+        assert_eq!(
+            fit.diagonal_limit_mm,
+            body.interior_width_mm.hypot(body.interior_depth_mm) - CONTENTS_DIAGONAL_MARGIN_MM
+        );
+
+        let empty = Contents {
+            soft: true,
+            ..Contents::default()
+        };
+        assert!(empty.fit(&body).fits(), "absent checks pass");
+    }
+
+    #[test]
+    fn contents_clearances_switch_on_soft() {
+        assert_eq!(
+            contents_clearances(false),
+            (CONTENTS_CLEARANCE_PER_SIDE_MM, CONTENTS_HEIGHT_CLEARANCE_MM)
+        );
+        assert_eq!(
+            contents_clearances(true),
+            (
+                CONTENTS_SOFT_CLEARANCE_PER_SIDE_MM,
+                CONTENTS_SOFT_HEIGHT_CLEARANCE_MM
+            )
+        );
+    }
+
+    #[test]
+    fn the_contents_weight_limit_is_inclusive() {
+        assert!(weight_within_limit(None));
+        assert!(weight_within_limit(Some(10.0)));
+        assert!(!weight_within_limit(Some(10.1)));
+    }
+
     #[test]
     fn contents_are_optional() {
         assert!(warnings(MINIMAL).is_empty());
@@ -1201,5 +1452,116 @@ divisions: { compartment: Bits }
         let body = spec.body();
 
         assert_eq!(body, BodyGeometry::new([4, 4], 6));
+    }
+
+    /// The canonical writer round-trips every fixture and the template: the
+    /// rendered text parses to an equal spec and is stable under re-rendering.
+    #[test]
+    fn canonical_yaml_round_trips_every_fixture() {
+        for text in [
+            MINIMAL,
+            include_str!("../tests/fixtures/4x4-6u.yaml"),
+            include_str!("../tests/fixtures/4x4-6u-tree.yaml"),
+            include_str!("../tests/fixtures/2x4-6u-lid.yaml"),
+            include_str!("../tests/fixtures/2x4-6u-lid-ribs.yaml"),
+            include_str!("../templates/box-spec.yaml"),
+        ] {
+            let spec = parse_ok(text);
+            let rendered = spec.to_yaml();
+            let reparsed = parse(&rendered)
+                .unwrap_or_else(|error| panic!("canonical YAML must parse ({error}):\n{rendered}"));
+            assert_eq!(
+                reparsed, spec,
+                "canonical YAML changed the spec:\n{rendered}"
+            );
+            assert_eq!(
+                reparsed.to_yaml(),
+                rendered,
+                "canonical YAML must be stable"
+            );
+        }
+    }
+
+    #[test]
+    fn canonical_yaml_is_the_documented_layout() {
+        let spec = parse_ok(MINIMAL);
+        assert_eq!(
+            spec.to_yaml(),
+            "system: SYS-1.0\n\
+             id: 1x1-3u-bits-v1\n\
+             footprint: [1, 1]\n\
+             height_u: 3\n\
+             lid: false\n\
+             divisions: {compartment: \"Bits\"}\n"
+        );
+
+        let unnamed =
+            parse_ok(&MINIMAL.replace("divisions: { compartment: Bits }", "divisions: {}"));
+        assert_eq!(
+            unnamed.to_yaml(),
+            "system: SYS-1.0\n\
+             id: 1x1-3u-bits-v1\n\
+             footprint: [1, 1]\n\
+             height_u: 3\n\
+             lid: false\n\
+             divisions: {}\n"
+        );
+    }
+
+    #[test]
+    fn canonical_yaml_quotes_free_text_and_numbers() {
+        let text = concat!(
+            "system: SYS-1.0\n",
+            "id: 2x4-6U-thing-v1\n",
+            "footprint: [2, 4]\n",
+            "height_u: 6\n",
+            "lid: true\n",
+            "lid_ribs: true\n",
+            "notes: \"A \\\"quoted\\\" note\"\n",
+            "contents:\n",
+            "  description: Cables\n",
+            "  soft: true\n",
+            "  max_width_mm: 79.5\n",
+            "  weight_kg: 2\n",
+            "divisions:\n",
+            "  axis: x\n",
+            "  at_mm: 39\n",
+            "  near: { compartment: \"A\" }\n",
+            "  far: {}\n",
+        );
+        let expected = concat!(
+            "system: SYS-1.0\n",
+            "id: 2x4-6U-thing-v1\n",
+            "footprint: [2, 4]\n",
+            "height_u: 6\n",
+            "lid: true\n",
+            "lid_ribs: true\n",
+            "notes: \"A \\\"quoted\\\" note\"\n",
+            "contents:\n",
+            "  description: \"Cables\"\n",
+            "  soft: true\n",
+            "  max_width_mm: 79.5\n",
+            "  weight_kg: 2.0\n",
+            "divisions:\n",
+            "  axis: x\n",
+            "  at_mm: 39\n",
+            "  near: {compartment: \"A\"}\n",
+            "  far: {}\n",
+        );
+
+        assert_eq!(parse_ok(text).to_yaml(), expected);
+    }
+
+    /// The canonical writer never emits the internal coupon flag or any fixed
+    /// architecture field: the schema stays closed.
+    #[test]
+    fn canonical_yaml_never_emits_internal_fields() {
+        let spec = parse_ok(MINIMAL);
+        let rendered = spec.to_yaml();
+
+        assert!(!rendered.contains("coupon"), "{rendered}");
+        for field in ["wall", "radius", "fillet", "clearance", "cove"] {
+            assert!(!rendered.contains(field), "{rendered}");
+        }
     }
 }

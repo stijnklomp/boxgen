@@ -43,6 +43,10 @@ test:
 run *args:
     cargo run -- {{args}}
 
+# Start the local web UI in Docker, for example `just ui --port 8799`.
+ui *args:
+    "{{justfile_directory()}}/scripts/boxgen-ui.sh" {{args}}
+
 # Build the pinned FreeCAD gate image.
 docker-build:
     docker build --build-arg FREECAD_VERSION={{freecad_version}} -f "{{justfile_directory()}}/docker/freecad.Dockerfile" -t {{freecad_image}} "{{justfile_directory()}}"

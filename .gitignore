@@ -1,6 +1,7 @@
 # Build artifacts
 /target
 /build
+/exports
 
 # Editor and OS scratch
 .DS_Store

@@ -37,6 +37,31 @@ fn every_contract_command_has_help() {
     }
 }
 
+/// `serve` is the one non-contract v2 command (ADR-0002); the top-level help
+/// must list it next to the five contract commands.
+#[test]
+fn help_lists_the_v2_serve_command() {
+    let mut command = common::boxgen();
+    command
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("serve"));
+}
+
+/// `serve` is the one non-contract v2 command (ADR-0002); its flags are part
+/// of the local UI interface.
+#[test]
+fn serve_help_lists_port_and_open() {
+    let mut command = common::boxgen();
+    command
+        .args(["serve", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--port"))
+        .stdout(predicate::str::contains("--open"));
+}
+
 #[test]
 fn invalid_configuration_exits_with_the_environment_code() {
     let mut command = common::boxgen();

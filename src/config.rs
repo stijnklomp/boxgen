@@ -20,12 +20,23 @@ pub const ENV_FREECADCMD: &str = "BOXGEN_FREECADCMD";
 /// Environment variable overriding the expected FreeCAD release.
 pub const ENV_FREECAD_VERSION: &str = "BOXGEN_EXPECT_FREECAD_VERSION";
 
+/// Environment variable selecting the local UI port (`boxgen serve`).
+pub const ENV_UI_PORT: &str = "BOXGEN_UI_PORT";
+
+/// Environment variable carrying the host path shown for the mounted
+/// workspace (`boxgen serve`).
+pub const ENV_UI_HOST_WORKDIR: &str = "BOXGEN_UI_HOST_WORKDIR";
+
 /// Launcher used when [`ENV_FREECADCMD`] is unset.
 pub const DEFAULT_FREECADCMD: &str = "freecadcmd";
 
 /// FreeCAD release the build pipeline expects when
 /// [`ENV_FREECAD_VERSION`] is unset. The `justfile` passes its pin here.
 pub const DEFAULT_FREECAD_VERSION: &str = "1.0.0";
+
+/// Port the local UI binds on `127.0.0.1` when [`ENV_UI_PORT`] is unset
+/// (ADR-0002). `--port` overrides both.
+pub const DEFAULT_UI_PORT: u16 = 8787;
 
 const LOG_VALUES: &str = "trace, debug, info, warn, error or off";
 
@@ -39,6 +50,12 @@ pub struct Config {
     /// FreeCAD release the build verifies (`BOXGEN_EXPECT_FREECAD_VERSION`,
     /// default `1.0.0`).
     pub expected_freecad_version: String,
+    /// Port `boxgen serve` binds on `127.0.0.1` (`BOXGEN_UI_PORT`, default
+    /// [`DEFAULT_UI_PORT`]); `--port` overrides it.
+    pub ui_port: u16,
+    /// Host path of the mounted workspace (`BOXGEN_UI_HOST_WORKDIR`), shown
+    /// for displayed paths; `None` means the process working directory.
+    pub ui_host_workdir: Option<PathBuf>,
 }
 
 impl Default for Config {
@@ -47,6 +64,8 @@ impl Default for Config {
             log_level: LevelFilter::WARN,
             freecadcmd: PathBuf::from(DEFAULT_FREECADCMD),
             expected_freecad_version: DEFAULT_FREECAD_VERSION.to_owned(),
+            ui_port: DEFAULT_UI_PORT,
+            ui_host_workdir: None,
         }
     }
 }
@@ -88,11 +107,41 @@ impl Config {
             None => DEFAULT_FREECAD_VERSION.to_owned(),
         };
 
+        let ui_port = match env(ENV_UI_PORT) {
+            Some(value) => parse_ui_port(&value)?,
+            None => DEFAULT_UI_PORT,
+        };
+
+        let ui_host_workdir = match env(ENV_UI_HOST_WORKDIR) {
+            Some(value) if !value.trim().is_empty() => Some(PathBuf::from(value.trim())),
+            Some(_) => {
+                return Err(BoxgenError::Environment {
+                    message: format!(
+                        "{ENV_UI_HOST_WORKDIR} is empty; expected the host path of the mounted workspace"
+                    ),
+                });
+            }
+            None => None,
+        };
+
         Ok(Self {
             log_level,
             freecadcmd,
             expected_freecad_version,
+            ui_port,
+            ui_host_workdir,
         })
+    }
+}
+
+fn parse_ui_port(value: &str) -> Result<u16, BoxgenError> {
+    match value.trim().parse::<u16>() {
+        Ok(port) if port > 0 => Ok(port),
+        _ => Err(BoxgenError::Environment {
+            message: format!(
+                "invalid {ENV_UI_PORT} value {value:?}; expected a TCP port between 1 and 65535"
+            ),
+        }),
     }
 }
 
@@ -196,5 +245,51 @@ mod tests {
 
         assert_eq!(error.exit_code(), crate::error::ExitCode::Environment);
         assert!(error.to_string().contains("BOXGEN_FREECADCMD"), "{error}");
+    }
+
+    #[test]
+    fn ui_port_defaults_and_parses() {
+        let config = Config::from_lookup(|_| None).unwrap();
+        assert_eq!(config.ui_port, DEFAULT_UI_PORT);
+        assert_eq!(config.ui_host_workdir, None);
+
+        let config = Config::from_lookup(|key| match key {
+            ENV_UI_PORT => Some(" 9001 ".to_owned()),
+            ENV_UI_HOST_WORKDIR => Some(" /home/me/boxgen ".to_owned()),
+            _ => None,
+        })
+        .unwrap();
+
+        assert_eq!(config.ui_port, 9001);
+        assert_eq!(
+            config.ui_host_workdir,
+            Some(PathBuf::from("/home/me/boxgen"))
+        );
+    }
+
+    #[test]
+    fn invalid_ui_ports_are_environment_errors() {
+        for value in ["0", "-1", "70000", "eight", ""] {
+            let error = Config::from_lookup(|key| match key {
+                ENV_UI_PORT => Some(value.to_owned()),
+                _ => None,
+            })
+            .unwrap_err();
+
+            assert_eq!(error.exit_code(), crate::error::ExitCode::Environment);
+            assert!(error.to_string().contains(ENV_UI_PORT), "{error}");
+        }
+    }
+
+    #[test]
+    fn empty_ui_host_workdir_is_rejected() {
+        let error = Config::from_lookup(|key| match key {
+            ENV_UI_HOST_WORKDIR => Some("  ".to_owned()),
+            _ => None,
+        })
+        .unwrap_err();
+
+        assert_eq!(error.exit_code(), crate::error::ExitCode::Environment);
+        assert!(error.to_string().contains(ENV_UI_HOST_WORKDIR), "{error}");
     }
 }

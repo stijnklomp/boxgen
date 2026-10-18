@@ -39,17 +39,47 @@ const TEMP_FILE: &str = "INDEX.md.tmp";
 
 /// Regenerates `<boxes>/INDEX.md` from the specs under `boxes`.
 pub fn generate(boxes: &Path) -> Result<(), BoxgenError> {
-    let records = collect(boxes)?;
-    let text = render(&records);
+    let document = regenerate(boxes)?;
     let index = boxes.join("INDEX.md");
-    write_atomic(&index, &text)?;
     println!(
         "wrote {} ({} {})",
         index.display(),
-        records.len(),
-        if records.len() == 1 { "box" } else { "boxes" }
+        document.boxes,
+        if document.boxes == 1 { "box" } else { "boxes" }
     );
     Ok(())
+}
+
+/// The rendered index document and its row count.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndexDocument {
+    /// The complete `INDEX.md` text.
+    pub text: String,
+    /// Number of boxes recorded.
+    pub boxes: usize,
+}
+
+/// Renders `<boxes>/INDEX.md` without writing it.
+///
+/// This is the pure part of [`regenerate`]: the strict all-or-nothing scan
+/// (one invalid spec fails the whole run) and the committed byte format.
+pub fn document(boxes: &Path) -> Result<IndexDocument, BoxgenError> {
+    let records = collect(boxes)?;
+    Ok(IndexDocument {
+        text: render(&records),
+        boxes: records.len(),
+    })
+}
+
+/// Regenerates `<boxes>/INDEX.md` without printing.
+///
+/// The local UI calls this: the write goes through `INDEX.md.tmp` plus an
+/// atomic rename, so a failed run leaves an existing index intact. `generate`
+/// is this plus the CLI's report line.
+pub fn regenerate(boxes: &Path) -> Result<IndexDocument, BoxgenError> {
+    let document = document(boxes)?;
+    write_atomic(&boxes.join("INDEX.md"), &document.text)?;
+    Ok(document)
 }
 
 /// One registry row.
@@ -280,6 +310,38 @@ mod tests {
              | --- | --- | --- | --- | --- | --- |\n\
              | — | — | — | — | — | — |\n"
         );
+    }
+
+    /// `document` renders without writing and `regenerate` writes exactly the
+    /// rendered bytes without printing: the CLI `generate` and the API share
+    /// the one document.
+    #[test]
+    fn regenerate_writes_the_rendered_document_without_printing() {
+        let temp = tempdir().expect("tempdir");
+        write_spec(
+            temp.path(),
+            "1x1-6U-bits-v1",
+            "system: SYS-1.0\n\
+             id: 1x1-6U-bits-v1\n\
+             footprint: [1, 1]\n\
+             height_u: 6\n\
+             lid: false\n\
+             divisions: { compartment: Bits }\n",
+        );
+
+        let document = document(temp.path()).expect("render the document");
+        assert_eq!(document.boxes, 1);
+        assert!(
+            !temp.path().join("INDEX.md").exists(),
+            "rendering must not write"
+        );
+
+        let written = regenerate(temp.path()).expect("regenerate the index");
+        assert_eq!(written, document);
+        assert_eq!(read_index(temp.path()), document.text);
+
+        generate(temp.path()).expect("generate keeps working");
+        assert_eq!(read_index(temp.path()), document.text);
     }
 
     #[test]

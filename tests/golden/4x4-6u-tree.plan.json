@@ -1,0 +1,98 @@
+{
+  "valid": true,
+  "errors": [],
+  "warnings": [],
+  "body": {
+    "outer_width_mm": 167.5,
+    "outer_depth_mm": 167.5,
+    "total_height_mm": 42.0,
+    "interior_width_mm": 163.5,
+    "interior_depth_mm": 163.5,
+    "interior_height_mm": 33.25,
+    "divider_height_mm": 23.25,
+    "divider_top_mm": 28.0
+  },
+  "leaves": [
+    {
+      "path": "divisions.near.near",
+      "compartment": "A",
+      "x_mm": 0.0,
+      "y_mm": 0.0,
+      "width_mm": 80.0,
+      "depth_mm": 50.0
+    },
+    {
+      "path": "divisions.near.far",
+      "compartment": "B",
+      "x_mm": 0.0,
+      "y_mm": 52.0,
+      "width_mm": 80.0,
+      "depth_mm": 111.5
+    },
+    {
+      "path": "divisions.far.near",
+      "compartment": "C",
+      "x_mm": 82.0,
+      "y_mm": 0.0,
+      "width_mm": 40.0,
+      "depth_mm": 163.5
+    },
+    {
+      "path": "divisions.far.far",
+      "compartment": "D",
+      "x_mm": 124.0,
+      "y_mm": 0.0,
+      "width_mm": 39.5,
+      "depth_mm": 163.5
+    }
+  ],
+  "dividers": [
+    {
+      "axis": "x",
+      "path": "divisions",
+      "x_mm": 80.0,
+      "y_mm": 0.0,
+      "width_mm": 2.0,
+      "depth_mm": 163.5,
+      "parent": {
+        "x_mm": 0.0,
+        "y_mm": 0.0,
+        "width_mm": 163.5,
+        "depth_mm": 163.5
+      }
+    },
+    {
+      "axis": "y",
+      "path": "divisions.near",
+      "x_mm": 0.0,
+      "y_mm": 50.0,
+      "width_mm": 80.0,
+      "depth_mm": 2.0,
+      "parent": {
+        "x_mm": 0.0,
+        "y_mm": 0.0,
+        "width_mm": 80.0,
+        "depth_mm": 163.5
+      }
+    },
+    {
+      "axis": "x",
+      "path": "divisions.far",
+      "x_mm": 122.0,
+      "y_mm": 0.0,
+      "width_mm": 2.0,
+      "depth_mm": 163.5,
+      "parent": {
+        "x_mm": 82.0,
+        "y_mm": 0.0,
+        "width_mm": 81.5,
+        "depth_mm": 163.5
+      }
+    }
+  ],
+  "estimate": {
+    "volume_mm3": 308440.6875,
+    "mass_g": 391.719673125,
+    "print_hours": 15.5778125
+  }
+}

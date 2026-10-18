@@ -12,6 +12,12 @@
 //! one internal calibration spec through the same [`run_build`] pipeline and
 //! prints the calibration reminder; it never parses a user spec.
 //!
+//! [`run_build`] is the one build path: it runs from an already parsed
+//! [`Spec`] (so the local UI builds unsaved designs without scratch spec
+//! files), reports progress through [`BuildEvent`]s, and returns a
+//! [`BuildOutcome`]. The CLI commands print [`print_summary`]; the server
+//! returns the outcome over the API and never writes to stdout.
+//!
 //! No geometry is implemented in Rust. This module copies the Python master
 //! into the build directory, renders the generated script, runs FreeCAD, and
 //! checks the artifacts FreeCAD produced. `freecadcmd` exits 0 even when the
@@ -21,7 +27,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::config::{Config, ENV_FREECAD_VERSION, ENV_FREECADCMD};
@@ -31,9 +37,13 @@ use crate::tree::{self, Node, fmt_mm};
 
 /// Files the generated script and the build overwrite on every run.
 ///
+/// This is also the allowlist of names the local UI may serve from a build
+/// directory (`GET /api/artifacts/{id}/{name}`), so a request can never reach
+/// any other file.
+///
 /// `lid.stl` is boxgen-owned: clearing it keeps a stale lid from a previous
 /// run out of a body-only build directory.
-const GENERATED_ARTIFACTS: [&str; 6] = [
+pub(crate) const GENERATED_ARTIFACTS: [&str; 6] = [
     "box.py",
     "box.step",
     "body.stl",
@@ -56,6 +66,85 @@ fn required_outputs(lid: bool) -> Vec<&'static str> {
         outputs.push("lid.stl");
     }
     outputs
+}
+
+/// Coarse progress phases of one build (the local UI shows the current one).
+///
+/// The wire spelling is the `snake_case` name (`preparing`, `building`,
+/// `verifying`). [`BuildStage::as_str`] is the one source: the manual
+/// `Serialize` below uses it, so the wire name and the human job messages
+/// cannot drift.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BuildStage {
+    /// Clearing the build directory, copying the master, rendering `box.py`,
+    /// and checking the FreeCAD launcher.
+    Preparing,
+    /// Running `freecadcmd` on the generated script.
+    Building,
+    /// Verifying the artifacts and the report invariants.
+    Verifying,
+}
+
+impl Serialize for BuildStage {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl BuildStage {
+    /// The wire spelling, also used in human job messages.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Preparing => "preparing",
+            Self::Building => "building",
+            Self::Verifying => "verifying",
+        }
+    }
+}
+
+/// One progress event a build reports while it runs.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BuildEvent {
+    /// The build entered a new phase.
+    Stage(BuildStage),
+    /// The `freecadcmd` output tail (the last non-empty lines), emitted when
+    /// the process failed so the job UI can show the raw diagnostics next to
+    /// the error message.
+    Diagnostic(String),
+}
+
+/// One file a build wrote, with its size on disk.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Artifact {
+    /// File name inside the build or export directory.
+    pub name: String,
+    /// Path as boxgen wrote it; the local UI maps it to the host path.
+    pub path: PathBuf,
+    /// Size in bytes.
+    pub bytes: u64,
+}
+
+/// The result of one successful build.
+///
+/// This is everything the CLI summary and the local UI report: the verified
+/// measurement report, the artifacts on disk, and (for a `--publish` run) the
+/// registry folder. [`run_build`] returns it, so both `boxgen build` and the
+/// server share the one pipeline and cannot drift.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct BuildOutcome {
+    /// Box id.
+    pub id: String,
+    /// Build directory.
+    pub out_dir: PathBuf,
+    /// The verified measurement report: the typed projection of
+    /// `report.json` (the Python-only extras, such as `dividers.plan` and the
+    /// bounding boxes, stay in the file).
+    pub report: BuildReport,
+    /// Files in `out_dir`, in the canonical order.
+    pub artifacts: Vec<Artifact>,
+    /// Registry folder a `--publish` run copied into; absent otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub published_dir: Option<PathBuf>,
 }
 
 /// Python files and the license copied from the repository's `cad/`.
@@ -83,11 +172,18 @@ pub fn build(
         .transpose()?;
 
     let out_dir = out.map_or_else(|| PathBuf::from("build").join(&spec.id), Path::to_path_buf);
-    run_build(&spec, &validation.warnings, &out_dir, config)?;
+    let mut outcome = run_build(&spec, &validation.warnings, &out_dir, config, &mut |_| {})?;
+    print_summary(&outcome);
 
+    // The outcome carries the published folder; the one `published:` line is
+    // printed from it, after the summary and never before a publish succeeded.
     if let Some(target) = publish_target {
         publish_artifacts(&spec, &out_dir, &target)?;
-        println!("published: {}", target.display());
+        outcome.published_dir = Some(target);
+    }
+    if let Some(published) = &outcome.published_dir {
+        println!("published: {}", published.display());
+        tracing::debug!(published = %published.display(), "published the build");
     }
 
     Ok(())
@@ -137,7 +233,8 @@ pub fn coupon(out: Option<&Path>, config: &Config) -> Result<(), BoxgenError> {
 
     // No validation warnings: the coupon is fixed and warning-free, and the
     // user-spec validator (including the user id rule) does not apply.
-    run_build(&spec, &[], &out_dir, config)?;
+    let outcome = run_build(&spec, &[], &out_dir, config, &mut |_| {})?;
+    print_summary(&outcome);
 
     println!();
     println!("calibration: print two coupons and one lid in the production recipe");
@@ -150,17 +247,20 @@ pub fn coupon(out: Option<&Path>, config: &Config) -> Result<(), BoxgenError> {
 
 /// Writes and verifies one build directory for an already validated spec.
 ///
-/// This is the one orchestration shared by `build` and `coupon`: clear the
-/// owned artifacts, copy the master, render `box.py`, run the pinned
-/// `freecadcmd`, verify every artifact and the report invariants, merge the
-/// given warnings, rewrite `report.json` deterministically, and print the
-/// summary.
-fn run_build(
+/// This is the one orchestration shared by `build`, `coupon`, and the local
+/// UI: clear the owned artifacts, copy the master, render `box.py`, run the
+/// pinned `freecadcmd`, verify every artifact and the report invariants, merge
+/// the given warnings, rewrite `report.json` deterministically, and return the
+/// structured [`BuildOutcome`]. Progress goes to `events`; printing the
+/// summary is the caller's job, so the server never writes to stdout.
+pub fn run_build(
     spec: &Spec,
     warnings: &[String],
     out_dir: &Path,
     config: &Config,
-) -> Result<(), BoxgenError> {
+    events: &mut dyn FnMut(BuildEvent),
+) -> Result<BuildOutcome, BoxgenError> {
+    events(BuildEvent::Stage(BuildStage::Preparing));
     prepare_out_dir(out_dir)?;
 
     let cad_source = repo_cad_dir()?;
@@ -169,6 +269,7 @@ fn run_build(
 
     check_freecad(config)?;
 
+    events(BuildEvent::Stage(BuildStage::Building));
     let script = std::path::absolute(out_dir.join("box.py")).map_err(|error| BoxgenError::Io {
         message: format!("cannot resolve the generated script path: {error}"),
     })?;
@@ -183,18 +284,18 @@ fn run_build(
             ),
         })?;
 
+    events(BuildEvent::Stage(BuildStage::Verifying));
+
     // FreeCAD resets `sys.dont_write_bytecode`, so interpreter caches appear
     // next to the script and the master. They are not artifacts.
     remove_runtime_caches(out_dir);
 
     if !output.status.success() {
+        let diagnostic = diagnostic_tail(&output.stderr, &output.stdout);
+        events(BuildEvent::Diagnostic(diagnostic.clone()));
         return Err(BoxgenError::Build {
             id: spec.id.clone(),
-            message: format!(
-                "freecadcmd exited with {}:\n{}",
-                output.status,
-                diagnostic_tail(&output.stderr, &output.stdout)
-            ),
+            message: format!("freecadcmd exited with {}:\n{diagnostic}", output.status),
         });
     }
 
@@ -209,9 +310,118 @@ fn run_build(
     write_report(&out_dir.join("report.json"), &report_json)?;
     remove_backups(out_dir);
 
-    print_summary(out_dir, &report);
+    Ok(BuildOutcome {
+        id: report.id.clone(),
+        out_dir: out_dir.to_path_buf(),
+        report,
+        artifacts: outcome_artifacts(out_dir),
+        published_dir: None,
+    })
+}
 
-    Ok(())
+/// Lists the files a successful build left in `out_dir`, in the canonical
+/// order, with the sizes on disk.
+fn outcome_artifacts(out_dir: &Path) -> Vec<Artifact> {
+    GENERATED_ARTIFACTS
+        .iter()
+        .filter_map(|name| {
+            let path = out_dir.join(name);
+            let bytes = fs::metadata(&path).ok()?.len();
+            Some(Artifact {
+                name: (*name).to_owned(),
+                path,
+                bytes,
+            })
+        })
+        .collect()
+}
+
+/// Copies one build's print files into an export folder under `base` names.
+///
+/// The canonical names are `<base>-body.stl`, `<base>-lid.stl` (only when the
+/// build has a lid), `<base>.step`, and `<base>.FCStd`. The export folder is
+/// created when missing; a re-export overwrites the copies it writes and never
+/// deletes or touches anything else in the folder. `box.py`, `report.json`,
+/// and `cad/` are never exported.
+pub fn export_named_copies(
+    base: &str,
+    artifact_dir: &Path,
+    out_dir: &Path,
+) -> Result<Vec<Artifact>, BoxgenError> {
+    let sources = [
+        ("body.stl", format!("{base}-body.stl")),
+        ("lid.stl", format!("{base}-lid.stl")),
+        ("box.step", format!("{base}.step")),
+        ("box.FCStd", format!("{base}.FCStd")),
+    ];
+
+    fs::create_dir_all(out_dir).map_err(|error| BoxgenError::Io {
+        message: format!("cannot create `{}`: {error}", out_dir.display()),
+    })?;
+
+    let mut exported = Vec::new();
+    for (source_name, target_name) in sources {
+        let source = artifact_dir.join(source_name);
+        let bytes = match fs::metadata(&source) {
+            Ok(metadata) if metadata.len() > 0 => metadata.len(),
+            Ok(_) => {
+                return Err(export_error(
+                    base,
+                    format!("`{}` is empty", source.display()),
+                ));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                if source_name == "lid.stl" {
+                    // A body-only build has no lid print file.
+                    continue;
+                }
+                return Err(export_error(
+                    base,
+                    format!("`{}` is missing: {error}", source.display()),
+                ));
+            }
+            Err(error) => {
+                return Err(export_error(
+                    base,
+                    format!("cannot inspect `{}`: {error}", source.display()),
+                ));
+            }
+        };
+
+        let destination = out_dir.join(&target_name);
+        fs::copy(&source, &destination).map_err(|error| BoxgenError::Io {
+            message: format!(
+                "cannot export `{}` to `{}`: {error}",
+                source.display(),
+                destination.display()
+            ),
+        })?;
+        exported.push(Artifact {
+            name: target_name,
+            path: destination,
+            bytes,
+        });
+    }
+
+    Ok(exported)
+}
+
+fn export_error(base: &str, message: String) -> BoxgenError {
+    build_error(base, format!("cannot export: {message}"))
+}
+
+/// The one publish rule: a box folder must be named after the spec id.
+///
+/// Returns the validated folder — the spec file's parent directory — when it
+/// is named after `id`, else `None`. `--publish` and `POST /api/publish`
+/// share this rule (ticket #18): the CLI turns a miss into its usage error,
+/// the API into a 400 naming the offending folder, so publish has exactly one
+/// target rule and never invents a second location.
+pub(crate) fn box_folder_named_after(spec_path: &Path, id: &str) -> Option<PathBuf> {
+    let parent = spec_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())?;
+    (parent.file_name().and_then(|name| name.to_str()) == Some(id)).then(|| parent.to_path_buf())
 }
 
 /// Resolves the box folder a `--publish` run writes into.
@@ -221,23 +431,13 @@ fn run_build(
 /// spec id: `boxes/<id>/spec.yaml`. A mismatch is a usage error; boxgen never
 /// invents a second location.
 fn publish_target(spec_path: &Path, id: &str) -> Result<PathBuf, BoxgenError> {
-    let parent = spec_path
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty());
-
-    match parent
-        .and_then(Path::file_name)
-        .and_then(|name| name.to_str())
-    {
-        Some(name) if name == id => Ok(parent.expect("a named parent exists").to_path_buf()),
-        _ => Err(BoxgenError::Usage {
-            message: format!(
-                "cannot publish `{}`: the spec must live at `boxes/<id>/spec.yaml`, \
-                 with the parent directory named after its id `{id}`",
-                spec_path.display()
-            ),
-        }),
-    }
+    box_folder_named_after(spec_path, id).ok_or_else(|| BoxgenError::Usage {
+        message: format!(
+            "cannot publish `{}`: the spec must live at `boxes/<id>/spec.yaml`, \
+             with the parent directory named after its id `{id}`",
+            spec_path.display()
+        ),
+    })
 }
 
 /// Copies the accepted print files into the box folder.
@@ -246,7 +446,11 @@ fn publish_target(spec_path: &Path, id: &str) -> Result<PathBuf, BoxgenError> {
 /// empty file fails the publish and leaves the target untouched. `spec.yaml` is
 /// never rewritten, `notes.md` is never overwritten, and `box.FCStd`,
 /// `report.json`, `box.py`, and `cad/` are never published.
-fn publish_artifacts(spec: &Spec, out_dir: &Path, target: &Path) -> Result<(), BoxgenError> {
+///
+/// The target is the spec's own box folder. The CLI resolves it from the spec
+/// path (parent directory named after the id); the local UI resolves the
+/// registry folder by id, exactly like `open` and `save`.
+pub fn publish_artifacts(spec: &Spec, out_dir: &Path, target: &Path) -> Result<(), BoxgenError> {
     let notes = out_dir.join("notes.md");
     if !notes.exists() {
         write_file(&notes, &render_notes(spec))?;
@@ -995,20 +1199,37 @@ fn diagnostic_tail(stderr: &[u8], stdout: &[u8]) -> String {
     lines[lines.len().saturating_sub(20)..].join("\n")
 }
 
-fn print_summary(out_dir: &Path, report: &BuildReport) {
-    println!("id: {}", report.id);
-    println!("output: {}", out_dir.display());
-    println!(
+/// Prints the human build report for one outcome.
+///
+/// This is the CLI's report block: the exact bytes `boxgen build` and
+/// `boxgen coupon` have always printed. The server returns the outcome over
+/// the API instead and never writes to stdout.
+pub fn print_summary(outcome: &BuildOutcome) {
+    print!("{}", summary_text(outcome));
+}
+
+/// Renders the human build report.
+fn summary_text(outcome: &BuildOutcome) -> String {
+    use std::fmt::Write as _;
+
+    let report = &outcome.report;
+    let mut out = String::new();
+    let _ = writeln!(out, "id: {}", report.id);
+    let _ = writeln!(out, "output: {}", outcome.out_dir.display());
+    let _ = writeln!(
+        out,
         "outer: {:.1} x {:.1} x {:.1} mm",
         report.dimensions.outer_x_mm, report.dimensions.outer_y_mm, report.dimensions.height_mm
     );
-    println!("interior depth: {:.2} mm", report.interior_depth_mm);
-    println!(
+    let _ = writeln!(out, "interior depth: {:.2} mm", report.interior_depth_mm);
+    let _ = writeln!(
+        out,
         "body: {:.1} mm3, {} faces, {:.1} mm2 surface",
         report.body.volume_mm3, report.body.faces, report.body.area_mm2
     );
     if let Some(lid) = &report.lid {
-        println!(
+        let _ = writeln!(
+            out,
             "lid: {:.1} mm3, {} faces, {:.1} mm2 surface, ribs: {}, roundover: {:.1} mm",
             lid.volume_mm3,
             lid.faces,
@@ -1017,11 +1238,13 @@ fn print_summary(out_dir: &Path, report: &BuildReport) {
             lid.roundover_mm
         );
     }
-    println!(
+    let _ = writeln!(
+        out,
         "floor fillet: {:.1} mm (standard 2.0, fallback 1.0)",
         report.body.floor_fillet_mm
     );
-    println!(
+    let _ = writeln!(
+        out,
         "stl: {} facets, {:.1} mm3, watertight",
         report.stl.facets, report.stl.volume_mm3
     );
@@ -1030,22 +1253,24 @@ fn print_summary(out_dir: &Path, report: &BuildReport) {
     } else {
         "body only"
     };
-    println!(
+    let _ = writeln!(
+        out,
         "mass: {:.1} g ({mass_scope}; PETG {:.2} g/cm3)",
         report.mass_g,
         crate::tree::PETG_DENSITY_G_PER_CM3
     );
-    println!(
+    let _ = writeln!(
+        out,
         "print time: {:.2} h (at {:.1} mm3/s effective flow)",
         report.print_time_h,
         crate::tree::EFFECTIVE_FLOW_MM3_PER_S
     );
     if report.warnings.is_empty() {
-        println!("warnings: none");
+        let _ = writeln!(out, "warnings: none");
     } else {
-        println!("warnings:");
+        let _ = writeln!(out, "warnings:");
         for warning in &report.warnings {
-            println!("  - {warning}");
+            let _ = writeln!(out, "  - {warning}");
         }
     }
     let artifacts = match report.artifacts.lid_stl_bytes {
@@ -1058,109 +1283,149 @@ fn print_summary(out_dir: &Path, report: &BuildReport) {
             report.artifacts.box_step_bytes, report.artifacts.body_stl_bytes
         ),
     };
-    println!("artifacts: {artifacts}");
+    let _ = writeln!(out, "artifacts: {artifacts}");
+
+    out
 }
 
-#[derive(Debug, Deserialize)]
-struct BuildReport {
-    id: String,
-    dimensions: Dimensions,
-    interior_depth_mm: f64,
-    body: BodyReport,
+/// The verified measurement report (the same content as `report.json`).
+///
+/// Deserialized from the Python master's output with the extra Python fields
+/// (`body.bbox`, `dividers.plan`, …) ignored, and serialized unchanged for
+/// the local UI: the report on the wire is the report on disk.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct BuildReport {
+    /// Box id.
+    pub id: String,
+    /// Outer body dimensions.
+    pub dimensions: Dimensions,
+    /// Measured floor-to-lip interior depth.
+    pub interior_depth_mm: f64,
+    /// Body measurements.
+    pub body: BodyReport,
     /// Lid measurements; present exactly when the spec has `lid: true`.
-    #[serde(default)]
-    lid: Option<LidReport>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lid: Option<LidReport>,
     /// Calibration T-divider facts; present exactly when the internal
     /// `coupon` flag is set (ticket #10).
-    #[serde(default)]
-    coupon: Option<CouponReport>,
-    stl: StlReport,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coupon: Option<CouponReport>,
+    /// Body mesh facts.
+    pub stl: StlReport,
     /// `lid.stl` mesh facts; present exactly when the spec has `lid: true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lid_stl: Option<StlReport>,
+    /// Sizes of the exported print files, measured by the master.
+    pub artifacts: ArtifactSizes,
+    /// Measured mass estimate.
+    pub mass_g: f64,
+    /// Measured print-time estimate.
+    pub print_time_h: f64,
+    /// Advisory findings (Python-side and Rust validation warnings).
     #[serde(default)]
-    lid_stl: Option<StlReport>,
-    artifacts: ArtifactSizes,
-    mass_g: f64,
-    print_time_h: f64,
-    #[serde(default)]
-    warnings: Vec<String>,
+    pub warnings: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
-struct Dimensions {
-    outer_x_mm: f64,
-    outer_y_mm: f64,
-    height_mm: f64,
+/// Outer body dimensions as measured from the built solid.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct Dimensions {
+    /// Outer width (x).
+    pub outer_x_mm: f64,
+    /// Outer depth (y).
+    pub outer_y_mm: f64,
+    /// Total height including base and lip.
+    pub height_mm: f64,
 }
 
-#[derive(Debug, Deserialize)]
-struct BodyReport {
-    volume_mm3: f64,
-    area_mm2: f64,
-    faces: u64,
-    solids: u64,
-    is_valid: bool,
-    is_closed: bool,
+/// Body measurements (ticket #6, standard §4).
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct BodyReport {
+    /// Solid volume.
+    pub volume_mm3: f64,
+    /// Surface area.
+    pub area_mm2: f64,
+    /// Face count.
+    pub faces: u64,
+    /// Solid count; must be exactly one.
+    pub solids: u64,
+    /// Whether the kernel reports a valid shape.
+    pub is_valid: bool,
+    /// Whether the shell is closed (watertight).
+    pub is_closed: bool,
     /// Floor-to-wall fillet radius actually applied: 2.0 mm, or the 1.0 mm
     /// fallback (standard §4.1). Never anything else: a sharp internal corner
     /// fails the build instead.
-    floor_fillet_mm: f64,
+    pub floor_fillet_mm: f64,
 }
 
 /// Lid measurements (ticket #9, standard §4.4).
-#[derive(Debug, Deserialize)]
-struct LidReport {
-    volume_mm3: f64,
-    area_mm2: f64,
-    faces: u64,
-    solids: u64,
-    is_valid: bool,
-    is_closed: bool,
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct LidReport {
+    /// Solid volume.
+    pub volume_mm3: f64,
+    /// Surface area.
+    pub area_mm2: f64,
+    /// Face count.
+    pub faces: u64,
+    /// Solid count; must be exactly one.
+    pub solids: u64,
+    /// Whether the kernel reports a valid shape.
+    pub is_valid: bool,
+    /// Whether the shell is closed (watertight).
+    pub is_closed: bool,
     /// Top-edge roundover radius actually applied: 1.0 mm, or 0.0 when the
     /// 1.0 mm roundover on the 2.0 mm plate was rejected. Recorded like
     /// `body.floor_fillet_mm`, with a warning on 0.0.
-    roundover_mm: f64,
+    pub roundover_mm: f64,
     /// Whether the optional 0.15 mm friction ribs are part of the lid.
-    ribs: bool,
+    pub ribs: bool,
 }
 
 /// Calibration T-divider facts (ticket #10, calibration §2).
 ///
 /// Present exactly when the internal `coupon` flag is set, so the master
 /// cannot silently skip the coupon divider and still pass the build.
-#[derive(Debug, Deserialize)]
-struct CouponReport {
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct CouponReport {
     /// Whether the coupon's T-divider was fused into the body.
-    t_divider: bool,
+    pub t_divider: bool,
     /// The wall it is fused to (documented in `cad/dividers.py`).
-    wall: String,
+    pub wall: String,
     /// Plate length from the wall's inner face, in millimetres. Must cover
     /// the calibration's 20 mm weight foot.
-    length_mm: f64,
+    pub length_mm: f64,
     /// Plate thickness, the standard 2.0 mm divider.
-    thickness_mm: f64,
+    pub thickness_mm: f64,
     /// Height above the floor: `interior_depth - 10.0` on the 6U coupon.
-    height_above_floor_mm: f64,
+    pub height_above_floor_mm: f64,
     /// Absolute top elevation: base height plus the height above the floor
     /// (28.0 mm on the 6U coupon, 10 mm below the lip bottom).
-    top_mm: f64,
+    pub top_mm: f64,
     /// Top-edge chamfer, the standard 0.4 mm divider edge break.
-    top_chamfer_mm: f64,
+    pub top_chamfer_mm: f64,
 }
 
-#[derive(Debug, Deserialize)]
-struct StlReport {
-    facets: u64,
-    is_solid: bool,
-    volume_mm3: f64,
+/// One mesh's facts.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct StlReport {
+    /// Triangle count.
+    pub facets: u64,
+    /// Whether the mesh is a watertight solid.
+    pub is_solid: bool,
+    /// Mesh volume.
+    pub volume_mm3: f64,
 }
 
-#[derive(Debug, Deserialize)]
-struct ArtifactSizes {
-    box_step_bytes: u64,
-    body_stl_bytes: u64,
-    /// Present exactly when the spec has `lid: true`.
-    #[serde(default)]
-    lid_stl_bytes: Option<u64>,
+/// Sizes of the exported print files, measured by the master.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct ArtifactSizes {
+    /// `box.step` size.
+    pub box_step_bytes: u64,
+    /// `body.stl` size.
+    pub body_stl_bytes: u64,
+    /// `lid.stl` size; present exactly when the spec has `lid: true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lid_stl_bytes: Option<u64>,
 }
 
 #[cfg(test)]
@@ -1680,5 +1945,235 @@ mod tests {
 
         let bare = Path::new("spec.yaml");
         assert!(publish_target(bare, "1x1-6U-minimal-v1").is_err());
+    }
+
+    /// The CLI summary is a pure function of the outcome; this pins every
+    /// line and both branches byte-for-byte.
+    #[test]
+    fn summary_text_pins_the_cli_report() {
+        let body = BuildOutcome {
+            id: "1x1-6U-minimal-v1".to_owned(),
+            out_dir: PathBuf::from("/tmp/boxgen/out"),
+            report: parsed_report(&json!({
+                "id": "1x1-6U-minimal-v1",
+                "dimensions": {"outer_x_mm": 41.5, "outer_y_mm": 41.5, "height_mm": 42.0},
+                "interior_depth_mm": 33.25,
+                "body": {
+                    "volume_mm3": 18397.5,
+                    "area_mm2": 3456.7,
+                    "faces": 12,
+                    "solids": 1,
+                    "is_valid": true,
+                    "is_closed": true,
+                    "floor_fillet_mm": 2.0,
+                },
+                "stl": {"facets": 1234, "is_solid": true, "volume_mm3": 18301.0},
+                "artifacts": {"box_step_bytes": 123456, "body_stl_bytes": 234567},
+                "mass_g": 23.4,
+                "print_time_h": 0.93,
+                "warnings": [],
+            })),
+            artifacts: Vec::new(),
+            published_dir: None,
+        };
+
+        assert_eq!(
+            summary_text(&body),
+            "id: 1x1-6U-minimal-v1\n\
+             output: /tmp/boxgen/out\n\
+             outer: 41.5 x 41.5 x 42.0 mm\n\
+             interior depth: 33.25 mm\n\
+             body: 18397.5 mm3, 12 faces, 3456.7 mm2 surface\n\
+             floor fillet: 2.0 mm (standard 2.0, fallback 1.0)\n\
+             stl: 1234 facets, 18301.0 mm3, watertight\n\
+             mass: 23.4 g (body only; PETG 1.27 g/cm3)\n\
+             print time: 0.93 h (at 5.5 mm3/s effective flow)\n\
+             warnings: none\n\
+             artifacts: box.step (123456 bytes), body.stl (234567 bytes)\n"
+        );
+
+        let lid = BuildOutcome {
+            id: "4x4-6U-lid-v1".to_owned(),
+            out_dir: PathBuf::from("/tmp/boxgen/lid"),
+            report: parsed_report(&json!({
+                "id": "4x4-6U-lid-v1",
+                "dimensions": {"outer_x_mm": 167.5, "outer_y_mm": 167.5, "height_mm": 42.0},
+                "interior_depth_mm": 33.25,
+                "body": {
+                    "volume_mm3": 100000.0,
+                    "area_mm2": 3456.7,
+                    "faces": 12,
+                    "solids": 1,
+                    "is_valid": true,
+                    "is_closed": true,
+                    "floor_fillet_mm": 2.0,
+                },
+                "lid": {
+                    "volume_mm3": 2584.7,
+                    "area_mm2": 1234.5,
+                    "faces": 10,
+                    "solids": 1,
+                    "is_valid": true,
+                    "is_closed": true,
+                    "roundover_mm": 1.0,
+                    "ribs": true,
+                },
+                "stl": {"facets": 999, "is_solid": true, "volume_mm3": 99000.0},
+                "lid_stl": {"facets": 555, "is_solid": true, "volume_mm3": 2580.0},
+                "artifacts": {"box_step_bytes": 123456, "body_stl_bytes": 234567, "lid_stl_bytes": 345678},
+                "mass_g": 130.0,
+                "print_time_h": 5.25,
+                "warnings": ["lid.roundover_mm: the 1.0 mm roundover was rejected; the plate is sharp"],
+            })),
+            artifacts: Vec::new(),
+            published_dir: Some(PathBuf::from("boxes/4x4-6U-lid-v1")),
+        };
+
+        assert_eq!(
+            summary_text(&lid),
+            "id: 4x4-6U-lid-v1\n\
+             output: /tmp/boxgen/lid\n\
+             outer: 167.5 x 167.5 x 42.0 mm\n\
+             interior depth: 33.25 mm\n\
+             body: 100000.0 mm3, 12 faces, 3456.7 mm2 surface\n\
+             lid: 2584.7 mm3, 10 faces, 1234.5 mm2 surface, ribs: yes, roundover: 1.0 mm\n\
+             floor fillet: 2.0 mm (standard 2.0, fallback 1.0)\n\
+             stl: 999 facets, 99000.0 mm3, watertight\n\
+             mass: 130.0 g (body + lid; PETG 1.27 g/cm3)\n\
+             print time: 5.25 h (at 5.5 mm3/s effective flow)\n\
+             warnings:\n  - lid.roundover_mm: the 1.0 mm roundover was rejected; the plate is sharp\n\
+             artifacts: box.step (123456 bytes), body.stl (234567 bytes), lid.stl (345678 bytes)\n"
+        );
+    }
+
+    /// The outcome lists the files a successful build left behind, in the
+    /// canonical order, with the sizes on disk.
+    #[test]
+    fn outcome_artifacts_list_the_build_files_with_sizes() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        artifact(temp.path(), "box.py", b"py");
+        artifact(temp.path(), "box.step", b"step");
+        artifact(temp.path(), "body.stl", b"body!");
+        artifact(temp.path(), "box.FCStd", b"fc");
+        artifact(temp.path(), "report.json", b"{}");
+
+        let listed = outcome_artifacts(temp.path());
+
+        assert_eq!(
+            listed
+                .iter()
+                .map(|artifact| artifact.name.as_str())
+                .collect::<Vec<_>>(),
+            ["box.py", "box.step", "body.stl", "box.FCStd", "report.json"]
+        );
+        assert_eq!(listed[2].bytes, 5);
+        assert_eq!(listed[2].path, temp.path().join("body.stl"));
+    }
+
+    /// Export writes the four named print files; a body-only build has no lid
+    /// copy.
+    #[test]
+    fn export_named_copies_writes_the_named_files() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let artifacts = temp.path().join("build/1x1-6U-minimal-v1");
+        let out = temp.path().join("exports/1x1-6U-minimal-v1");
+        artifact(&artifacts, "body.stl", b"BODY");
+        artifact(&artifacts, "box.step", b"STEP");
+        artifact(&artifacts, "box.FCStd", b"FCSTD");
+        artifact(&artifacts, "report.json", b"{}");
+        artifact(&artifacts, "box.py", b"generated");
+
+        let exported = export_named_copies("1x1-6U-minimal-v1", &artifacts, &out).expect("export");
+
+        assert_eq!(
+            exported
+                .iter()
+                .map(|artifact| artifact.name.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "1x1-6U-minimal-v1-body.stl",
+                "1x1-6U-minimal-v1.step",
+                "1x1-6U-minimal-v1.FCStd",
+            ]
+        );
+        assert_eq!(
+            names(&out),
+            [
+                "1x1-6U-minimal-v1-body.stl",
+                "1x1-6U-minimal-v1.FCStd",
+                "1x1-6U-minimal-v1.step",
+            ]
+        );
+        assert_eq!(
+            fs::read(out.join("1x1-6U-minimal-v1-body.stl")).unwrap(),
+            b"BODY"
+        );
+        assert_eq!(
+            fs::read(out.join("1x1-6U-minimal-v1.step")).unwrap(),
+            b"STEP"
+        );
+        assert_eq!(exported[0].bytes, 4);
+        assert!(!out.join("1x1-6U-minimal-v1-lid.stl").exists());
+        assert!(!out.join("box.py").exists());
+        assert!(!out.join("report.json").exists());
+    }
+
+    /// A re-export overwrites its own copies and leaves everything else in the
+    /// folder alone.
+    #[test]
+    fn export_named_copies_overwrites_its_files_only() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let artifacts = temp.path().join("build/1x1-6U-minimal-v1");
+        let out = temp.path().join("exports/1x1-6U-minimal-v1");
+        artifact(&artifacts, "body.stl", b"BODY");
+        artifact(&artifacts, "box.step", b"STEP");
+        artifact(&artifacts, "box.FCStd", b"FCSTD");
+
+        export_named_copies("1x1-6U-minimal-v1", &artifacts, &out).expect("first export");
+        artifact(&out, "keep.txt", b"human notes");
+        artifact(&artifacts, "body.stl", b"BODY-2");
+
+        export_named_copies("1x1-6U-minimal-v1", &artifacts, &out).expect("re-export");
+
+        assert_eq!(
+            fs::read(out.join("1x1-6U-minimal-v1-body.stl")).unwrap(),
+            b"BODY-2"
+        );
+        assert_eq!(fs::read(out.join("keep.txt")).unwrap(), b"human notes");
+    }
+
+    /// A lid build exports the lid copy too.
+    #[test]
+    fn export_named_copies_includes_the_lid_when_present() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let artifacts = temp.path().join("build/4x4-6U-lid-v1");
+        let out = temp.path().join("exports/4x4-6U-lid-v1");
+        artifact(&artifacts, "body.stl", b"BODY");
+        artifact(&artifacts, "lid.stl", b"LID");
+        artifact(&artifacts, "box.step", b"STEP");
+        artifact(&artifacts, "box.FCStd", b"FCSTD");
+
+        let exported = export_named_copies("4x4-6U-lid-v1", &artifacts, &out).expect("export");
+
+        assert_eq!(exported.len(), 4);
+        assert_eq!(fs::read(out.join("4x4-6U-lid-v1-lid.stl")).unwrap(), b"LID");
+    }
+
+    /// Every exported print file must exist non-empty: an interrupted build is
+    /// not exportable.
+    #[test]
+    fn export_named_copies_requires_a_complete_build() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let artifacts = temp.path().join("build/1x1-6U-minimal-v1");
+        let out = temp.path().join("exports/1x1-6U-minimal-v1");
+        artifact(&artifacts, "box.step", b"STEP");
+        artifact(&artifacts, "box.FCStd", b"FCSTD");
+
+        let error = export_named_copies("1x1-6U-minimal-v1", &artifacts, &out)
+            .expect_err("a build without body.stl must not export");
+
+        assert_eq!(error.exit_code(), crate::error::ExitCode::BuildFailure);
+        assert!(error.to_string().contains("body.stl"), "{error}");
+        assert!(!out.join("1x1-6U-minimal-v1.step").exists());
     }
 }

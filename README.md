@@ -11,7 +11,7 @@ spec.yaml ──validate──▶ build/<id>/box.py ──freecadcmd──▶ bo
 
 FreeCAD is the geometry engine. `boxgen` validates specs, renders the FreeCAD Python build script, runs it headless with `freecadcmd`, reports dimensions and warnings, and maintains the box registry. It never implements a CAD kernel and it never generates meshes itself.
 
-> **Status: all five contract commands implemented; profiles pinned.** The crate, CLI surface, typed config, logging, error contract, Docker-first gates, `boxgen validate`, `boxgen divide`, the build path with the ticketed body shell (#6), the division-tree dividers (#8), the inset friction lid (#9), `boxgen coupon` (#10), `boxgen index` (#11), and `boxgen build --publish` (#11) are in place. `boxgen build` turns a spec into `box.py`, `box.FCStd`, `box.step`, `body.stl`, `lid.stl` (when `lid: true`), and `report.json` under the pinned FreeCAD; every split becomes a 2.0 mm divider fused into the body with 2.0 mm junction coves and a 0.4 mm top chamfer, and validation warnings (a leaf below 15 mm) flow into `report.json`; `--publish` copies the accepted files into the spec's box folder. `boxgen coupon` builds the calibration coupon (1 × 1 × 6U, T-divider, ribbed lid) through the same pipeline into `build/coupon`. `cad/gridfinity.py` vendors the pinned Gridfinity base and stacking-lip profiles, `cad/shell.py` + `cad/dividers.py` + `cad/build.py` assemble and export the body (shell, dividers, and lid), `cad/fillets.py` applies the standard's 2.0 -> 1.0 mm reduce-then-fail contract for internal fillets (recorded as `body.floor_fillet_mm`), and `cad/lid.py` builds the 2.0 mm plate with its 2.0 mm skirt, optional `lid_ribs`, and measured lid report. The binary is `boxgen`, and `boxgen --help` lists the full contract.
+> **Status: all five contract commands implemented, the v2 local web UI shipped, and profiles pinned.** The crate, CLI surface, typed config, logging, error contract, Docker-first gates, `boxgen validate`, `boxgen divide`, the build path with the ticketed body shell (#6), the division-tree dividers (#8), the inset friction lid (#9), `boxgen coupon` (#10), `boxgen index` (#11), and `boxgen build --publish` (#11) are in place. `boxgen build` turns a spec into `box.py`, `box.FCStd`, `box.step`, `body.stl`, `lid.stl` (when `lid: true`), and `report.json` under the pinned FreeCAD; every split becomes a 2.0 mm divider fused into the body with 2.0 mm junction coves and a 0.4 mm top chamfer, and validation warnings (a leaf below 15 mm) flow into `report.json`; `--publish` copies the accepted files into the spec's box folder. `boxgen coupon` builds the calibration coupon (1 × 1 × 6U, T-divider, ribbed lid) through the same pipeline into `build/coupon`. `cad/gridfinity.py` vendors the pinned Gridfinity base and stacking-lip profiles, `cad/shell.py` + `cad/dividers.py` + `cad/build.py` assemble and export the body (shell, dividers, and lid), `cad/fillets.py` applies the standard's 2.0 -> 1.0 mm reduce-then-fail contract for internal fillets (recorded as `body.floor_fillet_mm`), and `cad/lid.py` builds the 2.0 mm plate with its 2.0 mm skirt, optional `lid_ribs`, and measured lid report. The v2 local web UI (`boxgen serve`, ADR-0002) is shipped as well: one axum + tokio binary serving the embedded frontend and the Rust API on `127.0.0.1` only, with the division editor, fit assistant, read-only system panel, and the one build pipeline with 3D preview, export, publish, and index; `scripts/boxgen-ui.sh` (or `just ui`) starts it in Docker with one command. The binary is `boxgen`, and `boxgen --help` lists the full contract plus the one non-contract v2 command.
 
 ## Docker-first quick start
 
@@ -52,7 +52,7 @@ environment test skips unless `BOXGEN_REQUIRE_FREECAD=1`. Geometry work must use
 
 Inside the image, `just` alone lists the recipes: `check`, `check-docker`,
 `docker-build`, `freecad-smoke`, `fmt`, `fmt-check`, `lint`, `test`, `build`,
-`run`.
+`run`, `ui`.
 
 ### Pinned FreeCAD version
 
@@ -82,6 +82,7 @@ image base; bumps are deliberate commits too.
 | `boxgen divide <spec> [--path P] [--axis x\|y] [--at MM]` | Edit one split in a spec's division tree in place. | Implemented (ticket #12) |
 | `boxgen index [--boxes DIR]` | Regenerate `boxes/INDEX.md`. | Implemented (ticket #11) |
 | `boxgen coupon [--out DIR]` | Generate the calibration coupon build (default `build/coupon`). | Implemented (ticket #10) |
+| `boxgen serve [--port PORT] [--open]` | The v2 local web UI: list, edit, fit, build, preview, export, publish, and index (ADR-0002). | Implemented (v2, ADR-0002) |
 
 Exit codes are part of the contract:
 
@@ -217,6 +218,25 @@ boxgen divide boxes/example/spec.yaml --at 60          # edit the root split's p
 boxgen divide boxes/example/spec.yaml --axis y --at 18 # turn the root leaf into a split
 ```
 
+## Web UI
+
+`boxgen serve [--port PORT] [--open]` (v2, ADR-0002) is the local web UI over the same spec. It binds `127.0.0.1` only — one local user, no auth — and serves the embedded frontend (vanilla ES modules and SVG; no Node, no CDN) plus the API. The workspace is the process working directory: `boxes/`, `build/`, and `exports/` resolve under it, and `BOXGEN_UI_HOST_WORKDIR` overrides the host path shown for displayed paths.
+
+Start it in Docker with one command (works without `just`):
+
+```bash
+just ui                # or scripts/boxgen-ui.sh
+just ui --port 8799    # a different port
+```
+
+The script ensures both pinned images (`boxgen/freecad:1.0.0` and `boxgen/ui:1.0.0`), mounts the current directory at `/app`, runs the container as your UID, prints the URL (default `http://127.0.0.1:8787/`; `--port` changes it), and opens the browser; Ctrl-C stops the server. On Linux it uses `--network host`, because `boxgen serve` binds the container's loopback and a published port would forward to the bridge address instead.
+
+The UI does: list the registry, open/edit/save-as boxes, split and drag dividers with live validation (every edit is planned by the Rust validator through `/api/plan`; the JS never implements a rule), the fit assistant, a read-only system standard panel, and the one build pipeline — one build at a time — with 3D preview of the real meshes, named exports into `exports/<base>/`, publish, and `boxgen index`. It does not: expose geometry parameters (walls, radii, and the lip stay fixed and read-only), run in the cloud, or add accounts. Drafts autosave in the browser's localStorage; saving writes the canonical `spec.yaml` (only when the design is valid), so comments are dropped there while `boxgen divide` stays lossless.
+
+Open tolerates a registry folder name that differs from the spec id, but Save and Publish require the standard `boxes/<id>/` layout (Save as creates it); publish follows the CLI rule exactly and never writes into a legacy folder.
+
+`docs/serve-walkthrough.md` is the human browser checklist (ticket #22; no browser automation by decision).
+
 ## Configuration and logging
 
 | Variable | Default | Meaning |
@@ -224,6 +244,8 @@ boxgen divide boxes/example/spec.yaml --axis y --at 18 # turn the root leaf into
 | `BOXGEN_LOG` | `warn` | Stderr log level: `trace`, `debug`, `info`, `warn`, `error`, or `off`. |
 | `BOXGEN_FREECADCMD` | `freecadcmd` | Headless FreeCAD launcher used by `build` and `coupon`. |
 | `BOXGEN_EXPECT_FREECAD_VERSION` | `1.0.0` | FreeCAD release `build` requires from `<launcher> --version`. The `justfile` passes its pin here. |
+| `BOXGEN_UI_PORT` | `8787` | Port `boxgen serve` binds on `127.0.0.1`; `--port` overrides it. |
+| `BOXGEN_UI_HOST_WORKDIR` | unset | Host path shown for displayed workspace paths (the Docker launcher sets it to the mounted directory). |
 
 Typed config is parsed once in `src/config.rs`. Reports go to stdout; diagnostics go to stderr as human-readable `tracing` output, so command output can be piped without JSON noise.
 
@@ -355,6 +377,11 @@ reviewable; `cad/tests/` never enters a build.
   the wire boxes to verify the dividers in the exported model rather than
   only in the report, and `tests/coupon.rs` uses the areas to prove the
   coupon T-divider is in the artifact.
+- `cad/tests/standard_mirror.py` — the fixed-architecture mirror script. It
+  imports the master modules and emits every constant the Rust side mirrors
+  (`src/tree.rs` and the `GET /api/standard` panel), so
+  `tests/standard_mirror.rs` can prove the Rust constants and their Python
+  counterparts still agree.
 - `tests/gridfinity_interface.rs` — runs that script with `freecadcmd` when
   `BOXGEN_REQUIRE_FREECAD=1` and asserts the SYS-1.0 numbers: grid 42 and
   0.25 mm per-side clearance; base 4.75 mm (35.6 -> 37.2 -> 37.2 -> 41.5,
@@ -381,6 +408,11 @@ reviewable; `cad/tests/` never enters a build.
   top chamfer, the 2.0 mm floor cove taper, T/wall junction probes, one split
   of a 4 × 4 body staying one solid (the shell's cell webs), and two synthetic
   corner-arc trees whose acute notch is buried by the 2.0 mm cove.
+- `tests/standard_mirror.rs` — runs `cad/tests/standard_mirror.py` under the
+  pinned FreeCAD and asserts every mirrored `src/tree.rs` constant (walls,
+  base, radii, dividers, lid, and the estimate inputs) equals its Python
+  counterpart in `cad/*.py`, so the `/api/standard` panel cannot drift from
+  the geometry the generated scripts build.
 
 The profiles are the interface that must never drift. Change them only by
 bumping the SYS-1.0 standard and recording an ADR; the workbench (and the
@@ -419,6 +451,8 @@ src/
   tree.rs        division tree, body geometry, leaf sizes, estimate, in-place divide
   build.rs       build orchestration: render box.py, copy cad/, run freecadcmd, verify artifacts, publish
   index.rs       boxes/INDEX.md generation from the box specs
+  serve/         the local web UI (v2, ADR-0002): router, API, jobs,
+                 embedded assets, registry store
   config.rs      typed BOXGEN_* configuration
   logging.rs     stderr tracing subscriber
   error.rs       the one error contract and exit-code mapping
@@ -434,11 +468,13 @@ docs/spec/       the vendored SYS-1.0 spec: generator contract, design
                  standard, calibration procedure, ADRs, box-spec template,
                  empty registry
 templates/       box-spec.yaml, the copyable spec skeleton
-scripts/         calibration-wizard.sh: the human #13 walkthrough (coupon
-                 check, Bambu Studio recipe, print, the nine tests, record)
+assets/          embedded frontend (ES modules + SVG; no Node, no CDN) and
+                 vendored three.js (MIT)
+scripts/         calibration-wizard.sh (the human #13 walkthrough) and
+                 boxgen-ui.sh (the one-command local UI launcher)
 tests/           CLI and integration tests (shared scaffolding in
                  tests/common/, golden scripts under tests/golden/)
-docker/          pinned FreeCAD toolchain and gate image
+docker/          pinned FreeCAD toolchain and gate image; the local UI image
 ```
 
 ## Gates and tests
@@ -449,7 +485,8 @@ doctests). `just check-docker` is the authoritative gate: it builds
 `boxgen/freecad:1.0.0` and runs the same `just check` inside it with
 `BOXGEN_REQUIRE_FREECAD=1`. CI (`.github/workflows/ci.yml`) builds the same
 image and runs the same command on every push and pull request. There is no
-database, broker, cache, HTTP server, or compose stack.
+database, broker, cache, or compose stack; the one HTTP server is `boxgen
+serve`, bound to `127.0.0.1` (ADR-0002).
 
 Current tests pin:
 
@@ -475,11 +512,13 @@ Current tests pin:
 - the lid build end to end under FreeCAD: `body.stl` and `lid.stl`, one STEP with both `Body` and `Lid` products, a ±3% lid-volume range, `lid.roundover_mm` at 1.0, `lid.ribs` false/true matching the spec, a watertight `lid.stl`, and the lid bbox at 79.1 x 163.1 x (37.0..41.0) mm for the 2×4×6U fixture;
 - the lid geometry under FreeCAD: `cad/tests/lid.py` slices the built lid and pins the 2.0 mm plate, 2.0 x 2.0 mm skirt, 0.30 mm per-side clearance, 1.40 mm corners, 1.0 mm roundover, 0.6 mm chamfer, 20 mm finger hole at 14 mm, the 1.0 mm stack gap at the design pitch, the seated-base clearances at the lip's contact seat (negative, the checkpoint #14 finding), and the two 0.15 mm ribs;
 - the body radii under FreeCAD: `cad/tests/radii.py` slices the built 1x1x6U and 1x1x3U bodies and pins the outer 3.75 mm and inner 1.75 mm corner arcs, the lip rows at `OUTER_RADIUS - offset`, the 2.0 mm floor cove, the 1.0 mm minimum for every circular edge above the base, the base zone's 0.8 mm profile minimum, and the fillet helper's 2.0 → 1.0 mm reduce path and total-failure path on synthetic thin prisms;
+- the fixed-architecture mirror under FreeCAD: `cad/tests/standard_mirror.py` pins every mirrored `src/tree.rs` constant against its `cad/*.py` counterpart, so the `/api/standard` panel cannot drift from the geometry the generated scripts build;
 - build determinism: `box.py`, `body.stl`, `lid.stl`, and `report.json` are byte-identical across runs (body-only, lid, and split-tree builds), and `box.step` matches after normalizing its `FILE_NAME` timestamp;
 - build exit codes: 2 for an invalid spec (including `lid_ribs: true` with `lid: false` and every tree that would land a divider on the corner arc), 3 for a FreeCAD failure or missing/empty/unparseable artifacts, 4 for a missing launcher or wrong version, and 1 for a publish target outside the `boxes/<id>/` layout;
 - publish: the STEP/STL/notes copy, a generated `notes.md` when absent, a handwritten `notes.md` preserved, missing or empty artifacts (including `lid.stl` for a lid spec) failing without touching the target, `spec.yaml` unchanged, and `build` without `--publish` leaving `boxes/` untouched;
 - `index`: the committed empty format byte for byte, deterministic rows sorted by box ID, `|`/newline escaping, the catalogue stack-group mapping in both orientations, each print-date prefix, missing `notes.md` as `—`, invalid and malformed specs exiting 2, and a blocked write leaving the existing index untouched;
 - the committed spec-repository `boxes/INDEX.md` reproduced byte for byte, through the vendored `docs/spec/` and the fixture used when it is absent;
+- the serve API in process (`tests/serve.rs`, `tests/serve_build.rs`): embedded assets, the standard panel, canonical save/open, the golden 4 × 4 plan, the fit assistant, the one-at-a-time build job, artifact bytes, export, publish, index, and the end-to-end UI build under FreeCAD;
 - the 0/2/3/4 exit-code mapping in `src/error.rs`;
 - typed config parsing and the committed YAML template end to end;
 - the pinned FreeCAD release: `freecadcmd --version` must report the version
@@ -497,10 +536,13 @@ print a skip and pass. Only the image can prove the geometry toolchain claim.
 - `GLOSSARY.md` — repository vocabulary; the spec's glossary (`docs/spec/GLOSSARY.md`) stays authoritative for domain terms.
 - `docs/adr/` — architecture decisions for this crate.
 - `docs/agents/` — issue tracker, triage labels, and domain-doc conventions.
+- `docs/serve-walkthrough.md` — the human browser checklist for the local UI (ticket #22).
 - `docs/spec/` — the vendored SYS-1.0 spec (generator contract, design standard, calibration, ADRs, template, registry).
 
 ## License
 
 MIT — see `LICENSE`. The vendored Gridfinity profile module
 `cad/gridfinity.py` is **LGPL-2.1-or-later** (adapted from the FreeCAD
-Gridfinity Workbench; see the file header and `cad/LICENSE-LGPL-2.1`).
+Gridfinity Workbench; see the file header and `cad/LICENSE-LGPL-2.1`). The
+embedded frontend vendors three.js 0.185.0 (**MIT**) in `assets/vendor/`;
+source URLs and sha256 hashes are in `assets/vendor/LICENSE-three.md`.

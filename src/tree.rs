@@ -15,54 +15,61 @@ use std::fs;
 use std::path::Path;
 use std::str::FromStr;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use yaml_edit::{Document, Mapping, YamlBuilder, YamlFile, YamlNode};
 
 use crate::error::BoxgenError;
 use crate::spec;
 
-/// Gridfinity grid pitch in millimetres.
+/// Gridfinity grid pitch in millimetres; mirrors `cad/gridfinity.py::GRID`.
 pub const GRID_MM: f64 = 42.0;
 
-/// Clearance subtracted from the nominal footprint (0.25 mm per side).
+/// Clearance subtracted from the nominal footprint (0.25 mm per side);
+/// `2 × cad/gridfinity.py::CLEARANCE`.
 pub const OUTER_CLEARANCE_MM: f64 = 0.5;
 
-/// Body, lip, floor and divider wall thickness (standard §4).
+/// Body, lip, floor and divider wall thickness (standard §4); mirrors
+/// `cad/shell.py::WALL`.
 pub const WALL_MM: f64 = 2.0;
 
-/// Gridfinity height unit in millimetres.
+/// Gridfinity height unit in millimetres; mirrors `cad/shell.py::HEIGHT_UNIT`.
 pub const HEIGHT_UNIT_MM: f64 = 7.0;
 
 /// Base zone height, standard §3: 0.8 bottom chamfer + 1.8 vertical + 2.15
-/// top chamfer.
+/// top chamfer; mirrors `cad/gridfinity.py::BASE_HEIGHT`.
 pub const BASE_HEIGHT_MM: f64 = 4.75;
 
 /// Stacking lip height, standard §3: 0.7 bottom chamfer + 1.8 vertical + 1.5
-/// top chamfer.
+/// top chamfer; mirrors `cad/gridfinity.py::LIP_HEIGHT`.
 pub const LIP_HEIGHT_MM: f64 = 4.0;
 
 /// Base zone (4.75 mm) plus stacking lip (4.0 mm), standard §4.2.
 pub const BASE_AND_LIP_MM: f64 = BASE_HEIGHT_MM + LIP_HEIGHT_MM;
 
-/// Divider-to-lip gap on 3U bodies, standard §4.3.
+/// Divider-to-lip gap on 3U bodies, standard §4.3; mirrors
+/// `cad/dividers.py::DIVIDER_GAP_3U`.
 pub const DIVIDER_GAP_3U_MM: f64 = 2.0;
 
-/// Divider-to-lip gap on 6U and taller bodies, standard §4.3.
+/// Divider-to-lip gap on 6U and taller bodies, standard §4.3; mirrors
+/// `cad/dividers.py::DIVIDER_GAP`.
 pub const DIVIDER_GAP_MM: f64 = 10.0;
 
-/// Lid plate thickness, standard §4.4.
+/// Lid plate thickness, standard §4.4; mirrors `cad/lid.py::LID_PLATE`.
 pub const LID_PLATE_MM: f64 = 2.0;
 
-/// Lid skirt thickness and depth, standard §4.4.
+/// Lid skirt thickness and depth, standard §4.4; mirrors
+/// `cad/lid.py::LID_SKIRT`.
 pub const LID_SKIRT_MM: f64 = 2.0;
 
 /// Largest outer dimension the X2D guard accepts, contract §7.
 pub const MAX_OUTER_MM: f64 = 200.0;
 
-/// Every divider is 2.0 mm thick (contract §4).
+/// Every divider is 2.0 mm thick (contract §4); mirrors
+/// `cad/dividers.py::DIVIDER_THICKNESS`.
 pub const DIVIDER_MM: f64 = 2.0;
 
-/// Divider top-edge chamfer (standard §4.1).
+/// Divider top-edge chamfer (standard §4.1); mirrors
+/// `cad/dividers.py::DIVIDER_TOP_CHAMFER`.
 pub const DIVIDER_TOP_CHAMFER_MM: f64 = 0.4;
 
 /// Smallest legal leaf dimension in millimetres (contract §4).
@@ -74,7 +81,8 @@ pub const WARN_LEAF_MM: u32 = 15;
 /// Maximum number of splits on one root-to-leaf path (contract §4).
 pub const MAX_TREE_DEPTH: u32 = 32;
 
-/// PETG Basic density used by the estimate, standard §5.
+/// PETG Basic density used by the estimate, standard §5; mirrored by
+/// `cad/build.py::PETG_DENSITY_G_PER_CM3`.
 pub const PETG_DENSITY_G_PER_CM3: f64 = 1.27;
 
 /// Conservative effective extrusion throughput used by the estimate.
@@ -82,6 +90,7 @@ pub const PETG_DENSITY_G_PER_CM3: f64 = 1.27;
 /// PETG on a 0.4 mm nozzle at 0.20 mm layers does not sustain the slicer's
 /// peak volumetric flow over a whole print. This figure averages walls,
 /// shells, infill and travel; it is an estimate input, not a slicer setting.
+/// Mirrored by `cad/build.py::EFFECTIVE_FLOW_MM3_PER_S`.
 pub const EFFECTIVE_FLOW_MM3_PER_S: f64 = 5.5;
 
 /// Estimated mass above this value is a warning (contract §7).
@@ -90,8 +99,69 @@ pub const MAX_MASS_G: f64 = 500.0;
 /// Estimated print time above this value is a warning (contract §7).
 pub const MAX_PRINT_HOURS: f64 = 20.0;
 
+/// Smallest footprint side the schema accepts, in Gridfinity units (contract §3).
+pub const MIN_FOOTPRINT_UNITS: u32 = 1;
+
+/// Largest footprint side the schema accepts: the 4 × 4 module (contract §3,
+/// standard §9/§12).
+pub const MAX_FOOTPRINT_UNITS: u32 = 4;
+
+/// Heights the schema accepts (contract §3).
+pub const HEIGHTS_U: [u32; 4] = [3, 6, 9, 12];
+
+/// Default height for a new box (standard §9: 6U is the universal default).
+pub const DEFAULT_HEIGHT_U: u32 = 6;
+
+/// Outer vertical corner radius (standard §4.1): the pinned Gridfinity outer
+/// radius; mirrors `cad/gridfinity.py::OUTER_RADIUS`.
+pub const OUTER_RADIUS_MM: f64 = 3.75;
+
+/// Inner vertical corner radius (standard §4.1): `OUTER_RADIUS_MM - WALL_MM`,
+/// which keeps the 2.0 mm wall uniform around corners; mirrors
+/// `cad/shell.py::INNER_RADIUS`.
+pub const INNER_RADIUS_MM: f64 = OUTER_RADIUS_MM - WALL_MM;
+
+/// Floor-to-wall fillet radius (standard §4.1); mirrors
+/// `cad/shell.py::FLOOR_FILLET`.
+pub const FLOOR_FILLET_MM: f64 = 2.0;
+
+/// Divider-to-floor and divider-to-wall cove radius (standard §4.1): the same
+/// 2.0 mm radius as the floor fillet, built as box-minus-quarter-cylinder
+/// coves in `cad/dividers.py`; mirrors `cad/dividers.py::JUNCTION_FILLET`
+/// (= `cad/shell.py::FLOOR_FILLET`).
+pub const DIVIDER_COVE_MM: f64 = FLOOR_FILLET_MM;
+
+/// Lid skirt clearance per side to the lip (standard §4.4/§6); mirrors
+/// `cad/lid.py::LID_CLEARANCE`.
+pub const LID_CLEARANCE_MM: f64 = 0.30;
+
+/// Lid outer vertical corner radius (standard §4.1): the lip's 1.75 mm inner
+/// corner minus clearance, rounded down to 1.40 mm for extra corner
+/// clearance; mirrors `cad/lid.py::LID_CORNER_RADIUS`.
+pub const LID_CORNER_RADIUS_MM: f64 = 1.40;
+
+/// Lid plate top-edge roundover (standard §4.1/§4.4); mirrors
+/// `cad/lid.py::LID_TOP_ROUNDOVER`.
+pub const LID_TOP_ROUNDOVER_MM: f64 = 1.0;
+
+/// Lid skirt bottom chamfer for self-alignment (standard §4.1/§4.4); mirrors
+/// `cad/lid.py::LID_SKIRT_CHAMFER`.
+pub const LID_SKIRT_CHAMFER_MM: f64 = 0.6;
+
+/// Lid finger hole diameter (standard §4.4); mirrors
+/// `cad/lid.py::FINGER_HOLE_DIAMETER`.
+pub const LID_FINGER_HOLE_DIAMETER_MM: f64 = 20.0;
+
+/// Finger-hole centre distance from the +y outer edge (standard §4.4);
+/// mirrors `cad/lid.py::FINGER_HOLE_EDGE_DISTANCE`.
+pub const LID_FINGER_HOLE_EDGE_DISTANCE_MM: f64 = 14.0;
+
+/// Optional friction-rib interference (standard §4.4/§6); mirrors
+/// `cad/lid.py::LID_RIB_PROUD`.
+pub const LID_RIB_MM: f64 = 0.15;
+
 /// Split axis. `x` splits the width, `y` splits the depth.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Axis {
     /// Vertical divider; splits the parent's width.
@@ -280,9 +350,57 @@ pub struct Leaf {
     pub path: String,
     /// Optional compartment name.
     pub compartment: Option<String>,
+    /// Leaf origin x (the min corner) in the body interior, millimetres from
+    /// the -x inner wall face.
+    pub x_mm: f64,
+    /// Leaf origin y (the min corner) in the body interior, millimetres from
+    /// the -y inner wall face.
+    pub y_mm: f64,
     /// Leaf width (x) in millimetres.
     pub width_mm: f64,
     /// Leaf depth (y) in millimetres.
+    pub depth_mm: f64,
+}
+
+/// One divider plate, positioned absolutely in the body interior.
+///
+/// The rectangle is the plate's top-view footprint in the same interior frame
+/// as [`Leaf`]: `x_mm`/`y_mm` are the min corner, and the plate spans the
+/// whole parent region across its axis. `parent` is that region, so a consumer
+/// (the local UI) can clamp a drag without re-walking the tree.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Divider {
+    /// Dotted schema path of the split, for example `divisions.near`.
+    pub path: String,
+    /// Axis the divider splits: `x` is `DIVIDER_MM` wide, `y` is
+    /// `DIVIDER_MM` deep.
+    pub axis: Axis,
+    /// Near face x (the plate's min corner) in the body interior, in
+    /// millimetres.
+    pub x_mm: f64,
+    /// Plate min corner y in the body interior, in millimetres.
+    pub y_mm: f64,
+    /// Plate width (x span) in millimetres.
+    pub width_mm: f64,
+    /// Plate depth (y span) in millimetres.
+    pub depth_mm: f64,
+    /// The parent region this split divides.
+    pub parent: Rect,
+}
+
+/// An axis-aligned rectangle in the body interior frame.
+///
+/// `x_mm`/`y_mm` are the min corner, measured from the -x/-y inner wall
+/// faces.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Rect {
+    /// Min corner x in the body interior.
+    pub x_mm: f64,
+    /// Min corner y in the body interior.
+    pub y_mm: f64,
+    /// Width (x span).
+    pub width_mm: f64,
+    /// Depth (y span).
     pub depth_mm: f64,
 }
 
@@ -291,6 +409,8 @@ pub struct Leaf {
 pub struct TreeReport {
     /// Leaves in traversal order; near before far.
     pub leaves: Vec<Leaf>,
+    /// Divider plates in traversal order; near before far.
+    pub dividers: Vec<Divider>,
     /// Rule violations, with schema paths.
     pub errors: Vec<String>,
     /// Advisory findings that do not fail the run.
@@ -381,6 +501,8 @@ impl Walker<'_> {
                 self.report.leaves.push(Leaf {
                     path: path.to_owned(),
                     compartment: compartment.clone(),
+                    x_mm: region.x,
+                    y_mm: region.y,
                     width_mm: region.width,
                     depth_mm: region.depth,
                 });
@@ -419,6 +541,33 @@ impl Walker<'_> {
                     Axis::Y => (region.width, DIVIDER_MM),
                 };
                 self.report.divider_volume_mm3 += thickness * span * self.divider_height_mm;
+                let parent = Rect {
+                    x_mm: region.x,
+                    y_mm: region.y,
+                    width_mm: region.width,
+                    depth_mm: region.depth,
+                };
+                let divider = match axis {
+                    Axis::X => Divider {
+                        path: path.to_owned(),
+                        axis: *axis,
+                        x_mm: position,
+                        y_mm: region.y,
+                        width_mm: DIVIDER_MM,
+                        depth_mm: region.depth,
+                        parent,
+                    },
+                    Axis::Y => Divider {
+                        path: path.to_owned(),
+                        axis: *axis,
+                        x_mm: region.x,
+                        y_mm: position,
+                        width_mm: region.width,
+                        depth_mm: DIVIDER_MM,
+                        parent,
+                    },
+                };
+                self.report.dividers.push(divider);
 
                 self.ancestors.push((*axis, position));
                 match axis {
@@ -937,6 +1086,42 @@ mod tests {
         assert_mm(small.interior_depth_mm, 37.5);
         assert_mm(small.interior_height_mm, 12.25);
         assert_mm(small.divider_height_mm, 10.25);
+    }
+
+    /// The fixed-architecture constants mirror the frozen SYS-1.0 standard
+    /// (`docs/spec/docs/standard.md`). They are pinned against the document,
+    /// not against each other, so a silent re-typing fails here instead of
+    /// becoming a second source of truth.
+    #[test]
+    fn fixed_architecture_constants_match_the_standard() {
+        assert_eq!(GRID_MM, 42.0);
+        assert_eq!(OUTER_CLEARANCE_MM, 0.5);
+        assert_eq!(HEIGHT_UNIT_MM, 7.0);
+        assert_eq!(BASE_HEIGHT_MM, 4.75);
+        assert_eq!(LIP_HEIGHT_MM, 4.0);
+        assert_eq!(WALL_MM, 2.0);
+        assert_eq!(OUTER_RADIUS_MM, 3.75);
+        assert_eq!(INNER_RADIUS_MM, 1.75);
+        assert_eq!(FLOOR_FILLET_MM, 2.0);
+        assert_eq!(DIVIDER_MM, 2.0);
+        assert_eq!(DIVIDER_TOP_CHAMFER_MM, 0.4);
+        assert_eq!(DIVIDER_COVE_MM, 2.0);
+        assert_eq!(LID_PLATE_MM, 2.0);
+        assert_eq!(LID_SKIRT_MM, 2.0);
+        assert_eq!(LID_CLEARANCE_MM, 0.30);
+        assert_eq!(LID_CORNER_RADIUS_MM, 1.40);
+        assert_eq!(LID_TOP_ROUNDOVER_MM, 1.0);
+        assert_eq!(LID_SKIRT_CHAMFER_MM, 0.6);
+        assert_eq!(LID_FINGER_HOLE_DIAMETER_MM, 20.0);
+        assert_eq!(LID_FINGER_HOLE_EDGE_DISTANCE_MM, 14.0);
+        assert_eq!(LID_RIB_MM, 0.15);
+        assert_eq!((MIN_FOOTPRINT_UNITS, MAX_FOOTPRINT_UNITS), (1, 4));
+        assert_eq!(HEIGHTS_U, [3, 6, 9, 12]);
+        assert_eq!(DEFAULT_HEIGHT_U, 6);
+        assert_eq!(MIN_LEAF_MM, 12);
+        assert_eq!(WARN_LEAF_MM, 15);
+        assert_eq!(MAX_TREE_DEPTH, 32);
+        assert_eq!(MAX_OUTER_MM, 200.0);
     }
 
     #[test]

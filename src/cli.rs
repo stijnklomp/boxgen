@@ -13,6 +13,7 @@ use crate::build;
 use crate::config::Config;
 use crate::error::BoxgenError;
 use crate::index;
+use crate::serve;
 use crate::spec;
 use crate::tree;
 
@@ -34,7 +35,7 @@ pub struct Cli {
     pub command: Command,
 }
 
-/// The five commands of the SYS-1.0 generator contract.
+/// The five SYS-1.0 contract commands plus the v2 local UI.
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Parse and validate a spec; print a human-readable report.
@@ -91,6 +92,17 @@ pub enum Command {
         #[arg(long, value_name = "DIR")]
         out: Option<PathBuf>,
     },
+
+    /// Start the local web UI for the spec (v2; ADR-0002).
+    Serve {
+        /// TCP port to bind on 127.0.0.1 (default: BOXGEN_UI_PORT or 8787).
+        #[arg(long, value_name = "PORT", value_parser = clap::value_parser!(u16).range(1..))]
+        port: Option<u16>,
+
+        /// Open the UI in the default browser after the server starts.
+        #[arg(long)]
+        open: bool,
+    },
 }
 
 /// Split axis accepted by `boxgen divide`.
@@ -131,6 +143,7 @@ pub fn run(cli: Cli, config: &Config) -> Result<(), BoxgenError> {
         } => tree::divide(&spec, path.as_deref(), axis.map(AxisArg::as_str), at_mm),
         Command::Index { boxes } => index::generate(&boxes),
         Command::Coupon { out } => build::coupon(out.as_deref(), config),
+        Command::Serve { port, open } => serve::serve(port, open, config),
     }
 }
 
@@ -227,5 +240,34 @@ mod tests {
 
         assert!(Cli::try_parse_from(["boxgen", "index"]).is_ok());
         assert!(Cli::try_parse_from(["boxgen", "coupon"]).is_ok());
+    }
+
+    #[test]
+    fn serve_accepts_port_and_open() {
+        let cli = Cli::try_parse_from(["boxgen", "serve", "--port", "9001", "--open"]).unwrap();
+
+        match cli.command {
+            Command::Serve { port, open } => {
+                assert_eq!(port, Some(9001));
+                assert!(open);
+            }
+            other => panic!("expected serve, got {other:?}"),
+        }
+
+        let cli = Cli::try_parse_from(["boxgen", "serve"]).unwrap();
+        match cli.command {
+            Command::Serve { port, open } => {
+                assert_eq!(port, None);
+                assert!(!open);
+            }
+            other => panic!("expected serve, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn serve_rejects_port_zero() {
+        let error = Cli::try_parse_from(["boxgen", "serve", "--port", "0"]).unwrap_err();
+
+        assert_eq!(error.kind(), clap::error::ErrorKind::ValueValidation);
     }
 }

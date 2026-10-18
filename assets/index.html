@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>boxgen serve</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/assets/vendor/three.module.min.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <header class="app-header">
+      <a class="brand" href="#/boxes">boxgen serve</a>
+      <nav class="app-nav">
+        <a href="#/boxes">Boxes</a>
+        <a href="#/standard">System standard</a>
+      </nav>
+      <span class="app-system" id="system-version"></span>
+    </header>
+    <main class="app-main" id="app"></main>
+    <div class="toast-host" id="toast-host" aria-live="polite"></div>
+    <script type="module" src="/assets/app.js"></script>
+  </body>
+</html>

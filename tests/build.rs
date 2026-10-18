@@ -892,7 +892,14 @@ fn build_publish_populates_the_box_folder_with_the_contract_artifacts() {
         "the build directory keeps its artifacts"
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("published:"), "{stdout}");
+    let summary = stdout.find("artifacts:").expect("the summary block");
+    let published = stdout
+        .find("published: boxes/1x1-6U-minimal-v1\n")
+        .expect("the published line");
+    assert!(
+        summary < published,
+        "the published line follows the summary: {stdout}"
+    );
 }
 
 /// `notes.md` is the human print record: publish never overwrites an existing
