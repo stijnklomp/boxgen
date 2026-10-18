@@ -1,6 +1,6 @@
 //! YAML box-spec schema, parsing, and validation.
 //!
-//! Contract: `docs/generator.md` §3 (input schema), §7 (validation rules), and
+//! Contract: `docs/spec/docs/generator.md` §3 (input schema), §7 (validation rules), and
 //! §9 (non-goals). The spec is the source of truth for one body; wall
 //! thickness, radii, lip dimensions and print settings are fixed by the
 //! standard and must never be expressible in a spec.
@@ -661,26 +661,18 @@ divisions: { compartment: Bits }
     }
 
     #[test]
-    fn sibling_spec_repository_template_validates_when_present() {
-        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let candidates = [
-            manifest.join(
-                "../../research/3d-printed-stackable-portable-storage/templates/box-spec.yaml",
-            ),
-            manifest
-                .join("../research/3d-printed-stackable-portable-storage/templates/box-spec.yaml"),
-        ];
-        let Some(path) = candidates.iter().find(|path| path.is_file()) else {
+    fn spec_repository_template_validates_when_present() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/spec/templates/box-spec.yaml");
+        if !path.is_file() {
             eprintln!(
-                "skipping sibling spec template check: neither {} nor {} exists",
-                candidates[0].display(),
-                candidates[1].display()
+                "skipping spec template check: {} does not exist",
+                path.display()
             );
             return;
-        };
+        }
 
-        let text = std::fs::read_to_string(path).expect("sibling template must be readable");
-        let spec = parse(&text).expect("sibling template must parse");
+        let text = std::fs::read_to_string(&path).expect("vendored template must be readable");
+        let spec = parse(&text).expect("vendored template must parse");
         let validation = spec.validate();
 
         assert!(

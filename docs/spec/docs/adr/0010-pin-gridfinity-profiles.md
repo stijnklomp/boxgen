@@ -1,0 +1,3 @@
+# Pin the Gridfinity profile geometry in the master
+
+The master vendors the Gridfinity base and lip profile functions (from the FreeCAD Gridfinity Workbench, LGPL-2.1, attribution kept in the file header) instead of calling a separately installed workbench version. The base and lip are the interface that must never drift; pinning the functions makes every build reproducible and prevents a workbench update from silently changing the fit. The workbench remains the reference for the original profile dimensions.

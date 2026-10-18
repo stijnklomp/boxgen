@@ -158,7 +158,7 @@ fn coupon_defaults_to_build_coupon_and_reuses_the_build_pipeline() {
     assert!(stdout.contains("id: coupon-1x1-6U-v1"), "{stdout}");
     assert!(stdout.contains("output: build/coupon"), "{stdout}");
     assert!(stdout.contains("print two coupons and one lid"), "{stdout}");
-    assert!(stdout.contains("docs/calibration.md"), "{stdout}");
+    assert!(stdout.contains("docs/spec/docs/calibration.md"), "{stdout}");
     assert!(stdout.contains("nine tests"), "{stdout}");
 
     // The Rust side rewrote report.json with the merged warnings and verified
@@ -194,7 +194,7 @@ fn coupon_builds_end_to_end() {
     assert!(stdout.contains("warnings: none"), "{stdout}");
     assert!(stdout.contains("print two coupons and one lid"), "{stdout}");
     assert!(
-        stdout.contains("nine tests in docs/calibration.md"),
+        stdout.contains("nine tests in docs/spec/docs/calibration.md"),
         "{stdout}"
     );
 
@@ -723,26 +723,18 @@ fn coupon_uses_the_contract_exit_codes() {
         );
 }
 
-/// Locates the sibling SYS-1.0 spec checkout from a main clone or a worktree.
+/// The SYS-1.0 spec repository is vendored at `docs/spec/`.
 fn spec_repository() -> Option<PathBuf> {
-    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let relative = "research/3d-printed-stackable-portable-storage";
-
-    [
-        manifest.join("..").join(relative),
-        manifest.join("..").join("..").join(relative),
-        manifest
-            .join("..")
-            .join("3d-printed-stackable-portable-storage"),
-    ]
-    .into_iter()
-    .find(|candidate| candidate.join("docs/calibration.md").is_file())
+    let candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/spec");
+    candidate
+        .join("docs/calibration.md")
+        .is_file()
+        .then_some(candidate)
 }
 
 /// The coupon's fixed numbers come from calibration section 2, and the
-/// document still states them. The sibling checkout is local-only, so the
-/// document comparison skips cleanly when it is absent; the pinned literals
-/// run in the gate.
+/// document still states them. The spec is vendored at `docs/spec/`, so the
+/// comparison always runs; it skips only if that directory is missing.
 #[test]
 fn the_coupon_feature_set_matches_the_calibration_document() {
     // The spec's numbers, derived from the internal spec and the standard's
@@ -761,9 +753,7 @@ fn the_coupon_feature_set_matches_the_calibration_document() {
     );
 
     let Some(repository) = spec_repository() else {
-        eprintln!(
-            "skipping calibration-document comparison: the SYS-1.0 spec checkout is not beside this repository"
-        );
+        eprintln!("skipping calibration-document comparison: docs/spec/ is missing");
         return;
     };
     let document =

@@ -1,9 +1,9 @@
 //! `boxgen index` process contract.
 //!
-//! The format is pinned against the spec repository's committed `boxes/INDEX.md`
-//! when that checkout is available beside this one: copy its `boxes/` tree into
-//! a temp directory, run `index`, and require byte-for-byte equality. The
-//! checkout is local-only, so the test skips cleanly when it is absent.
+//! The format is pinned against the spec repository's committed `boxes/INDEX.md`,
+//! vendored at `docs/spec/`: copy its `boxes/` tree into a temp directory, run
+//! `index`, and require byte-for-byte equality. The test skips cleanly only if
+//! the vendored directory is missing.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -13,22 +13,11 @@ mod common;
 use predicates::prelude::*;
 use tempfile::tempdir;
 
-/// Locates the sibling SYS-1.0 spec checkout from a main clone or a worktree.
+/// The SYS-1.0 spec repository is vendored at `docs/spec/`.
 fn spec_repository() -> Option<PathBuf> {
-    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let relative = "research/3d-printed-stackable-portable-storage";
-
-    [
-        manifest.join("..").join(relative),
-        manifest.join("..").join("..").join(relative),
-        manifest
-            .join("..")
-            .join("3d-printed-stackable-portable-storage"),
-    ]
-    .into_iter()
-    .find(|candidate| {
-        candidate.join("boxes/INDEX.md").is_file() && candidate.join("docs/generator.md").is_file()
-    })
+    let candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/spec");
+    (candidate.join("boxes/INDEX.md").is_file() && candidate.join("docs/generator.md").is_file())
+        .then_some(candidate)
 }
 
 fn copy_directory(from: &Path, to: &Path) {
@@ -47,8 +36,8 @@ fn copy_directory(from: &Path, to: &Path) {
 /// The empty index is the committed spec-repository file byte for byte.
 ///
 /// `tests/fixtures/committed-INDEX.md` is a copy of the spec repository's
-/// `boxes/INDEX.md`, so this comparison also runs in the gate container, which
-/// does not mount the sibling checkout.
+/// `boxes/INDEX.md`, so the empty-index comparison also runs when the vendored
+/// spec is not checked out.
 #[test]
 fn empty_index_matches_the_committed_file_byte_for_byte() {
     let temp = tempdir().expect("tempdir");
@@ -74,9 +63,7 @@ fn empty_index_matches_the_committed_file_byte_for_byte() {
 #[test]
 fn index_reproduces_the_committed_spec_repository_index() {
     let Some(repository) = spec_repository() else {
-        eprintln!(
-            "skipping committed-index comparison: the SYS-1.0 spec checkout is not beside this repository"
-        );
+        eprintln!("skipping committed-index comparison: docs/spec/ is missing");
         return;
     };
 

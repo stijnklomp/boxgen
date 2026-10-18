@@ -1,6 +1,6 @@
 //! Build orchestration and `freecadcmd` invocation.
 //!
-//! Contract: `docs/generator.md` §5 (CLI contract, artifacts, publish) and §6
+//! Contract: `docs/spec/docs/generator.md` §5 (CLI contract, artifacts, publish) and §6
 //! (FreeCAD master contract). `build` validates a spec, writes
 //! `build/<id>/box.py`, runs it headless through `freecadcmd`, and verifies
 //! `box.FCStd`, `box.step`, `body.stl`, and `report.json`.
@@ -141,7 +141,9 @@ pub fn coupon(out: Option<&Path>, config: &Config) -> Result<(), BoxgenError> {
 
     println!();
     println!("calibration: print two coupons and one lid in the production recipe");
-    println!("calibration: run the nine tests in docs/calibration.md and record the result there");
+    println!(
+        "calibration: run the nine tests in docs/spec/docs/calibration.md and record the result there"
+    );
 
     Ok(())
 }

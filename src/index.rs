@@ -1,6 +1,6 @@
 //! `boxes/INDEX.md` generation.
 //!
-//! Contract: `docs/generator.md` §5 and the spec repository's committed index
+//! Contract: `docs/spec/docs/generator.md` §5 and the spec's committed index
 //! format. The index is generated from box specs, never edited by hand, and
 //! lists every box with its footprint, height, contents, stack group, and print
 //! date.

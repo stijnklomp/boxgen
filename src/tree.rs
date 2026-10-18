@@ -1,6 +1,6 @@
 //! Division tree, leaf sizes, and validation.
 //!
-//! Contract: `docs/generator.md` §4. A node is either a leaf (an optional
+//! Contract: `docs/spec/docs/generator.md` §4. A node is either a leaf (an optional
 //! compartment name) or a split on one axis into a near and a far child. The
 //! tree is the only stored form; grid views are renderings.
 //!

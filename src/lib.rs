@@ -6,8 +6,8 @@
 //!
 //! The command surface is in [`cli`], the process error contract in [`error`],
 //! and the fixed module responsibilities in [`spec`], [`tree`], [`build`] and
-//! [`index`]. The authoritative generator contract lives outside this crate:
-//! `docs/generator.md` in the SYS-1.0 spec repository.
+//! [`index`]. The authoritative generator contract is the SYS-1.0 spec
+//! vendored at `docs/spec/`: `docs/spec/docs/generator.md`.
 
 pub mod build;
 pub mod cli;

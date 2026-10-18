@@ -211,10 +211,11 @@ finish() {
 #   state:    build/calibration/state.env          (build/ is git-ignored)
 #   records:  chosen at run time; default is <calibration doc dir>/calibration-records
 #
-# Sources of truth: docs/calibration.md §3–§5 (tests, criteria, permitted
-# fixes, record table), standard.md §5–§6 (production recipe, tolerances),
-# issue #13, and HANDOFF.md §Human checkpoints. An agent must not close #13
-# or #14 — the record stage prints the gh commands for the human to run.
+# Sources of truth: docs/spec/docs/calibration.md §3–§5 (tests, criteria,
+# permitted fixes, record table), docs/spec/docs/standard.md §5–§6, and
+# docs/spec/docs/HANDOFF.md §Human checkpoints (the spec is vendored at
+# docs/spec/). An agent must not close #13 or #14 — the record stage prints
+# the gh commands for the human to run.
 # Re-run the calibration (calibration §6) after a new filament brand or
 # type, a new nozzle, a major Bambu Studio upgrade, any master geometry
 # change, or a new spool whose first box shows a fit problem.
@@ -241,6 +242,7 @@ STATE_DIR="$REPO_ROOT/build/calibration"
 ENV_FILE="$STATE_DIR/state.env"
 mkdir -p "$STATE_DIR"
 
+# The vendored spec first, then a pre-move sibling checkout if one exists.
 calibration_doc=""
 for candidate in \
   "$REPO_ROOT/docs/spec/docs/calibration.md" \

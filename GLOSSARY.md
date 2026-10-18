@@ -1,6 +1,6 @@
 # boxgen
 
-Vocabulary for the SYS-1.0 spec compiler. The authoritative domain glossary — body, lid, divider, compartment, footprint, height, coupon — lives in the spec repository (`../research/3d-printed-stackable-portable-storage/GLOSSARY.md`); use its terms and spellings.
+Vocabulary for the SYS-1.0 spec compiler. The authoritative domain glossary — body, lid, divider, compartment, footprint, height, coupon — lives at `docs/spec/GLOSSARY.md` (the SYS-1.0 spec is vendored at `docs/spec/`); use its terms and spellings.
 
 ## Repository concepts
 
@@ -21,7 +21,7 @@ _Avoid_: template, FreeCAD script (that is the generated `box.py`).
 _Avoid_: output folder, artifacts (be specific).
 
 **Coupon**:
-The calibration build: a 1 × 1 × 6U body with one 2.0 mm T-divider fused to the floor and one wall, plus the ribbed friction lid, built by `boxgen coupon` into `build/coupon` through the same master path as every body. It is an internal spec (`coupon: true`), never a user spec, and it is the only iteration before production boxes (spec repository `docs/calibration.md`).
+The calibration build: a 1 × 1 × 6U body with one 2.0 mm T-divider fused to the floor and one wall, plus the ribbed friction lid, built by `boxgen coupon` into `build/coupon` through the same master path as every body. It is an internal spec (`coupon: true`), never a user spec, and it is the only iteration before production boxes (spec: `docs/spec/docs/calibration.md`).
 _Avoid_: test box, sample, prototype.
 
 **Publish**:
@@ -33,7 +33,7 @@ _Avoid_: deploy, release, export (export is the FreeCAD step).
 _Avoid_: catalog, listing, manifest.
 
 **Contract command**:
-One of the five commands fixed by `docs/generator.md` §5: `validate`, `build`, `divide`, `index`, `coupon`. Their names and argument shapes are the public interface; all five are implemented after ticket #10.
+One of the five commands fixed by `docs/spec/docs/generator.md` §5: `validate`, `build`, `divide`, `index`, `coupon`. Their names and argument shapes are the public interface; all five are implemented after ticket #10.
 _Avoid_: subcommand (fine in clap context, but "contract command" in docs).
 
 **Exit code**:

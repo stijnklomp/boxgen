@@ -7,7 +7,7 @@ mod common;
 
 use predicates::prelude::*;
 
-/// The five commands fixed by the generator contract (docs/generator.md §5).
+/// The five commands fixed by the generator contract (docs/spec/docs/generator.md §5).
 const CONTRACT_COMMANDS: [&str; 5] = ["validate", "build", "divide", "index", "coupon"];
 
 #[test]

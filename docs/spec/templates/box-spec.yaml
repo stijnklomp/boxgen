@@ -1,0 +1,36 @@
+# boxgen spec template — SYS-1.0
+# Copy this file to boxes/<id>/spec.yaml and edit the values.
+# The schema is defined in docs/generator.md.
+
+system: SYS-1.0
+id: 4x4-6U-example-v1
+footprint: [4, 4]        # 1..4 units per side
+height_u: 6              # 3, 6, 9, or 12
+lid: true
+notes: "Replace with the contents and any handling notes"
+
+# Optional metadata; the generator checks fit and weight if present.
+contents:
+  description: "Example contents"
+  max_length_mm: 200
+  max_width_mm: 80
+  max_height_mm: 25
+  weight_kg: 1.2
+
+# Recursive division tree.
+# axis: x = vertical divider (moves left/right)
+# axis: y = horizontal divider (moves up/down)
+# at_mm: integer distance from the parent's origin to the divider's near face.
+divisions:
+  axis: x
+  at_mm: 80
+  near:
+    axis: y
+    at_mm: 60
+    near: { compartment: "USB-C short" }
+    far:  { compartment: "USB-C long" }
+  far:
+    axis: y
+    at_mm: 80
+    near: { compartment: "Power" }
+    far:  { compartment: "Adapters" }

@@ -2,7 +2,7 @@
 //!
 //! Every command returns [`BoxgenError`]; `main` is the only place that turns
 //! it into a process exit code. The contract codes are fixed by the generator
-//! contract (`docs/generator.md` §5): 0 success, 2 invalid spec, 3 geometry or
+//! contract (`docs/spec/docs/generator.md` §5): 0 success, 2 invalid spec, 3 geometry or
 //! build failure, 4 environment failure.
 
 use std::path::PathBuf;

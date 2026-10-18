@@ -1,6 +1,6 @@
 //! `boxgen validate` process behaviour: report, warnings, and exit code 2.
 //!
-//! Contract: `docs/generator.md` §3, §4, §5 and §7. A valid spec prints a
+//! Contract: `docs/spec/docs/generator.md` §3, §4, §5 and §7. A valid spec prints a
 //! human-readable report to stdout and exits 0; an invalid or unreadable spec
 //! prints precise diagnostics to stderr and exits 2. Warnings never fail.
 

@@ -6,7 +6,7 @@
 //! Docker gate and CI set it). The golden script and fake launcher tests are
 //! pure Rust and always run.
 //!
-//! Contract: `docs/generator.md` §5 and §6. `freecadcmd` exits 0 on an
+//! Contract: `docs/spec/docs/generator.md` §5 and §6. `freecadcmd` exits 0 on an
 //! unhandled Python exception or a missing script, so the build test verifies
 //! artifacts rather than trusting the exit status alone.
 

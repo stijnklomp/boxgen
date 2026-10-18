@@ -1,7 +1,7 @@
 //! `boxgen divide` process behaviour: in-place edits, path resolution,
 //! validation, and byte-for-byte failure safety.
 //!
-//! Contract: `docs/generator.md` §4 (division tree), §5 (CLI), and §7
+//! Contract: `docs/spec/docs/generator.md` §4 (division tree), §5 (CLI), and §7
 //! (validation). A successful edit rewrites only the target node and exits 0;
 //! an unresolved path or invalid result exits 2 and leaves the file untouched;
 //! missing flags are a usage error (exit 1) and also leave the file untouched.
