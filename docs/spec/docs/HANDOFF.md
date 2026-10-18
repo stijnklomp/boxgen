@@ -25,15 +25,15 @@
 | [`docs/workflow.md`](workflow.md) | Manual and generated paths from an item to a recorded box. |
 | [`docs/calibration.md`](calibration.md) | Coupon geometry, nine tests, acceptance criteria, record table. |
 | [`GLOSSARY.md`](../GLOSSARY.md) | Project vocabulary. Use these terms. |
-| [`docs/adr/`](adr/) | The twelve architecture decisions and their reasoning. |
+| [`docs/adr/`](adr/) | The thirteen architecture decisions and their reasoning. |
 | [`templates/box-spec.yaml`](../templates/box-spec.yaml) | Copy-ready box spec. |
 | [`boxes/README.md`](../boxes/README.md) | Box folder layout. |
 
-**Fixed:** Gridfinity base and stacking lip; 2.0 mm walls and floor; 1.2 mm base side shell; 2.0 mm integral dividers; inset friction lid; PETG Basic print recipe; 10 kg per body, maximum 3 high; same-footprint stacking; no labels.
+**Fixed:** Gridfinity base and stacking lip; 2.0 mm walls; solid 4.75 mm base zone (the floor is its top face, ADR-0013); 2.0 mm integral dividers; inset friction lid; PETG Basic print recipe; 10 kg per body, maximum 3 high; same-footprint stacking; no labels.
 
 **Variable:** footprint 1 × 1 to 4 × 4; height 3U, 6U, 9U, or 12U (default 6U); the recursive division tree.
 
-A change to a fixed property is a system version bump plus an ADR. A new compartment layout is a new spec, not a design change.
+A change to a fixed property is a system version bump plus an ADR; ADR-0013 is the single pre-release exception (the solid base, still SYS-1.0, because no box had been produced). A new compartment layout is a new spec, not a design change.
 
 ## Human checkpoints
 
@@ -55,13 +55,13 @@ Two tickets are physical and must be run by a human. An agent may prepare the bu
 
 Generate the coupon with `boxgen coupon` (#10). Print two coupons and one lid in the production recipe, then run all nine tests in [`docs/calibration.md`](calibration.md): base fit, stack fit, lid fit, shell thickness, corner radii, divider joint, stack load, floor deflection, and surface. Record date, filament/spool, nozzle, and result in the calibration record table. Only a pass unblocks #14.
 
-If a criterion fails, change only the permitted parameter and reprint. If floor deflection exceeds 1.0 mm, the only allowed architecture change is the 2.4 mm floor (a 0.4 mm slab above the 2.0 mm floor); record it and re-run the coupon.
+If a criterion fails, change only the permitted parameter and reprint. The 2.4 mm-floor fallback is gone: the base is solid (ADR-0013), so a floor-deflection reading above 1.0 mm is a system decision, not a reprint parameter.
 
 ### #14 — 4 × 4 × 6U test box
 
 Blocked by #11 and #13. Commit a 4 × 4, 6U test-box spec under `boxes/` with a representative division tree, build and publish it through the normal `boxgen` path, then print two bodies and two lids in the production recipe, once. Check the lid fit on both bodies. The two bodies must stack self-centring, with slight play, no wobble, and separate by hand.
 
-**Lid-in-stack finding (check this explicitly):** the code-review stack test measured that a base seated as deep as the pinned geometry allows (base bottom ≈ 37.65 mm, 0.35 mm below the 6U lip bottom) interferes with the lid — the base's underside cavity ceiling is ≈ 0.6 mm below the 41.0 mm lid top and the plate edge is ≈ 1.15 mm inside the cavity wall (≈ 1166 mm³ overlap). The design pitch (base bottom at 42.0 mm) keeps the intended 1.0 mm gap, but the geometry does not stop the base sinking to the contact seat, so a stacked body may rest on the lid rather than the lip. This contradicts standard §4.5 (“the lid carries nothing”) and §4.2 (“the lid never presses on the contents”). The architecture was deliberately left frozen; the coupon stack-load test (#13) and this test box are where it must be confirmed. If the lid takes load, either accept lid-carried stacks and re-rate the duty class, or change the lip/lid interface with a system version bump and an ADR.
+**Lid-in-stack finding (check this explicitly):** the code-review stack test measured that a base seated as deep as the pinned geometry allows (base bottom ≈ 37.65 mm, 0.35 mm below the 6U lip bottom) interferes with the lid — the base's solid underside sits ≈ 3.35 mm below the 41.0 mm lid top and its wall material passes the plate edge (≈ 2952 mm³ overlap at the seat). The design pitch (base bottom at 42.0 mm) keeps the intended 1.0 mm gap, but the geometry does not stop the base sinking to the contact seat, so a stacked body may rest on the lid rather than the lip. This contradicts standard §4.5 (“the lid carries nothing”) and §4.2 (“the lid never presses on the contents”). The architecture was deliberately left frozen; the coupon stack-load test (#13) and this test box are where it must be confirmed. If the lid takes load, either accept lid-carried stacks and re-rate the duty class, or change the lip/lid interface with a system version bump and an ADR.
 
 Fill in the box record and regenerate the index.
 

@@ -416,11 +416,10 @@ fn the_finger_hole_is_20mm_14mm_from_the_positive_y_edge() {
 /// The lid top is 1.0 mm below the lip top; at the design stack pitch the
 /// next body's base bottom starts one pitch up, so it is 1.0 mm above the
 /// lid -- never touching. Seating the same base in the lip's measured
-/// contact position is a different story: its underside cavity then
-/// interferes with the lid's plate edge and top face, so a stacked body
-/// would rest on the lid instead of the lip. That is the documented finding
-/// for the human checkpoint (#14); the architecture is deliberately
-/// unchanged.
+/// contact position is a different story: its solid underside (ADR-0013)
+/// then sits 3.35 mm below the lid's plate top, so a stacked body would rest
+/// on the lid instead of the lip. That is the documented finding for the
+/// human checkpoint (#14); the architecture is deliberately unchanged.
 #[test]
 fn the_lid_is_out_of_the_stack_load_path_at_the_design_pitch() {
     if !common::freecad_required() {
@@ -459,30 +458,44 @@ fn the_lid_is_out_of_the_stack_load_path_at_the_design_pitch() {
         common::number(report, "stack.seat_contact_below_mm3")
     );
 
-    // Checkpoint #14 finding: at the seat the seated base's underside cavity
-    // interferes with the lid (negative clearances), so the lid -- not the
-    // lip -- would carry a stacked body.
+    // Checkpoint #14 finding: at the seat the seated base's solid underside
+    // lies 3.35 mm below the lid's top face (a negative clearance), and the
+    // base's wall material passes the lid's plate edge at the plate's mid
+    // height. With the lid installed the base cannot reach the lip seat, so
+    // the lid -- not the lip -- would carry a stacked body.
     assert!(
         common::number(report, "stack.base_lid_intersection_mm3") > 0.0,
         "expected the seated base to interfere with the lid: {} mm3",
         common::number(report, "stack.base_lid_intersection_mm3")
     );
     common::assert_near(
-        common::number(report, "stack.lid_top_clearance_mm"),
-        -0.6,
+        common::number(report, "stack.base_underside_z_mm"),
+        37.65,
         0.02,
-        "cavity ceiling to lid top clearance (negative at the seat)",
+        "seated base underside at the cell centre",
     );
     common::assert_near(
-        common::number(report, "stack.plate_edge_clearance_mm"),
-        -1.15,
+        common::number(report, "stack.lid_top_clearance_mm"),
+        -3.35,
         0.02,
-        "cavity wall to lid plate edge clearance (negative at the seat)",
+        "base underside to lid top clearance (negative at the seat)",
+    );
+    common::assert_near(
+        common::number(report, "stack.base_wall_radius_mm"),
+        18.6,
+        0.02,
+        "seated base wall radius at the plate's mid height",
+    );
+    common::assert_near(
+        common::number(report, "stack.plate_edge_radius_mm"),
+        18.55,
+        0.02,
+        "lid plate edge radius measured from the cell centre",
     );
     assert!(
-        common::number(report, "stack.minimum_clearance_mm") < 0.0,
-        "the seat clearance must be reported negative: {} mm",
-        common::number(report, "stack.minimum_clearance_mm")
+        common::number(report, "stack.plate_edge_overlap_mm") > 0.0,
+        "the base's solid wall must pass the plate edge: {} mm",
+        common::number(report, "stack.plate_edge_overlap_mm")
     );
 
     // Nothing protrudes beyond the footprint: the lid stays inside the body.

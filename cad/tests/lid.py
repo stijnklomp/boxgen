@@ -19,9 +19,9 @@ matching body, and measures every number the standard fixes:
 * ``stack``: the next body's base bottom sits 1.0 mm above the lid top at
   the design stack pitch (the lid is not in the load path there); the same
   base is also seated in the lip's measured contact position (base bottom
-  0.35 mm below the lip bottom), where its underside cavity interferes with
-  the lid's plate edge and top face -- the documented finding for the human
-  checkpoint (#14).
+  0.35 mm below the lip bottom), where its solid underside meets the lid's
+  plate -- the documented finding for the human checkpoint (#14): with the
+  lid fitted, a stacked body rests on the lid, not on the lip.
 
 The script prints one marker line:
 
@@ -221,30 +221,27 @@ def _measure_stack(
     * the nominal position (``next_body_base_*``): the 1.0 mm gap that keeps
       the lid out of the stack load path at the design pitch;
     * the contact seat (``seat_*``, bisected on the built body): the seated
-      base's underside cavity against the lid's plate edge and top face.
+      base's solid underside against the lid's plate top.
 
-    The seat clearance is negative -- with the lid installed the base cannot
-    reach the lip seat, so a stacked body would rest on the lid -- which is
-    the documented finding for the human checkpoint (#14). The architecture
-    is deliberately unchanged.
+    The base is solid (ADR-0013), so at the seat the lid's plate top is above
+    the base's underside (``lid_top_clearance_mm`` is negative) and the base's
+    wall material at the plate's mid height passes the plate's edge: with the
+    lid installed the base cannot reach the lip seat, so a stacked body rests
+    on the lid. That is the documented finding for the human checkpoint
+    (#14); the architecture is deliberately unchanged.
     """
     import FreeCAD as App
 
     total_h = height_u * shell_module.HEIGHT_UNIT
     z_lip = total_h - gf.LIP_HEIGHT
 
-    # The next body's base: the pinned foot with the same underside cavity the
-    # shell builder cuts into every body, centred on one cell of the body
-    # under test.
+    # The next body's base: the pinned solid foot, centred on one cell of the
+    # body under test.
     cell_x = (0 - (units_x - 1) / 2.0) * gf.GRID - gf.GRID / 2.0
     cell_y = (0 - (units_y - 1) / 2.0) * gf.GRID - gf.GRID / 2.0
     centre_x = cell_x + gf.GRID / 2.0
     centre_y = cell_y + gf.GRID / 2.0
-    foot = gf.make_base_foot(cell_x, cell_y)
-    cutter = gf.make_base_under_cutter(
-        cell_x, cell_y, gf.BASE_HEIGHT - shell_module.FLOOR
-    )
-    base = foot.cut(cutter)
+    base = gf.make_base_foot(cell_x, cell_y)
 
     body = shell_module.build_body(
         shell_module.BodySpec(units_x, units_y, height_u)
@@ -285,28 +282,31 @@ def _measure_stack(
         float(common.Volume) if not common.isNull() else 0.0
     )
 
-    # The seated base's underside cavity ceiling at the cell centre: void
-    # below, material above (the cavity is 2.75 mm deep).
-    ceiling = harness.bisect_z(seated, centre_x, centre_y, seat + 0.2, seat + gf.BASE_HEIGHT)
-    out["cavity_ceiling_z_mm"] = harness.round6(ceiling)
-    out["lid_top_clearance_mm"] = harness.round6(ceiling - lid_top)
+    # The seated base is solid: the lowest material at the cell centre is its
+    # flat underside. A negative ``lid_top_clearance_mm`` means the lid's top
+    # face is above the base's underside, i.e. the base would rest on the lid.
+    underside = harness.bisect_z(
+        seated, centre_x, centre_y, seat - 0.2, seat + gf.BASE_HEIGHT
+    )
+    out["base_underside_z_mm"] = harness.round6(underside)
+    out["lid_top_clearance_mm"] = harness.round6(underside - lid_top)
 
-    # The lid's widest surface (plate edge / skirt collar) against the base's
-    # cavity wall, at the plate's mid height, both measured from the cell
-    # centre. A negative clearance means the lid is buried in the base's rim.
+    # The base's outer wall against the lid's widest surface (plate edge /
+    # skirt collar) at the plate's mid height, both measured from the cell
+    # centre. Since the base is solid, material outside the base's wall line
+    # does not exist, so a positive overlap means the plate's edge is buried
+    # in the base's wall.
     probe_z = lid_top - 1.0
-    cavity_radius = (
-        harness.bisect_x(seated, centre_y, probe_z, centre_x + 18.0, centre_x) - centre_x
+    base_radius = (
+        harness.bisect_x(seated, centre_y, probe_z, centre_x, centre_x + 25.0)
+        - centre_x
     )
     plate_radius = centre_x - harness.bisect_x(
         lid, centre_y, probe_z, centre_x, centre_x - 25.0
     )
-    out["cavity_radius_mm"] = harness.round6(cavity_radius)
+    out["base_wall_radius_mm"] = harness.round6(base_radius)
     out["plate_edge_radius_mm"] = harness.round6(plate_radius)
-    out["plate_edge_clearance_mm"] = harness.round6(cavity_radius - plate_radius)
-    out["minimum_clearance_mm"] = harness.round6(
-        min(ceiling - lid_top, cavity_radius - plate_radius)
-    )
+    out["plate_edge_overlap_mm"] = harness.round6(base_radius - plate_radius)
     return out
 
 

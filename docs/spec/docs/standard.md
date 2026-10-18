@@ -14,7 +14,7 @@ A storage system for household equipment — cables, measuring equipment, tools,
 The system is:
 - **Gridfinity-compatible** at the base and stacking lip, so it works with an open ecosystem and is not tied to any company.
 - **Local and reproducible**: FreeCAD is the geometry engine; the generator is a local CLI; no website dependency.
-- **Maximum-thickness and heavy-duty**: 2.0 mm walls and floor, 1.2 mm base side shell, integral compartments; every feature at the maximum the Gridfinity profile allows.
+- **Maximum-thickness and heavy-duty**: 2.0 mm walls, a solid 4.75 mm base zone, integral compartments; every feature at the maximum the Gridfinity profile allows.
 - **Flat-sided**: nothing protrudes beyond the footprint; stacks are stable and the exterior is smooth.
 
 ## 2. Fixed and variable
@@ -23,7 +23,7 @@ The system is:
 | --- | --- |
 | Gridfinity base profile | Footprint N × M (1 × 1 to 4 × 4) |
 | Gridfinity stacking lip | Height U (3U, 6U, 9U, 12U; default 6U) |
-| 2.0 mm walls and floor; 1.2 mm base side shell | Compartment division tree |
+| 2.0 mm walls; solid 4.75 mm base zone | Compartment division tree |
 | 2.0 mm integral dividers | Notes and contents record |
 | Inset friction lid | |
 | PETG print recipe | |
@@ -53,20 +53,18 @@ The **4 × 4 module** is the reference unit of the system: any body from 1 × 1 
 
 ## 4. Body architecture
 
-A body is made of four zones plus the lid interface. **Every wall above the base is 2.0 mm; the base zone's side shell is 1.2 mm, the maximum the standard base profile allows. The floor is 2.0 mm and integral with the base top.**
+A body is made of four zones plus the lid interface. **Every wall above the base is 2.0 mm, and the base zone is solid: the floor is the top face of the standard Gridfinity base profile, not a separate slab.**
 
 | Zone | Thickness | Notes |
 | --- | --- | --- |
-| Base zone | 1.2 mm side shell; 2.0 mm integral floor | Standard Gridfinity base profile; sits on baseplates and in other bodies' lips |
+| Base zone | Solid, 4.75 mm tall | Standard Gridfinity base profile, filled; sits on baseplates and in other bodies' lips |
 | Body zone | 2.0 mm | Vertical wall from the base to the lip; carries the stack load |
 | Lip zone | 2.0 mm | Standard stacking lip; accepts the next body's base |
-| Floor | 2.0 mm | Top of the base zone; cut into the base profile, not added above it |
+| Floor | Top of the base zone | The interior floor surface at 4.75 mm; the base below it is material, so the bottom prints on the bed |
 | Divider | 2.0 mm | Integral, fused to floor and wall |
 | Lid | 2.0 mm plate, 2.0 mm skirt | Inset; not in the stack load path |
 
-2.0 mm is the maximum wall thickness that keeps the standard Gridfinity lip fit (about 2.25 mm is the hard limit). The base profile caps its internal side shell at 1.2 mm; the 2.0 mm floor above it carries the load. See [`docs/research/gridfinity-wall-thickness.md`](research/gridfinity-wall-thickness.md) and [ADR-0007](adr/0007-maximum-thickness-shell.md).
-
-The Gridfinity base grid supports the 2.0 mm floor every 42 mm. If the coupon shows floor deflection under the 10 kg stack test, the only permitted change is a **2.4 mm floor**, added as a 0.4 mm slab above the integral 2.0 mm floor; the interior depth reduces by 0.4 mm and the coupon is re-run.
+2.0 mm is the maximum wall thickness that keeps the standard Gridfinity lip fit (about 2.25 mm is the hard limit). The base zone is solid so that every bottom layer prints on the bed: an earlier hidden underside cavity could only be closed by bridging a ~35 mm unsupported ceiling per cell, which sags and strings in PETG (see [ADR-0013](adr/0013-solid-base.md)). A solid base also removes any floor-deflection question: the floor is the top of 4.75 mm of material supported by the whole base grid. See [`docs/research/gridfinity-wall-thickness.md`](research/gridfinity-wall-thickness.md), [ADR-0007](adr/0007-maximum-thickness-shell.md), and [ADR-0013](adr/0013-solid-base.md).
 
 ### 4.1 Corner radii
 
@@ -75,7 +73,7 @@ Sharp corners are stress concentrators. Every vertical and internal corner is ro
 | Feature | Radius | Notes |
 | --- | --- | --- |
 | Outer vertical corners | 3.75 mm | Standard Gridfinity outer radius; keeps baseplate fit |
-| Inner vertical corners | 1.75 mm | Body and lip zones: `3.75 − 2.0`; keeps the 2.0 mm wall uniform at corners. The base zone's internal corners follow the pinned base profile with a minimum 0.4 mm fillet. |
+| Inner vertical corners | 1.75 mm | Body and lip zones: `3.75 − 2.0`; keeps the 2.0 mm wall uniform at corners. The solid base zone keeps the pinned base profile's own shelf radii. |
 | Floor-to-wall fillet | 2.0 mm | Internal; removes the weakest internal corner |
 | Divider-to-floor and divider-to-wall fillets | 2.0 mm | Internal; applied to every divider junction |
 | Divider top edge | 0.4 mm chamfer | Edge break; avoids sharp edges and lapping |
@@ -84,14 +82,14 @@ Sharp corners are stress concentrators. Every vertical and internal corner is ro
 | Lid top edge | 1.0 mm roundover | Handling edge |
 | Base and lip profiles | Standard | Take the radii from the pinned profile functions; do not override |
 
-No internal corner above the base may be sharper than 1.0 mm. The base zone's hidden internal corners follow the pinned profile with a minimum 0.4 mm fillet. If a fillet cannot be applied because two radii conflict, reduce the radius until it succeeds; never leave a sharp internal corner above the base. Validate every junction with the coupon.
+No internal corner above the base may be sharper than 1.0 mm. The base zone's profile is pinned by the standard and keeps its own shelf radii (the sharpest is the 0.8 mm bottom chamfer). If a fillet cannot be applied because two radii conflict, reduce the radius until it succeeds; never leave a sharp internal corner above the base. Validate every junction with the coupon.
 
 ### 4.2 Height and interior depth
 
 Total height is `U × 7 mm`. Nominal interior depth is:
 
 ```
-interior_depth = U × 7 − 4.75 (base, including the integral 2.0 mm floor) − 4.0 (lip) = U × 7 − 8.75 mm
+interior_depth = U × 7 − 4.75 (solid base zone; the floor is its top face) − 4.0 (lip) = U × 7 − 8.75 mm
 ```
 
 | Height | Total height | Nominal interior depth | Use |
@@ -101,7 +99,7 @@ interior_depth = U × 7 − 4.75 (base, including the integral 2.0 mm floor) −
 | 9U | 63.0 mm | 54.25 mm | Cables, medium tools, power supplies |
 | 12U | 84.0 mm | 75.25 mm | Bulky cables, large tools; shelf or deep drawer only |
 
-The 2.0 mm floor is the top of the base profile; it is not an extra slab above the base. The lid skirt intrudes 1.0 mm below the lip bottom; the sizing rules leave 2 mm below the lid, which covers it. The generator reports the exact usable depth from the model; the table is the design figure. The default height is **6U**; see section 9.
+The floor is the top face of the solid base zone at 4.75 mm; it is not a slab above the base. The lid skirt intrudes 1.0 mm below the lip bottom; the sizing rules leave 2 mm below the lid, which covers it. The generator reports the exact usable depth from the model; the table is the design figure. The default height is **6U**; see section 9.
 
 ### 4.3 Compartment division tree
 
@@ -179,7 +177,7 @@ Every body, lid, and coupon uses the same recipe. The recipe is part of the desi
 | Drying | 65 °C for 8 h if the spool was exposed to >50% RH for >72 h |
 | Removal | Let the plate cool before removing parts; remove the brim and deburr |
 
-- With 5 wall loops and 5 top/bottom shells at 0.2 mm, the 2.0 mm walls and floor are fully solid; the base side shell is 1.2 mm (3 loops); the 40% infill setting only matters for any thicker region.
+- With 5 wall loops and 5 top/bottom shells at 0.2 mm, the 2.0 mm walls are fully solid and the solid base zone prints its 1 mm bottom and top shells around 40% infill; the infill setting only matters for that base band and any other region thicker than the shells.
 - Do not substitute PLA, ABS, PETG-CF, or PETG HF for production bodies. PETG Basic is the standard because its impact and layer strengths are known and validated by the coupon.
 - Do not use variable layer height or adaptive layers on the lip or lid interface.
 - The 4 × 4 body is 167.5 mm wide and leaves about 44 mm per side on the X2D bed, so the 5 mm brim fits comfortably.
@@ -204,7 +202,7 @@ Every body, lid, and coupon uses the same recipe. The recipe is part of the desi
 
 The coupon is the only iteration. No production box is printed until the coupon passes every acceptance criterion in [`calibration.md`](calibration.md).
 
-The coupon validates: base fit, lip fit, stack fit, lid friction, the 2.0 mm walls and floor, the 1.2 mm base side shell, the corner radii, the divider junction, and the floor under load. Print two coupons before the first box. Re-run the coupon after a filament change, a nozzle change, a major slicer upgrade, or any change to the master.
+The coupon validates: base fit, lip fit, stack fit, lid friction, the 2.0 mm walls, the solid base (filled bottom layers, no bridging), the corner radii, the divider junction, and the floor under load. Print two coupons before the first box. Re-run the coupon after a filament change, a nozzle change, a major slicer upgrade, or any change to the master.
 
 ## 8. Sizing rules
 
@@ -259,13 +257,15 @@ The step-by-step workflow, the generator contract, and the FreeCAD patterns are 
 
 `SYS-1.0` was frozen on 2026-10-17. All of the following are locked; any change requires a system version bump and an ADR.
 
+One pre-release correction is recorded in [ADR-0013](adr/0013-solid-base.md): the base zone is solid (rows 1 and 5 below), decided before any box was produced and before the coupon passed, so the system version stays SYS-1.0 for that single amendment.
+
 | # | Decision | Value |
 | --- | --- | --- |
-| 1 | Shell thickness | 2.0 mm walls and floor; base side shell 1.2 mm; floor integral with the base top |
+| 1 | Shell thickness | 2.0 mm walls; solid 4.75 mm base zone with the floor as its top face |
 | 2 | Compartment model | Recursive division tree with 1 mm positions |
 | 3 | Divider height | Interior depth − 10 mm; 3U uses interior depth − 2 mm |
 | 4 | Default height | 6U; 3U/9U/12U as exceptions |
-| 5 | Floor thickness | 2.0 mm integral; 2.4 mm fallback as a 0.4 mm slab above |
+| 5 | Floor | Top of the solid base zone; no added slab, no deflection fallback (ADR-0013) |
 | 6 | Corner radii | Outer 3.75, inner 1.75, joints 2.0, lid 1.40 |
 | 7 | Generator | Rust CLI, YAML specs, FreeCAD Python master, `freecadcmd` |
 | 8 | Labels | None |

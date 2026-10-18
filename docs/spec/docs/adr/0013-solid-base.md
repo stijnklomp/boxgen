@@ -1,0 +1,11 @@
+# Solid base zone (no hidden underside cavity)
+
+The base zone is solid material from the bed plane to the top of the Gridfinity base profile (4.75 mm); the interior floor is its top face. The 1.2 mm-side-shell hollow of [ADR-0007](0007-maximum-thickness-shell.md) is removed, and the shell builder no longer cuts an underside cavity.
+
+The coupon round for ticket #13 showed why: the hollow opens downward, so its only closure is a ~35 mm unsupported ceiling per cell (sixteen of them in one layer on a 4 × 4). In PETG the bridged layer sags and strings, and the first 2.75 mm of the print is a 1.2 mm-wide ring per cell, so the bottom face is mostly open. The hidden cavity is invisible in the model and unprintable in practice; the coupon is the step that exists to catch exactly this before any production box.
+
+A solid base keeps everything the standard fixes: the pinned outer base profile and its grooves (Fit unchanged), the 4.75 mm base top and the interior depth (`U × 7 − 8.75`), the 2.0 mm wall and lip, the 2.0 mm floor-to-wall cove, the dividers, and the lid. It costs +22 % model volume on a 1 × 1 × 6U body and +49 % on a 4 × 4 × 6U; in the sliced print the added region prints as 5 shells plus 40 % infill, so the filament and time increase is well below the raw volume delta (about 1.5–2 g per cell). The cell webs stay: with the base solid they are what ties a 4 × 4 body's interior feet to the walls.
+
+**Consequences:** the "1.2 mm base side shell" and the 0.4 mm hidden-cavity minimum leave the standard and the coupon's shell-thickness test; the floor-deflection check stays but can no longer fail, so the 2.4 mm-floor fallback is obsolete. The seated-base measurement for checkpoint #14 changes: at the lip contact seat the base's solid underside now meets the lid plate top (clearance −3.35 mm instead of −1.15 mm), so a stacked body still rests on the lid rather than the lip.
+
+**Status:** accepted while the system version stays **SYS-1.0** — no box has been produced and the calibration has not passed, so this is the pre-release architecture correction of the vendored spec, not a versioned change. It amends ADR-0007.

@@ -795,7 +795,7 @@ fn fake_coupon_report() -> String {
         "dimensions": {"outer_x_mm": 41.5, "outer_y_mm": 41.5, "height_mm": 42.0},
         "interior_depth_mm": 33.25,
         "body": {
-            "volume_mm3": 16105.32,
+            "volume_mm3": 19393.0,
             "area_mm2": 1.0,
             "faces": 1,
             "solids": 1,
@@ -830,8 +830,8 @@ fn fake_coupon_report() -> String {
         "stl": {"facets": 1, "is_solid": true, "volume_mm3": 1.0},
         "lid_stl": {"facets": 1, "is_solid": true, "volume_mm3": 1.0},
         "artifacts": {"box_step_bytes": 1, "body_stl_bytes": 1, "lid_stl_bytes": 1},
-        "mass_g": 23.7,
-        "print_time_h": 0.9,
+        "mass_g": 27.9,
+        "print_time_h": 1.11,
         "warnings": [],
     }))
     .expect("a JSON value serializes")

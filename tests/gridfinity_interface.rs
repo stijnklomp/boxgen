@@ -103,11 +103,6 @@ fn constants_pin_the_gridfinity_grid_and_profile_heights() {
         3.75,
         "outer corner radius",
     );
-    common::assert_close(
-        common::number(report, "constants.BASE_SHELL"),
-        1.2,
-        "base zone side shell",
-    );
 
     common::assert_close(
         common::number(report, "constants.LIP_HEIGHT"),
@@ -225,27 +220,9 @@ fn base_foot_matches_the_pinned_profile() {
         common::assert_close_list(&section["radii"], radii, "base section corner radii");
     }
 
-    // The underside cavity leaves the standard's 1.2 mm base shell; the
-    // 4x4 footprint then covers 16 cells on a 42 mm pitch.
-    let shell = (common::number(report, "base_foot.sections.1.width")
-        - common::number(report, "base_under_cutter.sections.0.width"))
-        / 2.0;
-    common::assert_close(
-        shell,
-        common::number(report, "constants.BASE_SHELL"),
-        "base zone side shell",
-    );
-    common::assert_close(
-        common::number(report, "base_under_cutter.sections.0.depth"),
-        34.8,
-        "base cavity depth",
-    );
-    common::assert_close_list(
-        common::value(report, "base_under_cutter.sections.0.radii"),
-        &[0.4],
-        "base cavity minimum corner radius",
-    );
-
+    // ADR-0013: the base zone is solid -- no underside cavity, so the shell
+    // builder fuses the full pinned foot (the sections above) and the body
+    // volume in `tests/body_radii.rs` / `tests/build.rs` pins the change.
     common::assert_close(
         common::number(report, "base_feet.2x1.width"),
         83.5,

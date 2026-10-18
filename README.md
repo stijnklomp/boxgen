@@ -137,7 +137,7 @@ The lid follows standard §4.4: a 2.0 mm plate whose top sits 1.0 mm below the l
 
 `freecadcmd` exits 0 even on an unhandled Python exception, a syntax error, or a missing script. The build therefore never trusts the exit status alone: missing, empty, or unparseable artifacts are a build failure (exit 3). A missing launcher or a release other than `BOXGEN_EXPECT_FREECAD_VERSION` is an environment failure (exit 4).
 
-The 1×1×6U body from `tests/fixtures/minimal-build.yaml` measures 41.5 × 41.5 × 42.0 mm, has an interior depth of 33.25 mm, one closed shell, and roughly 15 109.8 mm³ / 19.2 g (before slicer settings). Its outer vertical corners are 3.75 mm, its inner body and lip corners follow `OUTER_RADIUS − offset` (1.75 mm through the body zone, 1.15 mm at the lip neck, 1.85 mm through the lip vertical section), and the floor-to-wall cove is a 2.0 mm radius; no internal corner above the base is sharper than 1.0 mm and the hidden base cavity keeps the pinned 0.4 mm minimum. `tests/build.rs` pins the dimensions, the `body.floor_fillet_mm` value, a ±3% volume range, the lid artifact and report contract, byte-level determinism, and the exit-code cases; `tests/body_radii.rs` slices the built body and pins every radius. The 2×4×6U lid fixtures (`tests/fixtures/2x4-6u-lid.yaml` and `2x4-6u-lid-ribs.yaml`) pin the lid build end to end, while `cad/tests/lid.py` + `tests/lid.rs` slice and measure the lid's seven standard features and the rib variant. `tests/golden/minimal.box.py` and `tests/golden/2x4-6u-lid.box.py` are byte-for-byte snapshots of the generated scripts; update them only for an intentional script change.
+The 1×1×6U body from `tests/fixtures/minimal-build.yaml` measures 41.5 × 41.5 × 42.0 mm, has an interior depth of 33.25 mm, one closed shell, and roughly 18 397.5 mm³ / 23.4 g (before slicer settings). Its outer vertical corners are 3.75 mm, its inner body and lip corners follow `OUTER_RADIUS − offset` (1.75 mm through the body zone, 1.15 mm at the lip neck, 1.85 mm through the lip vertical section), and the floor-to-wall cove is a 2.0 mm radius; no internal corner above the base is sharper than 1.0 mm. The base zone is solid (ADR-0013): the floor is its top face and the bottom prints as filled foot pads, with the sharpest base curve the pinned profile's 0.8 mm bottom chamfer radius. `tests/build.rs` pins the dimensions, the `body.floor_fillet_mm` value, a ±3% volume range, the lid artifact and report contract, byte-level determinism, and the exit-code cases; `tests/body_radii.rs` slices the built body and pins every radius. The 2×4×6U lid fixtures (`tests/fixtures/2x4-6u-lid.yaml` and `2x4-6u-lid-ribs.yaml`) pin the lid build end to end, while `cad/tests/lid.py` + `tests/lid.rs` slice and measure the lid's seven standard features and the rib variant. `tests/golden/minimal.box.py` and `tests/golden/2x4-6u-lid.box.py` are byte-for-byte snapshots of the generated scripts; update them only for an intentional script change.
 
 ### Publish
 
@@ -152,7 +152,7 @@ Without `--publish`, the build stays in `build/<id>/` and `boxes/` is untouched.
 
 ## Coupon
 
-`boxgen coupon [--out DIR]` builds the **calibration coupon** exactly as specified in the spec's `docs/spec/docs/calibration.md`: a 1 × 1, 6U body with the standard architecture (2.0 mm walls, floor, and lip; 1.2 mm base side shell; 3.75/1.75 mm corner radii; 2.0 mm joint coves; 0.4 mm divider top chamfer), one 2.0 mm T-divider fused to the floor and one wall with its top 10 mm below the lip (z = 28.0), and the ribbed friction lid (two 0.15 mm ribs, 20 mm finger hole, 0.30 mm clearance).
+`boxgen coupon [--out DIR]` builds the **calibration coupon** exactly as specified in the spec's `docs/spec/docs/calibration.md`: a 1 × 1, 6U body with the standard architecture (2.0 mm walls and lip; a solid 4.75 mm base zone whose top face is the floor; 3.75/1.75 mm corner radii; 2.0 mm joint coves; 0.4 mm divider top chamfer), one 2.0 mm T-divider fused to the floor and one wall with its top 10 mm below the lip (z = 28.0), and the ribbed friction lid (two 0.15 mm ribs, 20 mm finger hole, 0.30 mm clearance).
 
 The coupon is not a user spec: `boxgen coupon` constructs the one internal spec in code (`coupon-1x1-6U-v1`, `footprint [1, 1]`, `height_u 6`, `lid: true`, `lid_ribs: true`, a single-leaf division tree, and an internal `coupon: true` flag) and runs it through the **normal master/build path** — the same `cad/build.py::build(spec, out_dir)` that builds every body, with the T-divider fused by `cad/dividers.py::build_coupon_divider`, no hand-made geometry. That is the point: passing the physical tests validates the real pipeline. The closed user schema still rejects `coupon` as an unknown field (exit 2), so a hand-written spec can never approximate the coupon.
 
@@ -259,7 +259,7 @@ reviewable; `cad/tests/` never enters a build.
   with only `FreeCAD` and `Part`.
 - `cad/shell.py` — the SYS-1.0 body shell for ticket #6: outer prism (3.75 mm
   corners), one centred base foot per cell, the pinned underside cutters
-  (1.2 mm shell, 2.0 mm integral floor, 0.4 mm cavity minimum), the
+  (solid base zone with the floor as its top face, ADR-0013), the
   pre-filleted interior cutter (2.0 mm floor cove through `cad/fillets.py`,
   1.0 mm fallback), a cell-boundary web per internal 42 mm grid line (fills
   each 0.5 mm Gridfinity groove over the 0.2 mm lift band, so the interior
@@ -324,7 +324,7 @@ reviewable; `cad/tests/` never enters a build.
   probes and bisections, and the launcher-safe entry-point wrapper. Every
   script imports it as `cad.tests._harness`.
 - `cad/tests/interface.py` — the headless interface measurement script. It
-  imports the module, builds the base foot, the base cavity, the lip cut, and
+  imports the module, builds the base foot, the lip cut, and
   the lip ring, measures them at the profile levels, and prints one
   `BOXGEN_JSON:` line.
 - `cad/tests/radii.py` — the headless radii measurement script (ticket #7). It
@@ -364,7 +364,7 @@ reviewable; `cad/tests/` never enters a build.
 - `tests/body_radii.rs` — runs `cad/tests/radii.py` under the pinned FreeCAD
   and asserts the measured radii: outer 3.75 mm, inner 1.75 mm, lip rows at
   `OUTER_RADIUS - offset`, the floor cove at 2.0 mm, every circular edge above
-  the base at least 1.0 mm, the base cavity's 0.4 mm minimum, and the fillet
+  the base at least 1.0 mm, the base zone's 0.8 mm profile minimum, and the fillet
   helper's reduce and failure paths on synthetic prisms (no legal spec forces
   them).
 - `tests/lid.rs` — runs `cad/tests/lid.py` under the pinned FreeCAD and pins
@@ -474,7 +474,7 @@ Current tests pin:
 - the corner-arc handling under FreeCAD with two synthetic trees whose divider face (and whose divider cross position) lands on the 1.75 mm inner corner arc: the acute notch is buried by the 2.0 mm cove (tip and notch probes material, no section vertex at the sharp tip, the four cove circles at r = 2.0) and the body stays one valid closed solid; contract validation rejects every tree that could reach the arc (`invalid/corner-divider.yaml`, exit 2);
 - the lid build end to end under FreeCAD: `body.stl` and `lid.stl`, one STEP with both `Body` and `Lid` products, a ±3% lid-volume range, `lid.roundover_mm` at 1.0, `lid.ribs` false/true matching the spec, a watertight `lid.stl`, and the lid bbox at 79.1 x 163.1 x (37.0..41.0) mm for the 2×4×6U fixture;
 - the lid geometry under FreeCAD: `cad/tests/lid.py` slices the built lid and pins the 2.0 mm plate, 2.0 x 2.0 mm skirt, 0.30 mm per-side clearance, 1.40 mm corners, 1.0 mm roundover, 0.6 mm chamfer, 20 mm finger hole at 14 mm, the 1.0 mm stack gap at the design pitch, the seated-base clearances at the lip's contact seat (negative, the checkpoint #14 finding), and the two 0.15 mm ribs;
-- the body radii under FreeCAD: `cad/tests/radii.py` slices the built 1x1x6U and 1x1x3U bodies and pins the outer 3.75 mm and inner 1.75 mm corner arcs, the lip rows at `OUTER_RADIUS - offset`, the 2.0 mm floor cove, the 1.0 mm minimum for every circular edge above the base, the 0.4 mm base-cavity minimum, and the fillet helper's 2.0 → 1.0 mm reduce path and total-failure path on synthetic thin prisms;
+- the body radii under FreeCAD: `cad/tests/radii.py` slices the built 1x1x6U and 1x1x3U bodies and pins the outer 3.75 mm and inner 1.75 mm corner arcs, the lip rows at `OUTER_RADIUS - offset`, the 2.0 mm floor cove, the 1.0 mm minimum for every circular edge above the base, the base zone's 0.8 mm profile minimum, and the fillet helper's 2.0 → 1.0 mm reduce path and total-failure path on synthetic thin prisms;
 - build determinism: `box.py`, `body.stl`, `lid.stl`, and `report.json` are byte-identical across runs (body-only, lid, and split-tree builds), and `box.step` matches after normalizing its `FILE_NAME` timestamp;
 - build exit codes: 2 for an invalid spec (including `lid_ribs: true` with `lid: false` and every tree that would land a divider on the corner arc), 3 for a FreeCAD failure or missing/empty/unparseable artifacts, 4 for a missing launcher or wrong version, and 1 for a publish target outside the `boxes/<id>/` layout;
 - publish: the STEP/STL/notes copy, a generated `notes.md` when absent, a handwritten `notes.md` preserved, missing or empty artifacts (including `lid.stl` for a lid spec) failing without touching the target, `spec.yaml` unchanged, and `build` without `--publish` leaving `boxes/` untouched;

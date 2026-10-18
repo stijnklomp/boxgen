@@ -8,7 +8,7 @@ A 3D-printed storage system for household equipment: Gridfinity-compatible bodie
 
 **Fixed — the architecture:**
 - Gridfinity 42 × 42 × 7 mm base and stacking lip.
-- 2.0 mm walls and floor; 1.2 mm base zone side shell (the standard-profile maximum); the 2.0 mm floor is integral with the base top.
+- 2.0 mm walls; a solid 4.75 mm base zone with the floor as its top face (ADR-0013); the base prints filled on the bed.
 - Integral dividers connected to the walls; no separate inserts.
 - Inset friction lid, 2.0 mm plate and skirt; no latch, magnet, or hinge.
 - PETG Basic, 0.4 mm nozzle, 0.2 mm layers, 5 wall loops, 40% gyroid infill.
@@ -34,7 +34,7 @@ The fixed part is the "one strong design"; the variable part is generated per bo
 | [`docs/calibration.md`](docs/calibration.md) | The calibration coupon and acceptance criteria. Print this before any production box. |
 | [`templates/box-spec.yaml`](templates/box-spec.yaml) | Copy-ready box spec. |
 | [`boxes/README.md`](boxes/README.md) | Box folder layout and generated index. |
-| [`docs/research/gridfinity-wall-thickness.md`](docs/research/gridfinity-wall-thickness.md) | Why the walls are 2.0 mm and the base side shell is 1.2 mm. |
+| [`docs/research/gridfinity-wall-thickness.md`](docs/research/gridfinity-wall-thickness.md) | Why the walls are 2.0 mm and the base zone is solid. |
 | [`docs/research/furniture-dimensions.md`](docs/research/furniture-dimensions.md) | Why 4 × 4 and 6U are the defaults. |
 | [`GLOSSARY.md`](GLOSSARY.md) | Project vocabulary: body, lid, lip zone, division tree, stack group, coupon. |
 | [`docs/adr/`](docs/adr/) | Architecture decisions and the reasoning behind them. |
@@ -47,7 +47,7 @@ The fixed part is the "one strong design"; the variable part is generated per bo
 | Bento3D is rejected as the source of truth; it is a UX reference only. | [ADR-0002](docs/adr/0002-bento3d-rejected.md) |
 | Compartments are integral to the body, connected to the walls. | [ADR-0003](docs/adr/0003-integral-dividers.md) |
 | Compartment maps are recursive division trees. | [ADR-0008](docs/adr/0008-recursive-division-tree.md) |
-| Maximum-thickness shell: 2.0 mm walls and floor, 1.2 mm base side shell; 2.4 mm floor fallback (0.4 mm slab) only if the coupon fails. | [ADR-0007](docs/adr/0007-maximum-thickness-shell.md) |
+| Maximum-thickness shell: 2.0 mm walls; solid base zone with the floor as its top face (amends the ADR-0007 base shell). | [ADR-0007](docs/adr/0007-maximum-thickness-shell.md), [ADR-0013](docs/adr/0013-solid-base.md) |
 | Inset friction lid; no latch, magnet, or hinge. | [ADR-0005](docs/adr/0005-inset-friction-lid.md) |
 | One body architecture; only the division tree varies. | [ADR-0006](docs/adr/0006-one-body-architecture.md) |
 | YAML specs plus a FreeCAD Python master; the generator emits FreeCAD Python. | [ADR-0009](docs/adr/0009-yaml-specs-freecad-master.md) |
@@ -59,7 +59,7 @@ The fixed part is the "one strong design"; the variable part is generated per bo
 
 All of the following are locked in `SYS-1.0`:
 
-1. **Shell:** 2.0 mm body, lip, floor, dividers, and lid; 1.2 mm base zone side shell (the standard-profile maximum); 2.4 mm floor fallback (0.4 mm slab) only if the coupon shows more than 1.0 mm deflection under 10 kg.
+1. **Shell:** 2.0 mm body, lip, dividers, and lid; a solid 4.75 mm base zone whose top face is the floor (ADR-0013); no underside cavity and no floor-thickness fallback.
 2. **Division model:** recursive tree with integer-millimetre positions, near-face measured.
 3. **Divider height:** interior depth − 10 mm; 3U uses interior depth − 2 mm.
 4. **Default height:** 6U; 3U/9U/12U as exceptions; maximum 12U.

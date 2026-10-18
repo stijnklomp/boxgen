@@ -5,8 +5,8 @@ Run under the pinned launcher:
     freecadcmd cad/tests/interface.py
 
 The script imports ``cad/gridfinity.py`` -- which must work with no Gridfinity
-workbench installed -- builds the base foot, the base underside cutter, the
-lip void, and the lip ring, measures them, and prints one marker line:
+workbench installed -- builds the base foot, the lip void, and the lip ring,
+measures them, and prints one marker line:
 
     BOXGEN_JSON:{...}
 
@@ -120,7 +120,6 @@ def main() -> int:
                 "BASE_TOP_CHAMFER",
                 "BASE_BOTTOM_RADIUS",
                 "BASE_VERTICAL_RADIUS",
-                "BASE_SHELL",
                 "OUTER_RADIUS",
                 "LIP_HEIGHT",
                 "LIP_BOTTOM_CHAMFER",
@@ -153,19 +152,6 @@ def main() -> int:
             },
         )
     report["base_foot"] = {"bbox": _bbox(foot), "sections": base_sections}
-
-    under = gf.make_base_under_cutter(0.0, 0.0, gf.BASE_HEIGHT - 2.0)
-    under_section = _section(under, 1.5)
-    report["base_under_cutter"] = {
-        "sections": [
-            {
-                "z": under_section["z"],
-                "width": under_section["widths"][-1],
-                "depth": under_section["depths"][-1],
-                "radii": under_section["radii"],
-            },
-        ],
-    }
 
     feet: dict[str, object] = {}
     for label, footprint in (("2x1", (2, 1)), ("4x4", (4, 4))):

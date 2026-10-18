@@ -230,8 +230,9 @@ impl BodyGeometry {
     ///
     /// Assumptions:
     /// - The body is a closed prism: outer box volume minus the interior
-    ///   cavity. The base zone below the floor is treated as solid material,
-    ///   which overestimates mass.
+    ///   cavity. The base zone below the floor is solid (ADR-0013), so the
+    ///   estimate treats the interior as a single void; the rounded corners,
+    ///   the base grooves, and the lip still make it an overestimate.
     /// - Every divider is 2.0 mm thick, spans its parent rectangle, and is
     ///   [`BodyGeometry::divider_height_mm`] tall.
     /// - The lid adds a 2.0 mm plate plus a 2.0 mm x 2.0 mm skirt; the 20 mm

@@ -92,7 +92,7 @@ The generator reports errors and warnings; the manual path uses the same checkli
 The master builds four things:
 
 1. **Base zone and lip** — pinned Gridfinity profile functions (vendored from the FreeCAD Gridfinity Workbench, LGPL-2.1 attribution kept).
-2. **Shell** — 2.0 mm base shell, body, lip, and floor; corner radii per the standard.
+2. **Shell** — solid base zone (the pinned base profile filled; its top face is the floor), 2.0 mm body and lip; corner radii per the standard.
 3. **Dividers** — 2.0 mm walls from the division tree, fused to the floor and outer wall with 2.0 mm fillets.
 4. **Lid** — 2.0 mm plate, 2.0 mm skirt × 2.0 mm, 0.30 mm clearance, one 20 mm finger hole.
 

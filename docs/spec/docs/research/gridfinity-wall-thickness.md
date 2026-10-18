@@ -9,10 +9,10 @@
 - A widely used Gridfinity designer caps wall thickness at **2.0 mm**; 2.1 mm and above cannot be generated with a standard-compatible lip.
 - Some designs use **2.6 mm** walls (for example the KYZ Design "Gridfinity 2.6 mm Wall Divider Bins"), but these deviate from the stock fit or modify the lip; they are not drop-in standard-compatible.
 - The constraint is the stacking lip: the standard opening is sized for a thin lip. A wall thickness above about **2.25 mm** makes the opening too small for a mating base to seat.
-- The **base zone's side shell** is a second constraint: the standard base profile's chamfers and internal fillets cap the internal side shell at about **1.2 mm** before the fillet collapses. The master applies a 0.4 mm minimum fillet to the hidden cavity. The floor above it can be thicker because it is cut into the top of the base, not offset from the outer profile.
+- The **base zone's side shell** is a second constraint: the standard base profile's chamfers and internal fillets cap the internal side shell at about **1.2 mm** before the fillet collapses. The master applies a 0.4 mm minimum fillet to the hidden cavity. The floor above it can be thicker because it is cut into the top of the base, not offset from the outer profile. (Superseded by ADR-0013: the base zone is solid; the cavity it described cannot be printed, because its 35 mm ceiling has to be bridged.)
 - The base profile and lip are what must stay standard; the wall thickness above the base is the free variable.
 
-**Decision:** use **2.0 mm** for the body, lip, floor, dividers, and lid, and **1.2 mm** for the base zone's side shell (the standard-profile maximum). See [ADR-0007](../adr/0007-maximum-thickness-shell.md).
+**Decision:** use **2.0 mm** for the body, lip, dividers, and lid, and a **solid base zone** whose top face is the floor (ADR-0013, amending [ADR-0007](../adr/0007-maximum-thickness-shell.md): the 1.2 mm side shell left an unprintable 35 mm bridged ceiling).
 
 **Sources:**
 - FreeCAD Gridfinity Workbench constants: <https://github.com/Stu142/FreeCAD-Gridfinity-Workbench/blob/master/freecad/gridfinity_workbench/const.py>

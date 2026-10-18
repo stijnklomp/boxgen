@@ -23,13 +23,13 @@ use std::sync::OnceLock;
 
 use serde_json::Value;
 
-/// The measured 1x1x6U body volume under the pinned FreeCAD. The tree
-/// extraction that produced #6 measured 15 109.8 mm3; the test allows +/-
-/// 3% for a geometry-kernel drift, like `tests/build.rs`.
-const EXPECTED_VOLUME_6U_MM3: f64 = 15_109.8;
+/// The measured 1x1x6U body volume under the pinned FreeCAD, with the solid
+/// base zone of ADR-0013. The test allows +/- 3% for a geometry-kernel drift,
+/// like `tests/build.rs`.
+const EXPECTED_VOLUME_6U_MM3: f64 = 18_397.5;
 
 /// The measured 1x1x3U boundary body volume (the smallest legal interior).
-const EXPECTED_VOLUME_3U_MM3: f64 = 8_672.1;
+const EXPECTED_VOLUME_3U_MM3: f64 = 11_959.7;
 
 /// Runs `cad/tests/radii.py` under `freecadcmd` once and parses its JSON.
 fn report() -> &'static Value {
@@ -316,7 +316,8 @@ fn the_floor_cove_is_a_2mm_fillet() {
 }
 
 /// No circular edge above the base is sharper than the 1.0 mm contract
-/// minimum; the base zone's hidden cavity keeps the pinned 0.4 mm clamp.
+/// minimum; the base zone's solid profile keeps its pinned 0.8 mm bottom
+/// chamfer radius as the sharpest curve below the base top.
 #[test]
 fn no_circular_edge_above_the_base_is_below_1mm() {
     if !common::freecad_required() {
@@ -331,10 +332,12 @@ fn no_circular_edge_above_the_base_is_below_1mm() {
     );
     // The sharpest internal curve above the base is the pinned lip neck.
     common::assert_close(minimum, 1.15, "sharpest circular edge above the base");
+    // ADR-0013: the hidden cavity is gone, so the base zone's sharpest curve
+    // is the pinned profile's 0.8 mm bottom chamfer radius.
     common::assert_close(
         common::number(report, "body_6u.min_circle_radius_base_zone_mm"),
-        0.4,
-        "base zone hidden cavity minimum radius",
+        0.8,
+        "base zone profile minimum radius",
     );
 }
 

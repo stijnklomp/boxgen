@@ -28,7 +28,7 @@ boxgen/
     index.rs         boxes/INDEX.md generation
   cad/
     gridfinity.py    pinned base/lip profile functions (LGPL-2.1 attribution)
-    shell.py         base zone, shell, floor, lip, corner radii
+    shell.py         solid base zone, shell, lip, corner radii
     dividers.py      division tree to divider solids
     lid.py           friction lid
     build.py         build(spec, out_dir) entry point
@@ -169,10 +169,10 @@ Rules:
 
 - Use millimetres; origin at the centre of the outer footprint, z = 0 at the bottom.
 - Import the pinned profiles from `cad/gridfinity.py`; never call an installed workbench.
-- Base zone: side shell 1.2 mm (the standard-profile maximum); floor 2.0 mm, cut into the top of the base profile and not added above it.
+- Base zone: solid; the pinned Gridfinity base profile filled to its 4.75 mm top, with the interior floor as its top face (ADR-0013).
 - Body, lip, dividers, and lid: 2.0 mm.
 - Build the body and lid as separate solids in one document.
-- Apply the corner radii from the standard. If a 2.0 mm fillet fails, reduce to 1.0 mm; if that fails, raise a geometry error. Never leave a sharp internal corner above the base; the base zone's hidden internal corners follow the pinned profile with a minimum 0.4 mm fillet.
+- Apply the corner radii from the standard. If a 2.0 mm fillet fails, reduce to 1.0 mm; if that fails, raise a geometry error. Never leave a sharp internal corner above the base; the base zone keeps the pinned profile's own shelf radii.
 - Export STEP with both solids; export STL as `body.stl` and `lid.stl`.
 - Save `box.FCStd` for review.
 - The script must be deterministic: same spec + same master = same geometry.

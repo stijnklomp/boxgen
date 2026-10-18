@@ -461,11 +461,11 @@ wait_ok() {
 FIX1="base tight: elephant-foot compensation 0.15–0.20 mm, or increase the base clearance up to 0.30 mm per side (standard §6); base loose or rocking: record it — the base/lip profile is architecture"
 FIX2="same fit family as test 1 (elephant-foot compensation or the permitted base clearance); the stack pitch and lip are architecture"
 FIX3="loose: add a second pair of ribs or increase the skirt depth; tight: lid clearance may go to 0.35 mm per side (standard §4.4); never add a latch (calibration §3.3)"
-FIX4="under/over-extrusion: dry the filament (65 °C for 8 h) and re-check flow; the tolerance is 2.0 ± 0.1 mm (1.2 ± 0.1 mm for the base side shell)"
+FIX4="under/over-extrusion: dry the filament (65 °C for 8 h) and re-check flow; the tolerance is 2.0 ± 0.1 mm for the wall, lip, and lid plate. A base underside with a cavity, bridging, or strings has no permitted parameter fix: record it for a system decision (the solid base is architecture, ADR-0013)"
 FIX5="under-extrusion at the fillets: dry and flow-check the filament; the radii themselves are architecture"
 FIX6="record what you saw; dry and flow-check the filament; the divider junction geometry is architecture"
-FIX7="record what you saw; if the failure is floor creep or deflection, the permitted floor fix (2.4 mm slab) applies when deflection exceeds 1.0 mm (calibration §3.8); a cracked lip or wall has no permitted parameter change — stop and record it for a system decision"
-FIX8="apply the 2.4 mm floor (a 0.4 mm slab above the 2.0 mm floor), record it, and reprint — then re-run the coupon (calibration §3.8)"
+FIX7="record what you saw; the solid base has no floor-thickness fallback (ADR-0013), so floor creep, deflection, or a cracked lip or wall has no permitted parameter change — stop and record it for a system decision"
+FIX8="record the reading and stop for a system decision — the solid base cannot flex, so there is no permitted parameter fix (calibration §3.8, ADR-0013)"
 FIX9="dry the filament and reprint before continuing (calibration §3.9)"
 FIXES=("" "$FIX1" "$FIX2" "$FIX3" "$FIX4" "$FIX5" "$FIX6" "$FIX7" "$FIX8" "$FIX9")
 
@@ -669,19 +669,16 @@ fi
 
 stage "Test 4 · Shell thickness"
 if todo; then
-  say "Measure with calipers (calibration §3.4). Every value is 2.0 ± 0.1 mm; the base side shell is 1.2 ± 0.1 mm."
+  say "Measure with calipers (calibration §3.4). The wall, lip, and lid plate are 2.0 ± 0.1 mm. Then look at the base's underside: it must be solid and filled — bottom layers as filled foot pads, no cavity opening, no bridging scars, no strings inside."
   ask_mm "${P}WALL_MM" "Body wall (mm):"
   ask_mm "${P}LIP_MM" "Lip wall (mm):"
-  ask_mm "${P}FLOOR_MM" "Floor (mm):"
   ask_mm "${P}PLATE_MM" "Lid plate (mm):"
-  ask_mm "${P}BASE_MM" "Base side shell (mm; n/a if unreachable):"
-  verdict "${P}TEST4" "Shell thickness"
+  ask_val "${P}BASE_NOTE" "Base underside (solid and filled, no bridging — short note):"
+  verdict "${P}TEST4" "Shell thickness and solid base"
   if [[ "$(val "${P}TEST4")" == "pass" ]]; then
     check_tolerance "${P}WALL_MM" 1.9 2.1 "body wall"
     check_tolerance "${P}LIP_MM" 1.9 2.1 "lip wall"
-    check_tolerance "${P}FLOOR_MM" 1.9 2.1 "floor"
     check_tolerance "${P}PLATE_MM" 1.9 2.1 "lid plate"
-    check_tolerance "${P}BASE_MM" 1.1 1.3 "base side shell"
   fi
   on_fail "${P}TEST4" "$FIX4"
 fi
@@ -761,7 +758,7 @@ fi
 stage "Test 8 · Floor deflection"
 if todo; then
   say "With the 10 kg on the stack — now, or at the final inspection — measure the bottom coupon's floor at its centre (calibration §3.8)."
-  say "Criterion: deflection < 1.0 mm. Above 1.0 mm the only permitted fix is the 2.4 mm floor (0.4 mm slab) — record it and reprint."
+  say "Criterion: deflection < 1.0 mm. The base is solid since ADR-0013, so a reading ≥ 1.0 mm has no permitted parameter fix: record it and stop for a system decision."
   note "If the floor is unreachable with the rig in place, take the best equivalent 10 kg measurement you can and say how in the next prompt."
   ask_mm "${P}DEFLECT_MM" "Floor deflection (mm):"
   ask_val "${P}DEFLECT_HOW" "How you measured it (short note):"
@@ -839,7 +836,7 @@ if todo; then
   m1=$(note_or "$(val "${P}TEST1_NOTE")" "seats with slight play, no rocking")
   m2=$(note_or "$(val "${P}TEST2_NOTE")" "self-centres, no wobble, separates by hand")
   m3=$(note_or "$(val "${P}TEST3_NOTE")" "20 cycles; stays in when inverted and shaken")
-  m4="wall $(dashv "$(val "${P}WALL_MM")") mm · lip $(dashv "$(val "${P}LIP_MM")") mm · floor $(dashv "$(val "${P}FLOOR_MM")") mm · lid plate $(dashv "$(val "${P}PLATE_MM")") mm · base shell $(dashv "$(val "${P}BASE_MM")") mm"
+  m4="wall $(dashv "$(val "${P}WALL_MM")") mm · lip $(dashv "$(val "${P}LIP_MM")") mm · lid plate $(dashv "$(val "${P}PLATE_MM")") mm · base underside: $(dashv "$(val "${P}BASE_NOTE")")"
   m5=$(note_or "$(val "${P}TEST5_NOTE")" "outer 3.75 · inner 1.75 · joints 2.0; no sharp internal corners")
   m6=$(note_or "$(val "${P}TEST6_NOTE")" "5 kg for $(fmt_minutes "${divider_min:-0}"): no cracks, whitening, or gaps")
   h0=$(val "${P}STACK_H0_MM")
@@ -952,7 +949,7 @@ EOF
     step "gh issue close 13 --repo stijnklomp/boxgen --comment 'Calibration passed (iteration ${CAL_ITERATION}); record: $(rel "$RECORD_FILE")' — run this yourself"
   else
     warn "NO-GO — failed or unrecorded: $(join_commas "${fails[@]}")"
-    say "Permitted parameters only: lid clearance, friction ribs, elephant-foot compensation, drying, flow, or the 2.4 mm floor (calibration §3); anything else is architecture and needs an ADR."
+    say "Permitted parameters only: lid clearance, friction ribs, elephant-foot compensation, drying, or flow (calibration §3); anything else is architecture and needs an ADR."
     say "Reprint, then re-run this wizard — enter iteration $(( CAL_ITERATION + 1 )) for the fresh run."
     step "gh issue comment 13 --repo stijnklomp/boxgen --body-file '$(rel "$ISSUE_FILE")' — optional progress comment"
   fi

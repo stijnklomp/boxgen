@@ -68,7 +68,6 @@ __all__ = [
     "BASE_BOTTOM_CHAMFER",
     "BASE_BOTTOM_RADIUS",
     "BASE_HEIGHT",
-    "BASE_SHELL",
     "BASE_TOP_CHAMFER",
     "BASE_VERTICAL",
     "BASE_VERTICAL_RADIUS",
@@ -88,7 +87,6 @@ __all__ = [
     "lip_profile_points",
     "make_base_feet",
     "make_base_foot",
-    "make_base_under_cutter",
     "make_lip_cut",
     "make_stacking_lip",
     "outer_width",
@@ -124,10 +122,6 @@ BASE_VERTICAL_RADIUS = 1.6
 #: Outer vertical corner radius of every body, standard section 4.1.
 OUTER_RADIUS = 3.75
 
-#: Base profile side shell (standard section 4: the maximum the profile
-#: allows); the underside cavity keeps this shell below the floor.
-BASE_SHELL = 1.2
-
 #: Stacking lip components: the ledge first (the top chamfer is derived from
 #: it), then the 0.7 + 1.8 + 1.5 mm split.
 LIP_TOP_LEDGE = 0.4
@@ -147,9 +141,6 @@ LIP_WALL = 2.0
 LIP_OVERLAP = (
     LIP_VERTICAL + LIP_TOP_LEDGE + LIP_TOP_CHAMFER + LIP_BOTTOM_CHAMFER - LIP_WALL
 )
-
-#: Minimum internal corner radius of the base underside (ADR-0007).
-_MIN_BASE_INNER_RADIUS = 0.4
 
 
 class GridfinityError(RuntimeError):
@@ -402,97 +393,6 @@ def make_base_feet(footprint: Sequence[int], lift: float = 0.0) -> Part.Shape:
     if merged.Volume <= 0.0:
         raise GridfinityError(f"base feet: non-positive volume {merged.Volume}")
     return merged
-
-
-def make_base_under_cutter(
-    cell_origin_x: float,
-    cell_origin_y: float,
-    floor_bottom: float,
-    shell: float = BASE_SHELL,
-) -> Part.Shape:
-    """Return the underside cavity for one base foot (a solid to cut away).
-
-    The cavity follows the inside of the base profile: the same shelf widths
-    and radii, offset inward by ``shell`` (1.2 mm by default) and clamped to
-    the standard's 0.4 mm minimum internal radius. It opens downward (a
-    straight prism starting 1.0 mm below the bed face) and ends at
-    ``floor_bottom``, the underside of the body floor, which the shell builder
-    passes as ``BASE_HEIGHT - floor thickness``.
-    """
-    if not 0.0 < shell:
-        raise GridfinityError(f"shell must be positive, got {shell}")
-    vertical_top = BASE_BOTTOM_CHAMFER + BASE_VERTICAL
-    if not vertical_top < floor_bottom <= BASE_HEIGHT:
-        raise GridfinityError(
-            f"floor_bottom must be inside the top chamfer ({vertical_top} .. "
-            f"{BASE_HEIGHT}], got {floor_bottom}",
-        )
-
-    center_x = cell_origin_x + GRID / 2.0
-    center_y = cell_origin_y + GRID / 2.0
-    bottom_width = NOMINAL_WIDTH_1U - 2.0 * BASE_BOTTOM_CHAMFER - 2.0 * BASE_TOP_CHAMFER
-    vertical_width = NOMINAL_WIDTH_1U - 2.0 * BASE_TOP_CHAMFER
-    top_width = vertical_width + 2.0 * (floor_bottom - vertical_top)
-
-    inner_bottom_width = bottom_width - 2.0 * shell
-    inner_vertical_width = vertical_width - 2.0 * shell
-    inner_top_width = top_width - 2.0 * shell
-    inner_bottom_radius = max(_MIN_BASE_INNER_RADIUS, BASE_BOTTOM_RADIUS - shell)
-    inner_vertical_radius = max(_MIN_BASE_INNER_RADIUS, BASE_VERTICAL_RADIUS - shell)
-    inner_top_radius = max(
-        _MIN_BASE_INNER_RADIUS,
-        BASE_VERTICAL_RADIUS + (floor_bottom - vertical_top) - shell,
-    )
-
-    cutter = rounded_rect_prism(
-        inner_bottom_width,
-        inner_bottom_width,
-        inner_bottom_radius,
-        -1.0,
-        0.0,
-        center_x,
-        center_y,
-    )
-    cutter = cutter.fuse(
-        rounded_rect_loft(
-            0.0,
-            inner_bottom_width,
-            inner_bottom_width,
-            inner_bottom_radius,
-            BASE_BOTTOM_CHAMFER,
-            inner_vertical_width,
-            inner_vertical_width,
-            inner_vertical_radius,
-            center_x,
-            center_y,
-        ),
-    )
-    cutter = cutter.fuse(
-        rounded_rect_prism(
-            inner_vertical_width,
-            inner_vertical_width,
-            inner_vertical_radius,
-            BASE_BOTTOM_CHAMFER,
-            vertical_top,
-            center_x,
-            center_y,
-        ),
-    )
-    cutter = cutter.fuse(
-        rounded_rect_loft(
-            vertical_top,
-            inner_vertical_width,
-            inner_vertical_width,
-            inner_vertical_radius,
-            floor_bottom,
-            inner_top_width,
-            inner_top_width,
-            inner_top_radius,
-            center_x,
-            center_y,
-        ),
-    )
-    return _single_solid(cutter, "base under cutter")
 
 
 # --- Stacking lip (adapted from _stacking_lip_profile) -----------------------

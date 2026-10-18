@@ -18,8 +18,10 @@ The script covers the ticket #7 contract:
 * The built 1x1x6U and 1x1x3U bodies: horizontal slices measure the outer
   3.75 mm and inner 1.75 mm vertical corner arcs and the lip rows
   (``OUTER_RADIUS - offset``), a vertical slice measures the 2.0 mm floor
-  cove, and every circular edge above the base is at least 1.0 mm. The hidden
-  base cavity keeps the pinned 0.4 mm minimum.
+  cove, and every circular edge above the base is at least 1.0 mm. The solid
+  base zone keeps the pinned profile's grades: its sharpest circular edge is
+  the 0.8 mm bottom chamfer radius (ADR-0013; the hidden cavity and its
+  0.4 mm clamp are gone).
 
 Why synthetic shapes for the reduce and failure paths: the real 1x1 3U
 interior cutter -- the smallest legal interior -- still takes the 2.0 mm
@@ -196,6 +198,9 @@ def _measure_body(module, gf, units_x: int, units_y: int, height_u: int) -> dict
     above_base = [
         circle for circle in circles if circle["z_min_mm"] >= z_floor - 1e-6
     ]
+    # No hidden cavity: the base zone's circular edges are the pinned profile's
+    # shelves (0.8 / 1.6 / 3.75 mm), so the sharpest is the 0.8 mm bottom
+    # chamfer radius.
     base_zone = [
         circle for circle in circles if circle["z_max_mm"] <= z_floor + 1e-6
     ]

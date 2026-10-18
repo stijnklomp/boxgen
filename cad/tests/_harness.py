@@ -147,8 +147,8 @@ def bisect_z(shape, x: float, y: float, low: float, high: float) -> float:
     """Bisect the material/air boundary at ``(x, y)`` between two heights.
 
     ``low`` is inside void and ``high`` inside material; the result is the
-    lowest z of the material (the ceiling of a void, like a base's underside
-    cavity).
+    lowest z of the material (the top face of a void, like a base's underside
+    above the bed).
     """
     for _ in range(24):
         middle = (low + high) / 2.0

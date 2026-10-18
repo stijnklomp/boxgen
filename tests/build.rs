@@ -22,10 +22,9 @@ use tempfile::tempdir;
 
 const MINIMAL_SPEC: &str = "minimal-build.yaml";
 
-/// The measured 1x1x6U body volume under the pinned FreeCAD. The prototype's
-/// 15 091.7 mm3 differs slightly because of the pinned under-cutter and shell
-/// normalization; the test allows ±3% for a geometry-kernel drift.
-const EXPECTED_BODY_VOLUME_MM3: f64 = 15_109.8;
+/// The measured 1x1x6U body volume under the pinned FreeCAD (solid base zone,
+/// ADR-0013); the test allows ±3% for a geometry-kernel drift.
+const EXPECTED_BODY_VOLUME_MM3: f64 = 18_397.5;
 
 /// The measured 2 x 4 x 6U lid volume (the 4 x 4 prototype lid is 54 761.46
 /// mm3); ±3% for geometry-kernel drift.
@@ -1230,7 +1229,7 @@ fn fake_report(id: &str, lid: bool) -> String {
         "dimensions": {"outer_x_mm": 41.5, "outer_y_mm": 41.5, "height_mm": 42.0},
         "interior_depth_mm": 33.25,
         "body": {
-            "volume_mm3": 15109.8,
+            "volume_mm3": 18397.5,
             "area_mm2": 1.0,
             "faces": 1,
             "solids": 1,
@@ -1240,8 +1239,8 @@ fn fake_report(id: &str, lid: bool) -> String {
         },
         "stl": {"facets": 1, "is_solid": true, "volume_mm3": 1.0},
         "artifacts": {"box_step_bytes": 1, "body_stl_bytes": 1},
-        "mass_g": 19.2,
-        "print_time_h": 0.8,
+        "mass_g": 23.4,
+        "print_time_h": 0.93,
         "warnings": [],
     });
     if lid {
