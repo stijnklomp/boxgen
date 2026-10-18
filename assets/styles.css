@@ -462,6 +462,30 @@ button.badge {
   fill: var(--accent);
 }
 
+.plan-svg .edge-handle {
+  fill: transparent;
+  pointer-events: all;
+}
+
+.plan-svg .edge-handle[data-axis="x"] {
+  cursor: ew-resize;
+}
+
+.plan-svg .edge-handle[data-axis="y"] {
+  cursor: ns-resize;
+}
+
+.plan-svg .edge-handle:hover,
+.plan-svg .edge-handle.dragging {
+  fill: var(--accent-soft);
+}
+
+.plan-svg .divider-preview {
+  fill: var(--accent);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .plan-svg .leaf-name {
   fill: var(--ink);
   text-anchor: middle;

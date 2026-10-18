@@ -1,5 +1,5 @@
-// The SVG division editor: the plan view, compartment selection, split,
-// rename, merge, and divider drags.
+// The SVG division editor: the plan view, compartment selection, split
+// (toolbar buttons and side drags), rename, merge, and divider drags.
 //
 // Every edit is a design mutation that app.js sends to `/api/plan`; the
 // editor never decides validity. The one local arithmetic is the *drag and
@@ -35,6 +35,24 @@ function mm(value) {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+/** The side drag handle band, in millimetres (inside the compartment). */
+const HANDLE_MM = 2.5;
+
+/** A compartment can split only when both children keep the minimum leaf. */
+function canSplit(size) {
+  const standard = ctx.state.standard;
+  return size >= 2 * standard.dividers.min_leaf_mm + standard.dividers.thickness_mm;
+}
+
+/** The legal integer split range: millimetres from the compartment's origin
+ * edge to the near divider face, both children at least the minimum leaf. */
+function splitBounds(size) {
+  const standard = ctx.state.standard;
+  const minimum = standard.dividers.min_leaf_mm;
+  const maximum = Math.max(minimum, Math.round(size - minimum - standard.dividers.thickness_mm));
+  return { minimum, maximum };
 }
 
 /** The editor view: toolbar, plan, selection toolbar, and the sidebar. */
@@ -188,6 +206,9 @@ function planSvgHtml() {
     );
   }
   for (const leaf of plan.leaves) {
+    parts.push(...edgeHandlesHtml(leaf, wall));
+  }
+  for (const leaf of plan.leaves) {
     const cx = wall + leaf.x_mm + leaf.width_mm / 2;
     const cy = wall + leaf.y_mm + leaf.depth_mm / 2;
     if (leaf.width_mm >= 22 && leaf.depth_mm >= 10) {
@@ -211,6 +232,31 @@ function planSvgHtml() {
   return `<svg id="plan" class="plan-svg" viewBox="${-pad} ${-pad} ${body.outer_width_mm + 2 * pad} ${body.outer_depth_mm + 2 * pad}" role="img" aria-label="division tree plan">${parts.join("")}</svg>`;
 }
 
+/** The four side drag handles of one compartment: left/right edges add an x
+ * division, top/bottom edges a y division. They sit inside the compartment
+ * and clear the corners so every hit is unambiguous. */
+function edgeHandlesHtml(leaf, wall) {
+  const parts = [];
+  const x = wall + leaf.x_mm;
+  const y = wall + leaf.y_mm;
+  const width = leaf.width_mm;
+  const depth = leaf.depth_mm;
+  const t = HANDLE_MM;
+  if (canSplit(width) && depth > 2 * t) {
+    parts.push(handleHtml(leaf, "x", x, y + t, t, depth - 2 * t));
+    parts.push(handleHtml(leaf, "x", x + width - t, y + t, t, depth - 2 * t));
+  }
+  if (canSplit(depth) && width > 2 * t) {
+    parts.push(handleHtml(leaf, "y", x + t, y, width - 2 * t, t));
+    parts.push(handleHtml(leaf, "y", x + t, y + depth - t, width - 2 * t, t));
+  }
+  return parts;
+}
+
+function handleHtml(leaf, axis, x, y, width, height) {
+  return `<rect class="edge-handle" data-edge-handle data-axis="${axis}" data-edge-leaf="${escapeHtml(leaf.path)}" x="${x}" y="${y}" width="${width}" height="${height}"/>`;
+}
+
 /** The selection toolbar below the plan. */
 function selectionToolbarHtml() {
   const { state } = ctx;
@@ -219,7 +265,7 @@ function selectionToolbarHtml() {
   if (!plan) return "";
 
   if (!selection) {
-    return `<div class="selection-toolbar"><span class="hint">Click a compartment to split, rename, or merge it; drag a divider (or click it) to move it to an exact position.</span></div>`;
+    return `<div class="selection-toolbar"><span class="hint">Click a compartment to select it; drag from any side to add a division (a click adds one in the middle); drag a divider (or click it) to move it to an exact position.</span></div>`;
   }
 
   if (selection.kind === "leaf") {
@@ -227,8 +273,8 @@ function selectionToolbarHtml() {
     if (!leaf) return "";
     const standard = state.standard;
     const minimum = 2 * standard.dividers.min_leaf_mm + standard.dividers.thickness_mm;
-    const canSplitX = leaf.width_mm >= minimum;
-    const canSplitY = leaf.depth_mm >= minimum;
+    const canSplitX = canSplit(leaf.width_mm);
+    const canSplitY = canSplit(leaf.depth_mm);
     return `
     <div class="selection-toolbar">
       <span class="title">Compartment ${leaf.compartment ? `“${escapeHtml(leaf.compartment)}”` : "(unnamed)"}</span>
@@ -268,6 +314,8 @@ function bindPlan(root) {
   if (!svg) return;
 
   svg.addEventListener("click", (event) => {
+    // A side click adds a division; it never doubles as a selection.
+    if (event.target.closest("[data-edge-handle]")) return;
     const leaf = event.target.closest("[data-leaf]");
     if (leaf) {
       const point = svgPoint(svg, event);
@@ -281,8 +329,12 @@ function bindPlan(root) {
 
   svg.addEventListener("pointerdown", (event) => {
     const divider = event.target.closest("[data-divider]");
-    if (!divider) return;
-    startDrag(svg, divider, event);
+    if (divider) {
+      startDrag(svg, divider, event);
+      return;
+    }
+    const handle = event.target.closest("[data-edge-handle]");
+    if (handle) startSplitDrag(svg, handle, event);
   });
 }
 
@@ -328,11 +380,9 @@ function splitSelected(axis) {
   const selection = state.selection;
   const leaf = selectedLeaf();
   if (!leaf || !selection) return;
-  const standard = state.standard;
-  const minimum = standard.dividers.min_leaf_mm;
   const horizontal = axis === "x";
   const size = horizontal ? leaf.width_mm : leaf.depth_mm;
-  const maximum = Math.max(minimum, Math.round(size - minimum - standard.dividers.thickness_mm));
+  const { minimum, maximum } = splitBounds(size);
   const clicked = horizontal ? selection.at.x - leaf.x_mm : selection.at.y - leaf.y_mm;
   ctx.actions.splitLeaf(leaf.path, axis, clamp(Math.round(clicked), minimum, maximum));
 }
@@ -379,12 +429,10 @@ function startDrag(svg, element, event) {
   );
   if (!divider) return;
 
-  const standard = state.standard;
-  const minimum = standard.dividers.min_leaf_mm;
   const horizontal = divider.axis === "x";
   const parent = divider.parent;
   const size = horizontal ? parent.width_mm : parent.depth_mm;
-  const maximum = Math.max(minimum, Math.round(size - minimum - standard.dividers.thickness_mm));
+  const { minimum, maximum } = splitBounds(size);
   const origin = horizontal ? parent.x_mm : parent.y_mm;
   const wall = interiorOffset();
   const startAt = Math.round(horizontal ? divider.x_mm - origin : divider.y_mm - origin);
@@ -430,4 +478,94 @@ function startDrag(svg, element, event) {
   element.addEventListener("pointermove", update);
   element.addEventListener("pointerup", finish);
   element.addEventListener("pointercancel", finish);
+}
+
+/** Drags from a compartment side to add a division: the pointer sets the
+ * position and releasing commits it; a plain click splits in the middle.
+ * The position is clamped to the same legal range as the divider drags. */
+function startSplitDrag(svg, handle, event) {
+  const { state } = ctx;
+  const leaf = state.plan.leaves.find((candidate) => candidate.path === handle.dataset.edgeLeaf);
+  if (!leaf) return;
+
+  const horizontal = handle.dataset.axis === "x";
+  const size = horizontal ? leaf.width_mm : leaf.depth_mm;
+  if (!canSplit(size)) return;
+
+  const { minimum, maximum } = splitBounds(size);
+  const thickness = state.standard.dividers.thickness_mm;
+  const wall = interiorOffset();
+  const origin = horizontal ? leaf.x_mm : leaf.y_mm;
+  const middle = clamp(Math.round(size / 2), minimum, maximum);
+  const unit = Math.max(state.plan.body.outer_width_mm, state.plan.body.outer_depth_mm) / 40;
+
+  const viewBox = svg.viewBox.baseVal;
+  const rect = svg.getBoundingClientRect();
+  const scale = Math.min(rect.width / viewBox.width, rect.height / viewBox.height) || 1;
+  const slop = 4 / scale; // movement below ~4 px is still a click
+
+  const pointerAt = (moveEvent) => {
+    const point = svgPoint(svg, moveEvent);
+    return horizontal ? point.x - wall - origin : point.y - wall - origin;
+  };
+  const startAt = pointerAt(event);
+  let moved = false;
+  let current = middle;
+
+  try {
+    handle.setPointerCapture(event.pointerId);
+  } catch {
+    // Pointer capture is a nicety; the listeners below work without it.
+  }
+  handle.classList.add("dragging");
+
+  const preview = document.createElementNS(SVG_NS, "rect");
+  preview.setAttribute("class", "divider-preview");
+  preview.setAttribute("width", String(horizontal ? thickness : leaf.width_mm));
+  preview.setAttribute("height", String(horizontal ? leaf.depth_mm : thickness));
+  svg.append(preview);
+
+  const label = document.createElementNS(SVG_NS, "text");
+  label.setAttribute("class", "drag-label");
+  label.setAttribute("font-size", String(unit * 1.3));
+  svg.append(label);
+
+  const draw = () => {
+    if (horizontal) {
+      preview.setAttribute("x", String(wall + origin + current));
+      preview.setAttribute("y", String(wall + leaf.y_mm));
+      label.setAttribute("x", String(wall + origin + current + thickness / 2));
+      label.setAttribute("y", String(wall + leaf.y_mm + leaf.depth_mm / 2 + unit * 0.8));
+    } else {
+      preview.setAttribute("x", String(wall + leaf.x_mm));
+      preview.setAttribute("y", String(wall + origin + current));
+      label.setAttribute("x", String(wall + leaf.x_mm + leaf.width_mm / 2));
+      label.setAttribute("y", String(wall + origin + current - unit * 0.8));
+    }
+    label.textContent = `${current} mm`;
+  };
+  draw();
+
+  const update = (moveEvent) => {
+    const raw = pointerAt(moveEvent);
+    if (!moved && Math.abs(raw - startAt) >= slop) moved = true;
+    if (moved) current = clamp(Math.round(raw), minimum, maximum);
+    draw();
+  };
+
+  const finish = (commit) => {
+    handle.removeEventListener("pointermove", update);
+    handle.removeEventListener("pointerup", onUp);
+    handle.removeEventListener("pointercancel", onCancel);
+    handle.classList.remove("dragging");
+    preview.remove();
+    label.remove();
+    if (commit) ctx.actions.splitLeaf(leaf.path, horizontal ? "x" : "y", current);
+  };
+  const onUp = () => finish(true);
+  const onCancel = () => finish(false);
+
+  handle.addEventListener("pointermove", update);
+  handle.addEventListener("pointerup", onUp);
+  handle.addEventListener("pointercancel", onCancel);
 }

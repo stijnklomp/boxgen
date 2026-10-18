@@ -35,6 +35,8 @@ walking.
 | 4 | Click **Reset to preset**. | The badge returns to the calibrated preset and the diff disappears. Reset is visible the whole time. | |
 | 5 | Set footprint 2 × 4 · 6U, keep lid + ribs. | The outer/interior readout matches 83.5 × 167.5 mm. | |
 | 6 | Click inside the single compartment and press **Split ↔ x**; then click the left compartment and press **Split ↕ y**. | Two dividers appear; the first split's near child kept the original compartment name; the plan stays `valid`. | |
+| 6a | Drag from a side of a compartment into it and release. | A divider preview follows the pointer with a live integer-mm label, and releasing adds the division where it was released; the plan stays `valid`. | |
+| 6b | Click a side of a compartment without dragging. | A division appears in the middle of that compartment; a side click never selects the compartment. | |
 | 7 | Drag the x divider to the left until it stops. | The live label shows integer mm and stops at the 12 mm minimum; it can never cross into the wall. | |
 | 8 | Click a divider, type `20` in **Position** and press Enter. | The divider moves to exactly 20 mm; the toolbar shows the legal range. | |
 | 9 | Type `2` in **Position** and press Enter. | The value is clamped into the legal range; nothing red appears. | |
