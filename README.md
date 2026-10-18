@@ -171,6 +171,8 @@ The `coupon` report section records the T-divider (`wall: -y`, 20 mm from the wa
 
 After a successful build the command prints the calibration reminder: **print two coupons and one lid** in the production recipe, run the nine tests in `docs/calibration.md`, and record the result in its record table. The coupon is the only iteration; no production box is printed until it passes every acceptance criterion.
 
+`scripts/calibration-wizard.sh` walks the human checkpoint (ticket #13): it checks the coupon build, steps through the Bambu Studio/X2D production recipe and the print, walks the nine tests one stage at a time, resumes across the 1 h and 24 h load-test waits (state in `build/calibration/state.env`), and writes a dated record with the go/no-go, the calibration-record-table row, and a paste-ready issue comment. The calibration record table stays in the spec repository: the wizard prints the row to paste there, and closing #13 or #14 stays a human action — the wizard prints the `gh` commands.
+
 ## Index
 
 `boxgen index [--boxes DIR]` (default `boxes`) regenerates `boxes/INDEX.md` from the registry and needs no FreeCAD:
@@ -429,6 +431,8 @@ cad/             FreeCAD Python master: gridfinity.py pins the base/lip,
   tests/         headless interface, radii, divider, lid, coupon, and
                  STEP-slice measurements (freecadcmd), sharing _harness.py
 templates/       box-spec.yaml, the copyable spec skeleton
+scripts/         calibration-wizard.sh: the human #13 walkthrough (coupon
+                 check, Bambu Studio recipe, print, the nine tests, record)
 tests/           CLI and integration tests (shared scaffolding in
                  tests/common/, golden scripts under tests/golden/)
 docker/          pinned FreeCAD toolchain and gate image

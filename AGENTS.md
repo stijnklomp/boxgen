@@ -111,6 +111,7 @@ docker run --rm -u "$(id -u):$(id -g)" \
 - `tests/lid.rs` — lid geometry check: runs `cad/tests/lid.py` under `freecadcmd` and pins the plate/skirt thickness, 0.30 mm per-side clearance, 1.40 mm corners, 1.0 mm roundover, 0.6 mm chamfer, 20 mm finger hole at 14 mm, stack gap, 1x1 parity, and the optional 0.15 mm ribs; skips natively, mandatory with `BOXGEN_REQUIRE_FREECAD=1`.
 - `tests/dividers.rs` — divider geometry check: runs `cad/tests/dividers.py` under `freecadcmd` and pins the 2.0 mm thickness, the golden tree's absolute near faces (x = -1.75, y = -31.75, x = 40.25) and full spans, top heights 15.0 / 28.0 / 49.0 / 70.0 mm, the 0.4 mm top chamfer, the 2.0 mm floor cove taper, T/wall junction probes, one split of a 4 × 4 body staying one solid (the shell's cell webs), and two synthetic corner-arc trees; skips natively, mandatory with `BOXGEN_REQUIRE_FREECAD=1`.
 - `docker/freecad.Dockerfile` — Rust 1.99.1 + `just` + headless FreeCAD; the authoritative gate image. `freecad_version` in `justfile` is the pin.
+- `scripts/calibration-wizard.sh` — the human #13 walkthrough: checks `build/coupon/`, steps through the Bambu Studio/X2D production recipe and the print, walks the nine `docs/calibration.md` tests stage by stage, resumes across the 1 h and 24 h load-test waits (state in `build/calibration/state.env`), and writes a dated record with the go/no-go, the calibration-record-table row, and a paste-ready issue comment. It never closes #13 or #14; it prints the `gh` commands for the human.
 
 ## Pitfalls
 
