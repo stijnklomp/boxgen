@@ -683,6 +683,29 @@ divisions: { compartment: Bits }
         );
     }
 
+    /// The spec's copy of the template and the crate's copy are one skeleton:
+    /// byte-identical, so edits to one cannot leave the other behind.
+    #[test]
+    fn spec_repository_template_matches_the_crate_copy() {
+        let spec_template =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/spec/templates/box-spec.yaml");
+        if !spec_template.is_file() {
+            eprintln!(
+                "skipping template comparison: {} does not exist",
+                spec_template.display()
+            );
+            return;
+        }
+        let crate_template = Path::new(env!("CARGO_MANIFEST_DIR")).join("templates/box-spec.yaml");
+
+        let crate_text = std::fs::read_to_string(&crate_template).expect("crate template");
+        let spec_text = std::fs::read_to_string(&spec_template).expect("spec template");
+        assert_eq!(
+            crate_text, spec_text,
+            "templates/box-spec.yaml must match docs/spec/templates/box-spec.yaml"
+        );
+    }
+
     #[test]
     fn system_must_be_sys_1_0() {
         let yaml = MINIMAL.replace("system: SYS-1.0", "system: SYS-9.9");

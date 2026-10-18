@@ -7,11 +7,16 @@ id: 4x4-6U-example-v1
 footprint: [4, 4]        # 1..4 units per side
 height_u: 6              # 3, 6, 9, or 12
 lid: true
+lid_ribs: false          # optional: true adds the 0.15 mm friction ribs; needs lid: true
 notes: "Replace with the contents and any handling notes"
 
 # Optional metadata; the generator checks fit and weight if present.
+# soft: true selects the standard's soft-item/cable clearances (5 mm per side,
+# 10 mm above) instead of the rigid ones (2 mm per side, 5 mm above). The
+# standard's 10 mm "where fingers must reach" rule stays a human sizing rule.
 contents:
   description: "Example contents"
+  soft: false
   max_length_mm: 200
   max_width_mm: 80
   max_height_mm: 25
