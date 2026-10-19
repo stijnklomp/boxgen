@@ -361,8 +361,10 @@ reviewable; `cad/tests/` never enters a build.
   (ticket #8). It resolves the plan for the contract's golden tree, builds
   4 × 4, 1 × 1, and two synthetic corner-arc trees, slices them above the
   floor, at the divider tops, and inside the 0.4 mm chamfer band, probes the
-  T, wall, and corner junctions, measures every legal divider top by
-  bisection, and prints one `BOXGEN_JSON:` line.
+  T, wall, and corner junctions, measures every legal divider top and the
+  cove-column tops by bisection (the columns stop at the chamfer's lower
+  edge, so no corner stands above the plate), and prints one `BOXGEN_JSON:`
+  line.
 - `cad/tests/coupon.py` — the headless coupon measurement script (ticket
   #10). It builds the coupon body (`cad.shell.build_body` +
   `cad.dividers.build_coupon_divider`) and the ribbed 1 × 1 × 6U lid,
@@ -405,9 +407,11 @@ reviewable; `cad/tests/` never enters a build.
   and pins the divider contract: 2.0 mm thickness, the golden tree's absolute
   near faces at x = -1.75, y = -31.75, x = 40.25 with their full spans and a
   single valid closed body, top heights 15.0 / 28.0 / 49.0 / 70.0, the 0.4 mm
-  top chamfer, the 2.0 mm floor cove taper, T/wall junction probes, one split
-  of a 4 × 4 body staying one solid (the floor slab ties the centre feet), and two synthetic
-  corner-arc trees whose acute notch is buried by the 2.0 mm cove.
+  top chamfer, cove columns that stop at the chamfer's lower edge (27.6 mm on
+  6U with no extra islands in the top section), the 2.0 mm floor cove taper,
+  T/wall junction probes, one split of a 4 × 4 body staying one solid (the
+  floor slab ties the centre feet), and two synthetic corner-arc trees whose
+  acute notch is buried by the 2.0 mm cove.
 - `tests/standard_mirror.rs` — runs `cad/tests/standard_mirror.py` under the
   pinned FreeCAD and asserts every mirrored `src/tree.rs` constant (walls,
   base, radii, dividers, lid, and the estimate inputs) equals its Python
@@ -493,7 +497,7 @@ Current tests pin:
 - `boxgen --help` and every subcommand help;
 - every contract command name (all five are implemented after ticket #10);
 - the coupon build end to end under FreeCAD: exit 0, the full artifact set in `build/coupon` (or `--out`), `report.json` with the `coupon` T-divider section (`wall: -y`, 20.0 mm long, 2.0 mm thick, 28.0 mm top, 0.4 mm chamfer), the ribbed 1 × 1 × 6U lid, the calibration reminder on stdout, the golden `box.py` snapshot, and the calibration-document feature table compared against the vendored `docs/spec/`;
-- the coupon geometry under FreeCAD: `cad/tests/coupon.py` pins the 41.5 × 41.5 × 42.0 body, the T-divider's 2.0 mm thickness and 28.0 top by bisection, the 20 mm length from the -y wall, the thin-slab slice areas at z = 20 and z = 29 (the divider material and its absence), the 2.0 mm floor and wall coves, the 0.4 mm top chamfer, and the lid's 20 mm finger hole, 0.30 mm pilot clearance, and 0.15 mm ribs;
+- the coupon geometry under FreeCAD: `cad/tests/coupon.py` pins the 41.5 × 41.5 × 42.0 body, the T-divider's 2.0 mm thickness and 28.0 top by bisection, the 20 mm length from the -y wall, the thin-slab slice areas at z = 20 and z = 29 (the divider material and its absence), the 2.0 mm floor and wall coves, the wall cove columns stopping at the 0.4 mm top chamfer's lower edge (27.6 mm), the 0.4 mm top chamfer, and the lid's 20 mm finger hole, 0.30 mm pilot clearance, and 0.15 mm ribs;
 - the coupon in the exported artifact: slicing `box.step` at z = 20 and z = 29 shows the divider material in the wire areas, plus the 41.5 mm outer wire and one closed Body solid, with the Lid product present;
 - coupon determinism: `box.py`, `body.stl`, `lid.stl`, and `report.json` are byte-identical across runs and `box.step` matches after normalizing its `FILE_NAME` timestamp;
 - coupon exit codes: 2 for a user spec containing `coupon` (unknown field), 3 for a FreeCAD failure, 4 for a missing launcher;
@@ -507,7 +511,7 @@ Current tests pin:
 - the split-tree build end to end under FreeCAD: the contract's golden 4 × 4 tree (`4x4-6u-tree.yaml`) exits 0 with the resolved `dividers` plan in `report.json` (near faces at x = -1.75, y = -31.75, x = 40.25, full parent spans), and slicing the *exported* `box.step` at z = 20 shows exactly the four contract compartments while z = 30 shows one open interior;
 - the deepest legal corner nesting (`4x4-6u-corner.yaml`) building with the small-leaf warning and its exported compartments at the nested positions, a 4 × 4 split whose divider misses the centre base feet staying one solid, and body + dividers + lid in one document with both STEP products and both print files (`4x4-6u.yaml`);
 - split-build warnings: a leaf below 15 mm still builds (exit 0) and the warning reaches `report.json` and stdout;
-- the divider geometry under FreeCAD: `cad/tests/dividers.py` pins the 2.0 mm thickness, the 0.4 mm top chamfer (measured as a 0.3 mm cut 0.1 mm below the top), the 2.0 mm floor cove taper (1.032 mm clear at 0.25 mm above the floor, flush at the 2.0 mm cove top), the T and wall junction probes, and top heights 15.0 / 28.0 / 49.0 / 70.0 mm for 3U / 6U / 9U / 12U;
+- the divider geometry under FreeCAD: `cad/tests/dividers.py` pins the 2.0 mm thickness, the 0.4 mm top chamfer (measured as a 0.3 mm cut 0.1 mm below the top), the cove columns stopping at the chamfer's lower edge (27.6 mm on 6U, with no extra wires in the section just below the top), the 2.0 mm floor cove taper (1.032 mm clear at 0.25 mm above the floor, flush at the 2.0 mm cove top), the T and wall junction probes, and top heights 15.0 / 28.0 / 49.0 / 70.0 mm for 3U / 6U / 9U / 12U;
 - the corner-arc handling under FreeCAD with two synthetic trees whose divider face (and whose divider cross position) lands on the 1.75 mm inner corner arc: the acute notch is buried by the 2.0 mm cove (tip and notch probes material, no section vertex at the sharp tip, the four cove circles at r = 2.0) and the body stays one valid closed solid; contract validation rejects every tree that could reach the arc (`invalid/corner-divider.yaml`, exit 2);
 - the lid build end to end under FreeCAD: `body.stl` and `lid.stl`, one STEP with both `Body` and `Lid` products, a ±3% lid-volume range, `lid.roundover_mm` at 1.0, `lid.ribs` false/true matching the spec, a watertight `lid.stl`, and the lid bbox at 79.1 x 163.1 x (37.0..41.0) mm for the 2×4×6U fixture;
 - the lid geometry under FreeCAD: `cad/tests/lid.py` slices the built lid and pins the 2.0 mm plate, 2.0 x 2.0 mm skirt, 0.30 mm per-side clearance, 1.40 mm corners, 1.0 mm roundover, 0.6 mm chamfer, 20 mm finger hole at 14 mm, the 1.0 mm stack gap at the design pitch, the seated-base clearances at the lip's contact seat (negative, the checkpoint #14 finding), and the two 0.15 mm ribs;

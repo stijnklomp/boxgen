@@ -13,8 +13,9 @@ are methods or dispatched through :func:`cove_rail` so the two axes share
 one code path.
 
 Divider height above the floor is interior depth minus 2.0 mm on 3U bodies
-and minus 10.0 mm on 6U and taller (standard section 4.3), measured tops
-15.0 / 28.0 / 49.0 / 70.0 mm.
+and minus 10.0 mm on 6U and taller (standard section 4.3), measured plate
+tops 15.0 / 28.0 / 49.0 / 70.0 mm. The cove columns end 0.4 mm lower, at the
+plate chamfer's lower edge.
 
 Junction fillets: OCC cannot fillet a fused shell's divider junctions
 (``makeFillet`` fails; see the FreeCAD API notes section 6), so the 2.0 mm
@@ -24,7 +25,9 @@ cove is built by boolean instead, exactly like the shell's floor cove:
   fills the divider-to-floor junction;
 * a vertical **cove column** at every span end fills the divider-to-wall and
   T junction corners, with the quarter cylinder's void quadrant pointing into
-  the child compartment.
+  the child compartment. The columns stop at the plate chamfer's lower edge
+  (``top - DIVIDER_TOP_CHAMFER``), so no junction corner stands above the
+  chamfered divider top.
 
 Calibration coupon (ticket #10). :func:`build_coupon_divider` fuses the
 coupon's single T-divider into a 1 x 1 x 6U shell: a 2.0 mm plate centred on
@@ -469,9 +472,14 @@ def build_dividers(
                 "cove rail",
             )
         for x_face, y_face, sx, sy in divider.junction_placements():
+            # The plate's 0.4 mm top chamfer removes its top edge; end the
+            # column at the chamfer's lower edge so the corner cannot stand
+            # above the chamfered divider top.
             shape = _fuse(
                 shape,
-                cove_column(x_face, y_face, sx, sy, z_floor, top),
+                cove_column(
+                    x_face, y_face, sx, sy, z_floor, top - DIVIDER_TOP_CHAMFER
+                ),
                 "cove column",
             )
 
@@ -490,8 +498,9 @@ def build_coupon_divider(body: Part.Shape, spec: shell.BodySpec) -> Part.Shape:
     The wall-end floor and wall junctions take the same 2.0 mm cove rails and
     columns as a tree divider; the free end carries no column (there is no
     wall to fillet against) and the plate keeps its 0.4 mm top-edge chamfer.
-    Only the 1 x 1 x 6U coupon exists, so any other geometry is a
-    :class:`GeometryError`.
+    Like a tree divider, the wall columns stop at the chamfer's lower edge so
+    no corner stands above the chamfered plate top. Only the 1 x 1 x 6U coupon
+    exists, so any other geometry is a :class:`GeometryError`.
     """
     if (spec.units_x, spec.units_y, spec.height_u) != (1, 1, 6):
         raise GeometryError(
@@ -529,7 +538,14 @@ def build_coupon_divider(body: Part.Shape, spec: shell.BodySpec) -> Part.Shape:
         )
         shape = _fuse(
             shape,
-            cove_column(x_face, wall_face, side, 1, z_floor, top),
+            cove_column(
+                x_face,
+                wall_face,
+                side,
+                1,
+                z_floor,
+                top - DIVIDER_TOP_CHAMFER,
+            ),
             "coupon divider wall cove",
         )
 

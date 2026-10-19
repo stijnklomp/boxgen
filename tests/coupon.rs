@@ -478,6 +478,14 @@ fn the_coupon_body_carries_the_calibration_features() {
     assert!(common::flag(report, "body.cove_wall_void"));
     assert!(common::flag(report, "body.cove_wall_material_far"));
     assert!(common::flag(report, "body.cove_wall_void_far"));
+    // The columns stop at the 0.4 mm top chamfer's lower edge: 27.6 mm, not
+    // the plate's 28.0 mm.
+    common::assert_near(
+        common::number(report, "body.cove_wall_top_mm"),
+        27.6,
+        PROBE_TOLERANCE,
+        "coupon wall cove column top",
+    );
 
     // The 0.4 mm top chamfer: 0.3 clear per side 0.1 below the top, flush
     // 0.5 below, and 0.3 short at the free end.

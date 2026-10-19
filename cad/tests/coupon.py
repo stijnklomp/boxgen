@@ -15,7 +15,9 @@ number calibration section 2 fixes:
   bottom), 0.4 mm top chamfer; the thin-slab slice areas at z = 20 and
   z = 29 show the divider material and its absence above the top;
 * junctions: the 2.0 mm floor and wall coves taper like the tree dividers'
-  (material probes sit on the expected quarter-round boundary);
+  (material probes sit on the expected quarter-round boundary); the wall
+  columns stop at the 0.4 mm top chamfer's lower edge (27.6 mm on the 6U
+  coupon), so no corner stands above the chamfered plate top;
 * lid: the ribbed 1 x 1 x 6U lid is 37.1 x 37.1 mm spanning z 37.0..41.0,
   with the 20 mm finger hole centred 14 mm from the +y edge and the ribs
   adding exactly 0.30 mm to the pilot width.
@@ -146,6 +148,11 @@ def _measure_body(dividers, gf, shell) -> dict[str, object]:
         "cove_wall_void": not harness.point_is_material(fused, -2.2, -17.9, 10.0),
         "cove_wall_material_far": harness.point_is_material(fused, 1.1, -18.6, 10.0),
         "cove_wall_void_far": not harness.point_is_material(fused, 2.2, -17.9, 10.0),
+        # The wall columns stop at the 0.4 mm top chamfer's lower edge, so
+        # their top is 27.6 mm rather than the plate's 28.0 mm.
+        "cove_wall_top_mm": harness.round6(
+            harness.measure_top(fused, -1.1, -18.6, z_floor + 0.5, 38.0)
+        ),
         # The 0.4 mm top chamfer: 0.3 clear per side 0.1 below the top, flush
         # 0.5 below, and 0.3 short at the free end.
         "chamfer_near_mm": harness.round6(harness.bisect_x(fused, -10.0, top - 0.1, 0.0, -3.0)),

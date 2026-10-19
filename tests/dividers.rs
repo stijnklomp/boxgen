@@ -7,8 +7,8 @@
 //! coves, the 0.4 mm top chamfer, and two synthetic trees that force the
 //! divider/junction onto the inner corner arc. This test asserts the pinned
 //! numbers: 2.0 mm thickness, whole-parent spans, near-face positions on the
-//! integer millimetre, tops at 15.0 / 28.0 / 49.0 / 70.0 mm, and a single
-//! valid closed solid.
+//! integer millimetre, tops at 15.0 / 28.0 / 49.0 / 70.0 mm, cove columns
+//! that stop at the chamfer's lower edge, and a single valid closed solid.
 //!
 //! Like `tests/body_radii.rs`, this skips on a native host without FreeCAD.
 //! The Docker gate and CI set `BOXGEN_REQUIRE_FREECAD=1`, where a missing
@@ -332,6 +332,32 @@ fn the_golden_divider_tops_carry_the_chamfer() {
         "golden.section_z27_9",
         COVE_TOLERANCE,
         "compartments 0.1 mm below the divider top (0.4 mm chamfer)",
+    );
+}
+
+/// The cove columns stop at the 0.4 mm top chamfer's lower edge, so no
+/// junction corner stands above the chamfered plate top. On a 6U body the
+/// plate top is 28.0 mm, so both a wall-end and a T-junction column measure
+/// 27.6 mm; the raw section 0.01 mm below the top holds only the body outline
+/// and the four compartments (an extra island would be a protruding corner).
+#[test]
+fn the_golden_cove_columns_stop_at_the_chamfer() {
+    if !common::freecad_required() {
+        return;
+    }
+    let report = report();
+
+    for (path, what) in [
+        ("golden.wall_corner_top_mm", "wall-end cove column top"),
+        ("golden.tee_corner_top_mm", "T-junction cove column top"),
+    ] {
+        common::assert_near(common::number(report, path), 27.6, TOP_TOLERANCE, what);
+    }
+
+    assert_eq!(
+        common::list_len(report, "golden.section_top_minus_0_01"),
+        5,
+        "the section 0.01 mm below the divider top must hold only the body outline and the four compartments"
     );
 }
 

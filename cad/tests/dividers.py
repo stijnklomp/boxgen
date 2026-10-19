@@ -21,7 +21,9 @@ contract section 4):
   tapering from the face; corner junction and T junction probes are material
   where the sharp corner used to be, and void where the cove does not reach.
 * Top chamfer: 0.1 mm below the divider top the section is 0.3 mm clear of
-  the face; below the chamfer band it is flush.
+  the face; below the chamfer band it is flush. The cove columns stop at the
+  chamfer's lower edge (0.4 mm below the top), so no junction corner stands
+  above the chamfered plate.
 
 The script prints one marker line:
 
@@ -218,6 +220,19 @@ def _measure_golden(module, shell, gf) -> dict[str, object]:
     out["tee_void"] = harness.point_is_material(fused, -6.0, -36.0, floor + 0.6)
     out["wall_material"] = harness.point_is_material(fused, -2.1, -81.4, floor + 0.6)
     out["wall_void"] = harness.point_is_material(fused, -5.0, -80.4, floor + 0.6)
+
+    # The cove columns stop at the 0.4 mm top chamfer's lower edge, so their
+    # top is 27.6 mm on a 6U body rather than the plate's 28.0 mm. The raw
+    # section just under the top must contain only the body outline and the
+    # four compartments: any island beside a divider face would be a corner
+    # standing above the chamfer.
+    out["wall_corner_top_mm"] = harness.round6(
+        harness.measure_top(fused, -2.1, -81.4, floor + 1.0, top + 1.0)
+    )
+    out["tee_corner_top_mm"] = harness.round6(
+        harness.measure_top(fused, -2.1, -32.1, floor + 1.0, top + 1.0)
+    )
+    out["section_top_minus_0_01"] = _horizontal_section(fused, top - 0.01)
     return out
 
 
