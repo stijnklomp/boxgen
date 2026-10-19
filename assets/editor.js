@@ -47,12 +47,55 @@ function canSplit(size) {
 }
 
 /** The legal integer split range: millimetres from the compartment's origin
- * edge to the near divider face, both children at least the minimum leaf. */
+ * edge to the near divider face, both children at least the minimum leaf.
+ * The maximum is floored: the far child starts one thickness later. */
 function splitBounds(size) {
   const standard = ctx.state.standard;
   const minimum = standard.dividers.min_leaf_mm;
-  const maximum = Math.max(minimum, Math.round(size - minimum - standard.dividers.thickness_mm));
+  const maximum = Math.max(minimum, Math.floor(size - minimum - standard.dividers.thickness_mm));
   return { minimum, maximum };
+}
+
+/** The magnetic snap targets: the divider centreline at a quarter, half, and
+ * three quarters of the parent span. The stored position is the near face,
+ * so the near face sits half a divider thickness before that centreline. */
+const SNAP_FRACTIONS = [0.25, 0.5, 0.75];
+
+/** How close, in screen pixels, the pointer must be to a snap target. */
+const SNAP_RADIUS_PX = 12;
+
+/** How far the dashed snap guide runs past the compartment, in millimetres. */
+const SNAP_GUIDE_MARGIN_MM = 3;
+
+/** The legal quarter targets, with their percentage labels. */
+function snapTargets(size) {
+  const standard = ctx.state.standard;
+  const thickness = standard.dividers.thickness_mm;
+  const { minimum, maximum } = splitBounds(size);
+  const targets = [];
+  for (const fraction of SNAP_FRACTIONS) {
+    const at = Math.round(size * fraction - thickness / 2);
+    if (at < minimum || at > maximum) continue;
+    if (targets.some((target) => target.at === at)) continue;
+    targets.push({ at, percent: Math.round(fraction * 100) });
+  }
+  return targets;
+}
+
+/** Resolves one pointer position to the near-face millimetres. While Shift is
+ * held, the nearest legal quarter target within the snap radius wins;
+ * otherwise the position is clamped to the legal integer range. */
+function resolveDragAt(raw, size, snapRadiusMm, snapping) {
+  const { minimum, maximum } = splitBounds(size);
+  const clamped = clamp(Math.round(raw), minimum, maximum);
+  if (!snapping) return { at: clamped, percent: null };
+  let best = null;
+  for (const target of snapTargets(size)) {
+    const distance = Math.abs(raw - target.at);
+    if (distance > snapRadiusMm) continue;
+    if (!best || distance < best.distance) best = { ...target, distance };
+  }
+  return best ? { at: best.at, percent: best.percent } : { at: clamped, percent: null };
 }
 
 /** The editor view: toolbar, plan, selection toolbar, and the sidebar. */
@@ -265,7 +308,7 @@ function selectionToolbarHtml() {
   if (!plan) return "";
 
   if (!selection) {
-    return `<div class="selection-toolbar"><span class="hint">Click a compartment to select it; drag from any side to add a division (a click adds one in the middle); drag a divider (or click it) to move it to an exact position.</span></div>`;
+    return `<div class="selection-toolbar"><span class="hint">Click a compartment to select it; drag from any side to add a division (a click adds one in the middle); drag a divider (or click it) to move it to an exact position. Hold Shift while dragging to snap to 25%, 50%, or 75%.</span></div>`;
   }
 
   if (selection.kind === "leaf") {
@@ -284,15 +327,14 @@ function selectionToolbarHtml() {
       <button type="button" class="btn small" data-editor="rename">Rename</button>
       <button type="button" class="btn small danger" data-editor="merge">Merge away</button>
       ${canSplitX && canSplitY ? "" : `<span class="range">A compartment needs ${minimum} mm to split.</span>`}
+      ${canSplitX || canSplitY ? `<span class="range">Hold Shift while side-dragging to snap the new divider to 25 / 50 / 75%.</span>` : ""}
     </div>`;
   }
 
   const divider = plan.dividers.find((candidate) => candidate.path === selection.path);
   if (!divider) return "";
-  const standard = state.standard;
-  const minimum = standard.dividers.min_leaf_mm;
   const size = divider.axis === "x" ? divider.parent.width_mm : divider.parent.depth_mm;
-  const maximum = Math.max(minimum, Math.round(size - minimum - standard.dividers.thickness_mm));
+  const { minimum, maximum } = splitBounds(size);
   const at = Math.round(
     divider.axis === "x" ? divider.x_mm - divider.parent.x_mm : divider.y_mm - divider.parent.y_mm,
   );
@@ -304,7 +346,7 @@ function selectionToolbarHtml() {
       <input type="number" id="divider-at" min="${minimum}" max="${maximum}" step="1" value="${at}" data-divider-path="${escapeHtml(divider.path)}">
     </label>
     <button type="button" class="btn small" data-editor="apply-divider">Apply</button>
-    <span class="range">legal range ${minimum}–${maximum} mm from the compartment edge</span>
+    <span class="range">legal range ${minimum}–${maximum} mm from the compartment edge; hold Shift to snap to 25 / 50 / 75%</span>
   </div>`;
 }
 
@@ -407,11 +449,17 @@ function interiorOffset() {
   return (body.outer_width_mm - body.interior_width_mm) / 2;
 }
 
+/** Pixels per SVG user unit: the viewBox is fitted with `meet`. */
+function svgScale(svg, rect = svg.getBoundingClientRect()) {
+  const viewBox = svg.viewBox.baseVal;
+  return Math.min(rect.width / viewBox.width, rect.height / viewBox.height) || 1;
+}
+
 /** Client coordinates to SVG user units (the viewBox frame). */
 function svgPoint(svg, event) {
   const rect = svg.getBoundingClientRect();
   const viewBox = svg.viewBox.baseVal;
-  const scale = Math.min(rect.width / viewBox.width, rect.height / viewBox.height) || 1;
+  const scale = svgScale(svg, rect);
   const offsetX = (rect.width - viewBox.width * scale) / 2;
   const offsetY = (rect.height - viewBox.height * scale) / 2;
   return {
@@ -421,7 +469,8 @@ function svgPoint(svg, event) {
 }
 
 /** Drags one divider with live integer millimetres, clamped to the legal
- * range derived from the standard's minimum leaf and the divider thickness. */
+ * range derived from the standard's minimum leaf and the divider thickness.
+ * Holding Shift adds magnetic snap targets at the quarter positions. */
 function startDrag(svg, element, event) {
   const { state } = ctx;
   const divider = state.plan.dividers.find(
@@ -432,11 +481,13 @@ function startDrag(svg, element, event) {
   const horizontal = divider.axis === "x";
   const parent = divider.parent;
   const size = horizontal ? parent.width_mm : parent.depth_mm;
-  const { minimum, maximum } = splitBounds(size);
+  const thickness = state.standard.dividers.thickness_mm;
   const origin = horizontal ? parent.x_mm : parent.y_mm;
   const wall = interiorOffset();
   const startAt = Math.round(horizontal ? divider.x_mm - origin : divider.y_mm - origin);
+  const snapRadiusMm = SNAP_RADIUS_PX / svgScale(svg);
   let current = startAt;
+  let percent = null;
   let moved = false;
 
   try {
@@ -446,28 +497,68 @@ function startDrag(svg, element, event) {
   }
   element.classList.add("dragging");
 
+  const guide = document.createElementNS(SVG_NS, "line");
+  guide.setAttribute("class", "snap-guide");
+  guide.setAttribute("visibility", "hidden");
+  svg.append(guide);
+
   const label = document.createElementNS(SVG_NS, "text");
   label.setAttribute("class", "drag-label");
   label.setAttribute("font-size", String((Math.max(state.plan.body.outer_width_mm, state.plan.body.outer_depth_mm) / 40) * 1.3));
   svg.append(label);
 
+  const draw = (point) => {
+    if (horizontal) element.setAttribute("x", String(wall + origin + current));
+    else element.setAttribute("y", String(wall + origin + current));
+    if (percent === null) {
+      guide.setAttribute("visibility", "hidden");
+    } else {
+      const centre = wall + origin + current + thickness / 2;
+      if (horizontal) {
+        guide.setAttribute("x1", String(centre));
+        guide.setAttribute("x2", String(centre));
+        guide.setAttribute("y1", String(wall + parent.y_mm - SNAP_GUIDE_MARGIN_MM));
+        guide.setAttribute("y2", String(wall + parent.y_mm + parent.depth_mm + SNAP_GUIDE_MARGIN_MM));
+      } else {
+        guide.setAttribute("x1", String(wall + parent.x_mm - SNAP_GUIDE_MARGIN_MM));
+        guide.setAttribute("x2", String(wall + parent.x_mm + parent.width_mm + SNAP_GUIDE_MARGIN_MM));
+        guide.setAttribute("y1", String(centre));
+        guide.setAttribute("y2", String(centre));
+      }
+      guide.setAttribute("visibility", "visible");
+    }
+    if (point) {
+      label.setAttribute("x", String(point.x));
+      label.setAttribute("y", String(point.y - 1));
+    }
+    label.textContent = percent === null ? `${current} mm` : `${current} mm · ${percent}%`;
+  };
+
+  const apply = (raw, snapping, point) => {
+    const resolved = resolveDragAt(raw, size, snapRadiusMm, snapping);
+    current = resolved.at;
+    percent = resolved.percent;
+    draw(point);
+  };
+
   const update = (moveEvent) => {
     moved = true;
     const point = svgPoint(svg, moveEvent);
     const raw = horizontal ? point.x - wall - origin : point.y - wall - origin;
-    current = clamp(Math.round(raw), minimum, maximum);
-    if (horizontal) element.setAttribute("x", String(wall + origin + current));
-    else element.setAttribute("y", String(wall + origin + current));
-    label.setAttribute("x", String(point.x));
-    label.setAttribute("y", String(point.y - 1));
-    label.textContent = `${current} mm`;
+    apply(raw, moveEvent.shiftKey, point);
   };
 
-  const finish = () => {
+  const finish = (event) => {
     element.removeEventListener("pointermove", update);
     element.removeEventListener("pointerup", finish);
     element.removeEventListener("pointercancel", finish);
     element.classList.remove("dragging");
+    if (moved && event?.type === "pointerup") {
+      const point = svgPoint(svg, event);
+      const raw = horizontal ? point.x - wall - origin : point.y - wall - origin;
+      apply(raw, event.shiftKey, point);
+    }
+    guide.remove();
     label.remove();
     if (moved) {
       if (current !== startAt) ctx.actions.setDividerAt(divider.path, current);
@@ -482,7 +573,8 @@ function startDrag(svg, element, event) {
 
 /** Drags from a compartment side to add a division: the pointer sets the
  * position and releasing commits it; a plain click splits in the middle.
- * The position is clamped to the same legal range as the divider drags. */
+ * The position is clamped to the same legal range as the divider drags, and
+ * holding Shift adds the same magnetic quarter targets. */
 function startSplitDrag(svg, handle, event) {
   const { state } = ctx;
   const leaf = state.plan.leaves.find((candidate) => candidate.path === handle.dataset.edgeLeaf);
@@ -496,13 +588,13 @@ function startSplitDrag(svg, handle, event) {
   const thickness = state.standard.dividers.thickness_mm;
   const wall = interiorOffset();
   const origin = horizontal ? leaf.x_mm : leaf.y_mm;
-  const middle = clamp(Math.round(size / 2), minimum, maximum);
+  const middle = clamp(Math.round((size - thickness) / 2), minimum, maximum);
   const unit = Math.max(state.plan.body.outer_width_mm, state.plan.body.outer_depth_mm) / 40;
 
-  const viewBox = svg.viewBox.baseVal;
   const rect = svg.getBoundingClientRect();
-  const scale = Math.min(rect.width / viewBox.width, rect.height / viewBox.height) || 1;
+  const scale = svgScale(svg, rect);
   const slop = 4 / scale; // movement below ~4 px is still a click
+  const snapRadiusMm = SNAP_RADIUS_PX / scale;
 
   const pointerAt = (moveEvent) => {
     const point = svgPoint(svg, moveEvent);
@@ -511,6 +603,7 @@ function startSplitDrag(svg, handle, event) {
   const startAt = pointerAt(event);
   let moved = false;
   let current = middle;
+  let percent = null;
 
   try {
     handle.setPointerCapture(event.pointerId);
@@ -524,6 +617,11 @@ function startSplitDrag(svg, handle, event) {
   preview.setAttribute("width", String(horizontal ? thickness : leaf.width_mm));
   preview.setAttribute("height", String(horizontal ? leaf.depth_mm : thickness));
   svg.append(preview);
+
+  const guide = document.createElementNS(SVG_NS, "line");
+  guide.setAttribute("class", "snap-guide");
+  guide.setAttribute("visibility", "hidden");
+  svg.append(guide);
 
   const label = document.createElementNS(SVG_NS, "text");
   label.setAttribute("class", "drag-label");
@@ -542,28 +640,53 @@ function startSplitDrag(svg, handle, event) {
       label.setAttribute("x", String(wall + leaf.x_mm + leaf.width_mm / 2));
       label.setAttribute("y", String(wall + origin + current - unit * 0.8));
     }
-    label.textContent = `${current} mm`;
+    label.textContent = percent === null ? `${current} mm` : `${current} mm · ${percent}%`;
+    if (percent === null) {
+      guide.setAttribute("visibility", "hidden");
+    } else {
+      const centre = wall + origin + current + thickness / 2;
+      if (horizontal) {
+        guide.setAttribute("x1", String(centre));
+        guide.setAttribute("x2", String(centre));
+        guide.setAttribute("y1", String(wall + leaf.y_mm - SNAP_GUIDE_MARGIN_MM));
+        guide.setAttribute("y2", String(wall + leaf.y_mm + leaf.depth_mm + SNAP_GUIDE_MARGIN_MM));
+      } else {
+        guide.setAttribute("x1", String(wall + leaf.x_mm - SNAP_GUIDE_MARGIN_MM));
+        guide.setAttribute("x2", String(wall + leaf.x_mm + leaf.width_mm + SNAP_GUIDE_MARGIN_MM));
+        guide.setAttribute("y1", String(centre));
+        guide.setAttribute("y2", String(centre));
+      }
+      guide.setAttribute("visibility", "visible");
+    }
+  };
+
+  const apply = (raw, snapping) => {
+    const resolved = resolveDragAt(raw, size, snapRadiusMm, snapping);
+    current = resolved.at;
+    percent = resolved.percent;
+    draw();
   };
   draw();
 
   const update = (moveEvent) => {
     const raw = pointerAt(moveEvent);
     if (!moved && Math.abs(raw - startAt) >= slop) moved = true;
-    if (moved) current = clamp(Math.round(raw), minimum, maximum);
-    draw();
+    if (moved) apply(raw, moveEvent.shiftKey);
   };
 
-  const finish = (commit) => {
+  const finish = (commit, event) => {
     handle.removeEventListener("pointermove", update);
     handle.removeEventListener("pointerup", onUp);
     handle.removeEventListener("pointercancel", onCancel);
     handle.classList.remove("dragging");
+    if (commit && moved) apply(pointerAt(event), event.shiftKey);
     preview.remove();
+    guide.remove();
     label.remove();
     if (commit) ctx.actions.splitLeaf(leaf.path, horizontal ? "x" : "y", current);
   };
-  const onUp = () => finish(true);
-  const onCancel = () => finish(false);
+  const onUp = (event) => finish(true, event);
+  const onCancel = () => finish(false, null);
 
   handle.addEventListener("pointermove", update);
   handle.addEventListener("pointerup", onUp);

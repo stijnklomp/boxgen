@@ -38,6 +38,7 @@ walking.
 | 6a | Drag from a side of a compartment into it and release. | A divider preview follows the pointer with a live integer-mm label, and releasing adds the division where it was released; the plan stays `valid`. | |
 | 6b | Click a side of a compartment without dragging. | A division appears in the middle of that compartment; a side click never selects the compartment. | |
 | 7 | Drag the x divider to the left until it stops. | The live label shows integer mm and stops at the 12 mm minimum; it can never cross into the wall. | |
+| 7a | Hold Shift and drag a divider near 25%, 50% and 75% of its compartment; repeat while dragging a new divider out from a compartment side. | The divider locks to a dashed guide at each fraction and the label shows the percentage (for example `81 mm · 50%`); releasing Shift restores free movement, and the plan stays `valid`. | |
 | 8 | Click a divider, type `20` in **Position** and press Enter. | The divider moves to exactly 20 mm; the toolbar shows the legal range. | |
 | 9 | Type `2` in **Position** and press Enter. | The value is clamped into the legal range; nothing red appears. | |
 | 10 | Drag a divider until a compartment is between 12 and 15 mm. | An amber warning names the small compartment; the spec stays valid. | |
