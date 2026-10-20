@@ -26,6 +26,7 @@ export function setEditorContext(context) {
 export function closeDivideChooser() {
   if (!divideChooser) return;
   const { element, controller } = divideChooser;
+  clearDividePreview();
   divideChooser = null;
   controller.abort();
   element.remove();
@@ -599,6 +600,66 @@ function isWallSide(block, side) {
   return side === "near" ? block.near_wall === true : block.far_wall === true;
 }
 
+/** The neutral caption until a count is hovered or focused. */
+const DIVIDE_CAPTION_IDLE = "Hover a count to preview";
+
+/** The caption for one option: its count, compartment count, and span range.
+ * A warned option names the 15 mm threshold from the plan; the editor never
+ * recomputes the warning from the spans or the perpendicular dimension. */
+function divideCaption(option) {
+  const count = option.count;
+  const word = count === 1 ? "divider" : "dividers";
+  const spans = (option.spans_mm ?? []).filter((value) => Number.isFinite(value));
+  let caption = `${count} ${word} · ${count + 1} compartments`;
+  if (spans.length > 0) {
+    const minimum = Math.min(...spans);
+    const maximum = Math.max(...spans);
+    const range =
+      maximum - minimum <= 0.05
+        ? `${mm(minimum)} mm each`
+        : `${mm(minimum)}–${mm(maximum)} mm each`;
+    caption += ` · ${range}`;
+  }
+  if (option.warned) caption += " · below the 15 mm warning threshold";
+  return caption;
+}
+
+/** Removes every preview line and restores the neutral caption. */
+function clearDividePreview() {
+  const svg = document.getElementById("plan");
+  if (svg) {
+    for (const line of svg.querySelectorAll(".divide-preview-line")) line.remove();
+  }
+  const caption = divideChooser?.caption;
+  if (!caption) return;
+  caption.textContent = DIVIDE_CAPTION_IDLE;
+  caption.classList.remove("warned");
+}
+
+/** Draws one option's divider rectangles, verbatim from the plan, above the
+ * leaves and dividers, and shows its caption. No request and no state change:
+ * the preview disappears when the pointer or focus leaves the count. */
+function previewDivideOption(option) {
+  clearDividePreview();
+  const svg = document.getElementById("plan");
+  const body = ctx.state.plan?.body;
+  if (!svg || !body) return;
+  const wall = (body.outer_width_mm - body.interior_width_mm) / 2;
+  for (const divider of option.dividers ?? []) {
+    const line = document.createElementNS(SVG_NS, "rect");
+    line.setAttribute("class", "divide-preview-line");
+    line.setAttribute("x", String(wall + divider.x_mm));
+    line.setAttribute("y", String(wall + divider.y_mm));
+    line.setAttribute("width", String(divider.width_mm));
+    line.setAttribute("height", String(divider.depth_mm));
+    svg.append(line);
+  }
+  const caption = divideChooser?.caption;
+  if (!caption) return;
+  caption.textContent = divideCaption(option);
+  caption.classList.toggle("warned", option.warned === true);
+}
+
 /** Opens the anchored, non-modal Add dividers chooser for one wall side.
  * Every count, span, and the replacement subtree comes from the plan; this
  * function only renders them. */
@@ -636,15 +697,31 @@ function openDivideChooser(path, axis, side, pointer) {
     button.type = "button";
     button.className = "divide-count";
     button.textContent = String(option.count);
-    button.title = option.count === 1 ? "Add one divider" : `Add ${option.count} dividers`;
+    const label = option.count === 1 ? "Add one divider" : `Add ${option.count} dividers`;
+    button.title = option.warned ? `${label} (below the 15 mm warning)` : label;
     button.setAttribute("aria-label", button.title);
+    if (option.warned) {
+      button.classList.add("warned");
+      const dot = document.createElement("span");
+      dot.className = "divide-warn-dot";
+      dot.setAttribute("aria-hidden", "true");
+      button.append(dot);
+    }
+    const show = () => previewDivideOption(option);
+    button.addEventListener("pointerenter", show);
+    button.addEventListener("pointerleave", clearDividePreview);
+    button.addEventListener("focus", show);
+    button.addEventListener("blur", clearDividePreview);
     button.addEventListener("click", () => {
       closeDivideChooser();
       ctx.actions.applyDivide(leaf.path, option.division);
     });
     grid.append(button);
   }
-  element.append(header, grid);
+  const caption = document.createElement("p");
+  caption.className = "divide-caption";
+  caption.textContent = DIVIDE_CAPTION_IDLE;
+  element.append(header, grid, caption);
   document.body.append(element);
 
   // Measure first, then keep the panel inside the viewport.
@@ -681,7 +758,7 @@ function openDivideChooser(path, axis, side, pointer) {
   });
   window.addEventListener("resize", closeDivideChooser, { signal: controller.signal });
 
-  divideChooser = { element, controller };
+  divideChooser = { element, controller, caption };
 }
 
 /** Drags from a compartment side to add one divider at the release position,
