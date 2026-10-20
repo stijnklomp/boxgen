@@ -34,7 +34,11 @@ pub(crate) fn plan_design(design: &Design) -> PlanResponse {
         errors: validation.errors,
         warnings: validation.warnings,
         body: BodyDto::from_geometry(&body),
-        leaves: validation.leaves.iter().map(LeafRectDto::from).collect(),
+        leaves: validation
+            .leaves
+            .iter()
+            .map(|leaf| LeafRectDto::from_leaf(leaf, &body))
+            .collect(),
         dividers: validation
             .dividers
             .iter()

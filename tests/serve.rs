@@ -946,6 +946,406 @@ async fn plan_matches_the_golden_tree() {
     assert_rect(&dividers[0]["parent"], [0.0, 0.0, 163.5, 163.5]);
     assert_rect(&dividers[1]["parent"], [0.0, 0.0, 80.0, 163.5]);
     assert_rect(&dividers[2]["parent"], [82.0, 0.0, 81.5, 163.5]);
+
+    // Every leaf carries the additive divide block. Leaf A starts on both the
+    // -x and -y walls; leaf C sits between x dividers and between y walls.
+    let a_divide = &leaves[0]["divide"];
+    assert_eq!(a_divide["x"]["near_wall"], true);
+    assert_eq!(a_divide["x"]["far_wall"], false);
+    assert!(a_divide["y"].is_object(), "{a_divide}");
+    let c_divide = &leaves[2]["divide"];
+    assert!(c_divide["x"].is_null(), "{c_divide}");
+    assert_eq!(c_divide["y"]["near_wall"], true);
+    assert_eq!(c_divide["y"]["far_wall"], true);
+
+    // The ticket's worked example: 80 mm wide, two dividers, spans
+    // [26, 25, 25], near faces at 26 and 53 relative to the leaf origin.
+    let count_two = a_divide["x"]["options"]
+        .as_array()
+        .expect("options")
+        .iter()
+        .find(|option| option["count"] == 2)
+        .expect("count 2");
+    assert_eq!(count_two["spans_mm"], serde_json::json!([26.0, 25.0, 25.0]));
+    assert_eq!(count_two["warned"], false);
+    assert_eq!(
+        count_two["division"],
+        serde_json::json!({
+            "type": "split",
+            "axis": "x",
+            "at_mm": 26,
+            "near": {"type": "leaf", "compartment": "A"},
+            "far": {
+                "type": "split",
+                "axis": "x",
+                "at_mm": 25,
+                "near": {"type": "leaf", "compartment": null},
+                "far": {"type": "leaf", "compartment": null}
+            }
+        })
+    );
+    assert_eq!(
+        count_two["dividers"],
+        serde_json::json!([
+            {"x_mm": 26.0, "y_mm": 0.0, "width_mm": 2.0, "depth_mm": 50.0},
+            {"x_mm": 53.0, "y_mm": 0.0, "width_mm": 2.0, "depth_mm": 50.0}
+        ])
+    );
+}
+
+/// The even-divide planner's rules at the API seam: counts stop at the 12 mm
+/// minimum (9 and 10 of a full 4x4 wall warn, 8 does not), and a 1x1 wall only
+/// fits one divider.
+#[tokio::test]
+async fn plan_even_divide_offers_counts_up_to_the_limits() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let router = app(workspace(temp.path()));
+
+    let design = serde_json::json!({
+        "id": "4x4-6u-single-v1",
+        "footprint": [4, 4],
+        "height_u": 6,
+        "lid": false,
+        "divisions": leaf_wire(Some("All")),
+    });
+    let (status, plan) = json(
+        &router,
+        "POST",
+        "/api/plan",
+        Some(serde_json::json!({ "design": design })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(plan["valid"], true);
+
+    let options = plan["leaves"][0]["divide"]["x"]["options"]
+        .as_array()
+        .expect("x options");
+    let counts: Vec<u64> = options
+        .iter()
+        .map(|option| option["count"].as_u64().expect("count"))
+        .collect();
+    assert_eq!(counts, (1..=10).collect::<Vec<_>>());
+
+    let warned = |count: u64| {
+        options
+            .iter()
+            .find(|option| option["count"] == count)
+            .unwrap_or_else(|| panic!("count {count}"))["warned"]
+            .as_bool()
+            .expect("warned")
+    };
+    assert!(!warned(8), "16 mm strips must not warn");
+    assert!(warned(9), "14 mm strips must warn");
+    assert!(warned(10));
+
+    let (status, plan) = json(
+        &router,
+        "POST",
+        "/api/plan",
+        Some(serde_json::json!({
+            "design": minimal_design("1x1-3u-bits-v1"),
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let counts: Vec<u64> = plan["leaves"][0]["divide"]["x"]["options"]
+        .as_array()
+        .expect("x options")
+        .iter()
+        .map(|option| option["count"].as_u64().expect("count"))
+        .collect();
+    assert_eq!(counts, [1], "a 37.5 mm wall fits one divider");
+}
+
+/// Every offered option applies to the golden tree and re-plans valid: the
+/// strips are exactly `spans_mm` in origin order, the near strip keeps the
+/// compartment name, and every split is a whole millimetre at least 12 mm in.
+#[tokio::test]
+async fn plan_even_divide_options_apply_and_replan() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    write_box(temp.path(), "4x4-6U-tree-v1", &fixture("4x4-6u-tree.yaml"));
+    let router = app(workspace(temp.path()));
+
+    let (status, opened) = json(&router, "POST", "/api/boxes/4x4-6U-tree-v1/open", None).await;
+    assert_eq!(status, StatusCode::OK);
+    let design = opened["design"].clone();
+
+    let (status, plan) = json(
+        &router,
+        "POST",
+        "/api/plan",
+        Some(serde_json::json!({ "design": design.clone() })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(plan["valid"], true);
+
+    let mut checked = 0;
+    for leaf in plan["leaves"].as_array().expect("leaves") {
+        let path = leaf["path"].as_str().expect("path");
+        let steps = path.split('.').skip(1).collect::<Vec<_>>();
+
+        for (axis, dimension) in [("x", "width_mm"), ("y", "depth_mm")] {
+            let Some(options) = leaf["divide"][axis]["options"].as_array() else {
+                continue;
+            };
+
+            for option in options {
+                checked += 1;
+
+                let mut candidate = design.clone();
+                replace_division(&mut candidate["divisions"], &steps, &option["division"]);
+                let (status, replanned) = json(
+                    &router,
+                    "POST",
+                    "/api/plan",
+                    Some(serde_json::json!({ "design": candidate })),
+                )
+                .await;
+                assert_eq!(status, StatusCode::OK);
+                assert_eq!(
+                    replanned["valid"], true,
+                    "{path} {axis} count {}:\n{}",
+                    option["count"], replanned
+                );
+
+                let prefix = format!("{path}.");
+                let strips = replanned["leaves"]
+                    .as_array()
+                    .expect("leaves")
+                    .iter()
+                    .filter(|leaf| {
+                        let leaf_path = leaf["path"].as_str().expect("path");
+                        leaf_path == path || leaf_path.starts_with(&prefix)
+                    })
+                    .collect::<Vec<_>>();
+                let spans = option["spans_mm"].as_array().expect("spans");
+                assert_eq!(strips.len(), spans.len(), "{path} {axis}");
+                assert_eq!(
+                    strips[0]["compartment"], leaf["compartment"],
+                    "the near strip keeps the compartment name"
+                );
+                for strip in &strips[1..] {
+                    assert_eq!(strip["compartment"], Value::Null);
+                }
+
+                let actual = strips
+                    .iter()
+                    .map(|strip| strip[dimension].as_f64().expect("dimension"))
+                    .collect::<Vec<_>>();
+                let expected = spans
+                    .iter()
+                    .map(|span| span.as_f64().unwrap())
+                    .collect::<Vec<_>>();
+                for (actual, expected) in actual.iter().zip(&expected) {
+                    assert!(
+                        (actual - expected).abs() < 1e-9,
+                        "{path} {axis} spans {actual:?} != {expected:?}"
+                    );
+                }
+
+                // The 1 mm promise holds for every offered layout.
+                let minimum = expected.iter().copied().fold(f64::INFINITY, f64::min);
+                let maximum = expected.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                assert!(maximum - minimum <= 1.0, "{expected:?}");
+
+                let positions = wire_split_positions(&option["division"]);
+                assert_eq!(
+                    positions.len(),
+                    usize::try_from(option["count"].as_u64().expect("count")).unwrap()
+                );
+                assert!(
+                    positions.iter().all(|position| *position >= 12),
+                    "{path}: {positions:?}"
+                );
+            }
+        }
+    }
+    assert!(checked > 20, "the golden tree offers {checked} options");
+}
+
+/// A leaf below 12 mm in the perpendicular direction offers no block there,
+/// even when the divided span itself is long enough; an invalid plan still
+/// reports the layout.
+#[tokio::test]
+async fn plan_even_divide_needs_room_on_the_perpendicular_axis() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let router = app(workspace(temp.path()));
+
+    let design = serde_json::json!({
+        "id": "4x4-6u-thin-v1",
+        "footprint": [4, 4],
+        "height_u": 6,
+        "lid": false,
+        "divisions": split_wire(
+            "y",
+            10,
+            leaf_wire(Some("Thin")),
+            leaf_wire(Some("Wide")),
+        ),
+    });
+    let (status, plan) = json(
+        &router,
+        "POST",
+        "/api/plan",
+        Some(serde_json::json!({ "design": design })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(plan["valid"], false, "a 10 mm leaf is invalid");
+    let leaves = plan["leaves"].as_array().expect("leaves");
+    assert_eq!(leaves.len(), 2);
+    assert_rect(&leaves[0], [0.0, 0.0, 163.5, 10.0]);
+    assert!(
+        leaves[0]["divide"]["x"].is_null(),
+        "a 163.5 mm x span must not override the 10 mm depth: {}",
+        leaves[0]
+    );
+}
+
+/// `warned` is about the divided axis only: the leaf's own 13 mm depth
+/// warning does not leak into x options whose strips are at least 15 mm.
+#[tokio::test]
+async fn plan_even_divide_warned_ignores_the_perpendicular_warning() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let router = app(workspace(temp.path()));
+
+    let design = serde_json::json!({
+        "id": "4x4-6u-shelf-v1",
+        "footprint": [4, 4],
+        "height_u": 6,
+        "lid": false,
+        "divisions": split_wire(
+            "y",
+            13,
+            leaf_wire(Some("Shelf")),
+            leaf_wire(Some("Tall")),
+        ),
+    });
+    let (status, plan) = json(
+        &router,
+        "POST",
+        "/api/plan",
+        Some(serde_json::json!({ "design": design })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(plan["valid"], true);
+    assert!(
+        plan["warnings"]
+            .as_array()
+            .expect("warnings")
+            .iter()
+            .any(|warning| warning
+                .as_str()
+                .is_some_and(|warning| warning.contains("13.0 mm"))),
+        "the 13 mm leaf must warn: {}",
+        plan["warnings"]
+    );
+
+    let options = plan["leaves"][0]["divide"]["x"]["options"]
+        .as_array()
+        .expect("x options");
+    let warned = |count: u64| {
+        options
+            .iter()
+            .find(|option| option["count"] == count)
+            .unwrap_or_else(|| panic!("count {count}"))["warned"]
+            .as_bool()
+            .expect("warned")
+    };
+    assert!(!warned(8), "16 mm x strips are not warned");
+    assert!(warned(9), "14 mm x strips are warned");
+}
+
+/// The centre cell of a 3 x 3 grid has a divider on all four sides: no wall
+/// side, so no divide block on either axis.
+#[tokio::test]
+async fn plan_even_divide_has_no_block_in_a_centre_cell() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let router = app(workspace(temp.path()));
+
+    let row = |compartment: Option<&str>| {
+        split_wire(
+            "y",
+            54,
+            leaf_wire(compartment),
+            split_wire("y", 53, leaf_wire(None), leaf_wire(None)),
+        )
+    };
+    let design = serde_json::json!({
+        "id": "4x4-6u-grid-v1",
+        "footprint": [4, 4],
+        "height_u": 6,
+        "lid": false,
+        "divisions": split_wire(
+            "x",
+            54,
+            row(None),
+            split_wire("x", 53, row(None), row(None)),
+        ),
+    });
+    let (status, plan) = json(
+        &router,
+        "POST",
+        "/api/plan",
+        Some(serde_json::json!({ "design": design })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(plan["valid"], true);
+    let leaves = plan["leaves"].as_array().expect("leaves");
+    assert_eq!(leaves.len(), 9);
+
+    let centre = leaves
+        .iter()
+        .find(|leaf| {
+            let x = leaf["x_mm"].as_f64().expect("x");
+            let y = leaf["y_mm"].as_f64().expect("y");
+            let width = leaf["width_mm"].as_f64().expect("width");
+            let depth = leaf["depth_mm"].as_f64().expect("depth");
+            x > 0.0 && x + width < 163.5 && y > 0.0 && y + depth < 163.5
+        })
+        .expect("one centre cell");
+    assert!(centre["divide"]["x"].is_null(), "{centre}");
+    assert!(centre["divide"]["y"].is_null(), "{centre}");
+}
+
+/// One division-tree node for a request body.
+fn leaf_wire(compartment: Option<&str>) -> Value {
+    serde_json::json!({"type": "leaf", "compartment": compartment})
+}
+
+/// One split node for a request body.
+fn split_wire(axis: &str, at_mm: u32, near: Value, far: Value) -> Value {
+    serde_json::json!({
+        "type": "split",
+        "axis": axis,
+        "at_mm": at_mm,
+        "near": near,
+        "far": far,
+    })
+}
+
+/// Replaces the node at a `.near`/`.far` path inside a division tree.
+fn replace_division(node: &mut Value, steps: &[&str], replacement: &Value) {
+    let Some((step, rest)) = steps.split_first() else {
+        *node = replacement.clone();
+        return;
+    };
+    replace_division(&mut node[*step], rest, replacement);
+}
+
+/// Every `at_mm` in a wire division subtree, in traversal order.
+fn wire_split_positions(node: &Value) -> Vec<u64> {
+    if node["type"] != "split" {
+        return Vec::new();
+    }
+    let mut positions = vec![node["at_mm"].as_u64().expect("at_mm is an integer")];
+    positions.extend(wire_split_positions(&node["near"]));
+    positions.extend(wire_split_positions(&node["far"]));
+    positions
 }
 
 #[tokio::test]

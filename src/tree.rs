@@ -422,6 +422,200 @@ pub struct Rect {
     pub depth_mm: f64,
 }
 
+/// The even-divide options for one leaf, one block per axis.
+///
+/// This is the Serve editor's **Even divide**: replace the leaf with N
+/// dividers, laying out N+1 compartments of equal usable width from the leaf
+/// origin. The planner is pure and lives here instead of the serve layer so
+/// the editor cannot disagree with the validator (ADR-0002: the UI owns no
+/// rules).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct EvenDivide {
+    /// Options along x, when the leaf has an x wall side.
+    pub x: Option<AxisDivide>,
+    /// Options along y, when the leaf has a y wall side.
+    pub y: Option<AxisDivide>,
+}
+
+/// The even-divide options along one axis.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AxisDivide {
+    /// True when the leaf touches the -x (or -y) inner wall face.
+    pub near_wall: bool,
+    /// True when the leaf touches the +x (or +y) inner wall face.
+    pub far_wall: bool,
+    /// Legal counts in increasing order; each is one or more dividers.
+    pub options: Vec<DivideOption>,
+}
+
+/// One legal even-divide layout: `count` dividers, `count + 1` strips.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DivideOption {
+    /// Number of dividers, so `count + 1` compartments.
+    pub count: u32,
+    /// Strip widths in origin order, in millimetres.
+    pub spans_mm: Vec<f64>,
+    /// True when a strip is below [`WARN_LEAF_MM`] on the divided axis.
+    pub warned: bool,
+    /// The exact subtree that replaces the leaf.
+    pub division: Node,
+    /// Preview rectangles for the dividers, in the body interior frame.
+    pub dividers: Vec<Rect>,
+}
+
+/// Plans the even-divide options for one leaf.
+///
+/// An axis block is offered only when the leaf touches an inner wall face on
+/// that axis, the perpendicular dimension is at least [`MIN_LEAF_MM`], and at
+/// least one count fits. Counts are tried in increasing order and stop at the
+/// first illegal one: every strip must be at least [`MIN_LEAF_MM`] wide, and
+/// the nested tree must stay within [`MAX_TREE_DEPTH`].
+pub fn even_divide(body: &BodyGeometry, leaf: &Leaf) -> EvenDivide {
+    EvenDivide {
+        x: axis_divide(body, leaf, Axis::X),
+        y: axis_divide(body, leaf, Axis::Y),
+    }
+}
+
+fn axis_divide(body: &BodyGeometry, leaf: &Leaf, axis: Axis) -> Option<AxisDivide> {
+    const EPSILON: f64 = 1e-9;
+
+    let (span, perpendicular, origin, interior) = match axis {
+        Axis::X => (
+            leaf.width_mm,
+            leaf.depth_mm,
+            leaf.x_mm,
+            body.interior_width_mm,
+        ),
+        Axis::Y => (
+            leaf.depth_mm,
+            leaf.width_mm,
+            leaf.y_mm,
+            body.interior_depth_mm,
+        ),
+    };
+
+    let near_wall = origin.abs() < EPSILON;
+    let far_wall = (origin + span - interior).abs() < EPSILON;
+    if !near_wall && !far_wall {
+        return None;
+    }
+
+    let minimum = f64::from(MIN_LEAF_MM);
+    if perpendicular < minimum {
+        return None;
+    }
+
+    // A leaf at depth d replaced by N nested splits has deepest depth d + N.
+    let depth_room = MAX_TREE_DEPTH.saturating_sub(leaf_path_depth(&leaf.path));
+    let mut options = Vec::new();
+    for count in 1..=depth_room {
+        let Some(spans_mm) = even_spans(span, count) else {
+            break;
+        };
+        if spans_mm.iter().any(|width| *width < minimum) {
+            break;
+        }
+
+        let warned = spans_mm
+            .iter()
+            .any(|width| *width < f64::from(WARN_LEAF_MM));
+        let division = even_division(axis, &spans_mm, leaf.compartment.as_deref());
+        let dividers = divide_rects(leaf, axis, &spans_mm);
+        options.push(DivideOption {
+            count,
+            spans_mm,
+            warned,
+            division,
+            dividers,
+        });
+    }
+
+    (!options.is_empty()).then_some(AxisDivide {
+        near_wall,
+        far_wall,
+        options,
+    })
+}
+
+/// The number of `.near`/`.far` steps in a leaf's schema path.
+fn leaf_path_depth(path: &str) -> u32 {
+    u32::try_from(path.split('.').skip(1).count()).unwrap_or(u32::MAX)
+}
+
+/// Lays out `count` dividers over `span_mm`, origin first.
+///
+/// The N+1 strips are as equal as whole millimetres allow: `base` is the
+/// floor of the usable width per strip, the first `floor(remainder)` strips
+/// get one extra millimetre, and the last strip absorbs the fraction. Every
+/// near face before the last strip is therefore a whole millimetre, and the
+/// largest strip exceeds the smallest by at most 1 mm.
+fn even_spans(span_mm: f64, count: u32) -> Option<Vec<f64>> {
+    let strips = count + 1;
+    let usable = span_mm - f64::from(count) * DIVIDER_MM;
+    if usable <= 0.0 {
+        return None;
+    }
+
+    let base = (usable / f64::from(strips)).floor();
+    let remainder = usable - base * f64::from(strips);
+    let bumped = remainder.floor() as u32;
+
+    let mut widths = Vec::with_capacity(usize::try_from(strips).unwrap_or(0));
+    for index in 0..count {
+        widths.push(if index < bumped { base + 1.0 } else { base });
+    }
+    let first_sum: f64 = widths.iter().sum();
+    widths.push(usable - first_sum);
+    Some(widths)
+}
+
+/// Builds the nested split subtree for one layout.
+///
+/// The first split's near child keeps the compartment name; every other leaf
+/// is unnamed, as with `boxgen divide`.
+fn even_division(axis: Axis, widths: &[f64], compartment: Option<&str>) -> Node {
+    let count = widths.len() - 1;
+    let mut node = Node::leaf(None);
+    for index in (0..count).rev() {
+        let near = if index == 0 {
+            Node::leaf(compartment)
+        } else {
+            Node::leaf(None)
+        };
+        // The first `count` strips are whole millimetres by construction; only
+        // the last strip may be fractional.
+        node = Node::split(axis, widths[index] as u32, near, node);
+    }
+    node
+}
+
+/// The divider preview rectangles for one layout, in the interior frame.
+fn divide_rects(leaf: &Leaf, axis: Axis, widths: &[f64]) -> Vec<Rect> {
+    let count = widths.len() - 1;
+    let mut dividers = Vec::with_capacity(count);
+    let mut offset = 0.0;
+    for width in &widths[..count] {
+        offset += width;
+        dividers.push(match axis {
+            Axis::X => Rect {
+                x_mm: leaf.x_mm + offset,
+                y_mm: leaf.y_mm,
+                width_mm: DIVIDER_MM,
+                depth_mm: leaf.depth_mm,
+            },
+            Axis::Y => Rect {
+                x_mm: leaf.x_mm,
+                y_mm: leaf.y_mm + offset,
+                width_mm: leaf.width_mm,
+                depth_mm: DIVIDER_MM,
+            },
+        });
+        offset += DIVIDER_MM;
+    }
+    dividers
+}
+
 /// Result of validating one division tree.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TreeReport {
@@ -1425,6 +1619,308 @@ mod tests {
             "{:?}",
             report.errors
         );
+    }
+
+    fn placed_leaf(compartment: Option<&str>, path: &str, rect: [f64; 4]) -> Leaf {
+        Leaf {
+            path: path.to_owned(),
+            compartment: compartment.map(str::to_owned),
+            x_mm: rect[0],
+            y_mm: rect[1],
+            width_mm: rect[2],
+            depth_mm: rect[3],
+        }
+    }
+
+    fn root_leaf(body: &BodyGeometry) -> Leaf {
+        validate_tree(body, &Node::leaf(Some("A")))
+            .leaves
+            .into_iter()
+            .next()
+            .expect("one root leaf")
+    }
+
+    fn split_positions(node: &Node) -> Vec<u32> {
+        match node {
+            Node::Leaf { .. } => Vec::new(),
+            Node::Split {
+                at_mm, near, far, ..
+            } => {
+                let mut positions = vec![*at_mm];
+                positions.extend(split_positions(near));
+                positions.extend(split_positions(far));
+                positions
+            }
+        }
+    }
+
+    #[test]
+    fn even_divide_reports_wall_sides_and_origin_first_spans() {
+        let region = placed_leaf(Some("A"), "divisions", [0.0, 0.0, 80.0, 50.0]);
+        let divide = even_divide(&body(), &region);
+
+        let x = divide.x.expect("x block");
+        assert!(x.near_wall);
+        assert!(!x.far_wall);
+        let y = divide.y.expect("y block");
+        assert!(y.near_wall);
+        assert!(!y.far_wall);
+
+        let option = x
+            .options
+            .iter()
+            .find(|option| option.count == 2)
+            .expect("count 2");
+        assert_eq!(option.spans_mm, [26.0, 25.0, 25.0]);
+        assert!(!option.warned);
+        assert_eq!(
+            option.division,
+            split(
+                Axis::X,
+                26,
+                leaf("A"),
+                split(Axis::X, 25, unnamed(), unnamed()),
+            )
+        );
+        assert_eq!(
+            option.dividers,
+            [
+                Rect {
+                    x_mm: 26.0,
+                    y_mm: 0.0,
+                    width_mm: 2.0,
+                    depth_mm: 50.0,
+                },
+                Rect {
+                    x_mm: 53.0,
+                    y_mm: 0.0,
+                    width_mm: 2.0,
+                    depth_mm: 50.0,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn even_divide_offers_counts_until_the_twelve_millimetre_minimum() {
+        let body = body();
+        let leaf = root_leaf(&body);
+        let divide = even_divide(&body, &leaf);
+        let x = divide.x.expect("x block");
+
+        let counts: Vec<u32> = x.options.iter().map(|option| option.count).collect();
+        assert_eq!(counts, (1..=10).collect::<Vec<_>>());
+
+        let warned = |count: u32| {
+            x.options
+                .iter()
+                .find(|option| option.count == count)
+                .unwrap_or_else(|| panic!("count {count}"))
+                .warned
+        };
+        assert!(!warned(8), "a 16 mm strip must not warn");
+        assert!(warned(9), "a 14 mm strip must warn");
+        assert!(warned(10));
+    }
+
+    #[test]
+    fn even_divide_offers_only_one_count_on_a_one_by_one_body() {
+        let small = small_body();
+        let leaf = root_leaf(&small);
+        let divide = even_divide(&small, &leaf);
+
+        for block in [divide.x.expect("x block"), divide.y.expect("y block")] {
+            let counts: Vec<u32> = block.options.iter().map(|option| option.count).collect();
+            assert_eq!(counts, [1]);
+        }
+    }
+
+    #[test]
+    fn even_divide_requires_a_wall_side_on_the_axis() {
+        // Leaf C of the golden tree: both x sides are dividers, both y sides
+        // are walls.
+        let leaf = placed_leaf(Some("C"), "divisions.far.near", [82.0, 0.0, 40.0, 163.5]);
+        let divide = even_divide(&body(), &leaf);
+
+        assert!(divide.x.is_none(), "no x wall side");
+        let y = divide.y.expect("y block");
+        assert!(y.near_wall);
+        assert!(y.far_wall);
+    }
+
+    #[test]
+    fn even_divide_requires_twelve_millimetres_on_the_perpendicular_axis() {
+        let body = body();
+        let thin_depth = placed_leaf(None, "divisions", [0.0, 0.0, 80.0, 8.0]);
+        assert!(
+            even_divide(&body, &thin_depth).x.is_none(),
+            "a 163.5 mm x span is irrelevant when the leaf is 8 mm deep"
+        );
+
+        let thin_width = placed_leaf(None, "divisions", [0.0, 0.0, 8.0, 80.0]);
+        assert!(
+            even_divide(&body, &thin_width).y.is_none(),
+            "a 80 mm y span is irrelevant when the leaf is 8 mm wide"
+        );
+    }
+
+    #[test]
+    fn even_divide_keeps_fractional_spans_within_one_millimetre() {
+        // Leaf D of the golden tree: 39.5 mm wide, so only one divider fits
+        // and the last strip is fractional.
+        let leaf = placed_leaf(Some("D"), "divisions.far.far", [124.0, 0.0, 39.5, 163.5]);
+        let divide = even_divide(&body(), &leaf);
+
+        let x = divide.x.expect("x block");
+        assert_eq!(x.options.len(), 1);
+        assert_eq!(x.options[0].spans_mm, [19.0, 18.5]);
+        assert_eq!(
+            x.options[0].dividers,
+            [Rect {
+                x_mm: 143.0,
+                y_mm: 0.0,
+                width_mm: 2.0,
+                depth_mm: 163.5,
+            }]
+        );
+
+        for block in [x, divide.y.expect("y block")] {
+            for option in block.options {
+                let minimum = option
+                    .spans_mm
+                    .iter()
+                    .copied()
+                    .fold(f64::INFINITY, f64::min);
+                let maximum = option
+                    .spans_mm
+                    .iter()
+                    .copied()
+                    .fold(f64::NEG_INFINITY, f64::max);
+                assert!(
+                    maximum - minimum <= 1.0,
+                    "count {} spans {:?}",
+                    option.count,
+                    option.spans_mm
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn even_divide_warns_only_on_the_divided_axis() {
+        // The leaf is 13 mm deep, already below the 15 mm warning threshold,
+        // but the x strips are wide enough not to warn.
+        let leaf = placed_leaf(Some("Wide"), "divisions.near", [0.0, 0.0, 163.5, 13.0]);
+        let divide = even_divide(&body(), &leaf);
+
+        let x = divide.x.expect("x block");
+        let warned = |count: u32| {
+            x.options
+                .iter()
+                .find(|option| option.count == count)
+                .unwrap_or_else(|| panic!("count {count}"))
+                .warned
+        };
+        assert!(!warned(8), "x strips of 16 mm are not warned");
+        assert!(warned(9), "x strips of 14 mm are warned");
+        assert!(
+            divide.y.is_none(),
+            "a 13 mm span has no legal y count, despite the 163.5 mm depth"
+        );
+    }
+
+    #[test]
+    fn even_divide_respects_the_remaining_tree_depth() {
+        // A synthetic wide body keeps the depth guard alone in charge.
+        let wide = BodyGeometry {
+            interior_width_mm: 1000.0,
+            interior_depth_mm: 1000.0,
+            ..body()
+        };
+
+        let mut deep = unnamed();
+        for _ in 0..31 {
+            deep = split(Axis::X, 12, unnamed(), deep);
+        }
+        let report = validate_tree(&wide, &deep);
+        assert!(report.errors.is_empty(), "{:?}", report.errors);
+        let leaf = report.leaves.last().expect("deepest leaf");
+        assert_eq!(leaf_path_depth(&leaf.path), 31);
+
+        let divide = even_divide(&wide, leaf);
+        let x = divide.x.expect("x block");
+        assert_eq!(x.options.len(), 1, "only one split fits below depth 32");
+        assert_eq!(x.options[0].count, 1);
+        assert_eq!(x.options[0].spans_mm, [282.0, 282.0]);
+
+        // Applying the option at depth 31 reaches exactly depth 32 and stays
+        // valid under the normal walker.
+        let mut applied = x.options[0].division.clone();
+        for _ in 0..31 {
+            applied = split(Axis::X, 12, unnamed(), applied);
+        }
+        let applied = validate_tree(&wide, &applied);
+        assert!(applied.errors.is_empty(), "{:?}", applied.errors);
+        assert_eq!(
+            applied
+                .leaves
+                .last()
+                .map(|leaf| leaf_path_depth(&leaf.path)),
+            Some(32)
+        );
+
+        // At depth 32 there is no room for another split.
+        let mut deepest = unnamed();
+        for _ in 0..32 {
+            deepest = split(Axis::X, 12, unnamed(), deepest);
+        }
+        let report = validate_tree(&wide, &deepest);
+        assert!(report.errors.is_empty(), "{:?}", report.errors);
+        let leaf = report.leaves.last().expect("deepest leaf");
+        assert_eq!(leaf_path_depth(&leaf.path), 32);
+        let divide = even_divide(&wide, leaf);
+        assert!(divide.x.is_none(), "no depth room left");
+        assert!(divide.y.is_none(), "no depth room left");
+    }
+
+    #[test]
+    fn every_offered_division_revalidates_with_its_spans() {
+        let body = body();
+        let leaf = root_leaf(&body);
+        let divide = even_divide(&body, &leaf);
+
+        for (axis, block) in [(Axis::X, divide.x), (Axis::Y, divide.y)] {
+            for option in block.expect("block").options {
+                let report = validate_tree(&body, &option.division);
+                assert!(report.errors.is_empty(), "{:?}", report.errors);
+
+                let widths: Vec<f64> = report
+                    .leaves
+                    .iter()
+                    .map(|leaf| match axis {
+                        Axis::X => leaf.width_mm,
+                        Axis::Y => leaf.depth_mm,
+                    })
+                    .collect();
+                assert_eq!(widths, option.spans_mm);
+                assert_eq!(report.leaves[0].compartment.as_deref(), Some("A"));
+                assert!(
+                    report.leaves[1..]
+                        .iter()
+                        .all(|leaf| leaf.compartment.is_none())
+                );
+
+                let positions = split_positions(&option.division);
+                assert_eq!(
+                    positions.len(),
+                    usize::try_from(option.count).expect("count fits usize")
+                );
+                assert!(
+                    positions.iter().all(|position| *position >= MIN_LEAF_MM),
+                    "{positions:?}"
+                );
+            }
+        }
     }
 
     const DIVIDE_SPEC: &str = include_str!("../tests/fixtures/4x4-6u.yaml");
