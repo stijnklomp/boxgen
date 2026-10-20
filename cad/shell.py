@@ -140,15 +140,16 @@ def edges_at_z(shape: Part.Shape, z: float, tolerance: float = 1e-6) -> list[Par
 
 
 def interior_depth_mm(height_u: int) -> float:
-    """Design interior depth: ``U * 7 - 5.55 - 4.0`` (standard §4.2 table).
+    """Design interior depth: ``U * 7 - 5.55`` (standard §4.2 table).
 
-    This is the standard's design figure (``U * 7 - 9.55``): the base zone
-    below the floor is ``gf.BASE_HEIGHT`` (4.75 mm) plus the ``FLOOR`` slab
-    (0.8 mm), and the lip adds 4.0 mm. The build report carries the value
-    measured from the built body instead, see
+    ``U * 7`` is the body height from the base bottom to the nominal top
+    plane (the lip bottom). The base zone below the floor is
+    ``gf.BASE_HEIGHT`` (4.75 mm) plus the ``FLOOR`` slab (0.8 mm), so the
+    official lip above the body does not reduce the interior. The build
+    report carries the value measured from the built body instead, see
     :func:`measure_interior_depth_mm`.
     """
-    return height_u * HEIGHT_UNIT - FLOOR_TOP - gf.LIP_HEIGHT
+    return height_u * HEIGHT_UNIT - FLOOR_TOP
 
 
 #: Bisection steps for the measured interior-depth boundaries.
@@ -200,7 +201,7 @@ def measure_interior_depth_mm(body: Part.Shape, height_u: int) -> float:
     the built shape, so a geometry change moves the reported depth; the design
     formula is never reported silently.
     """
-    total_h = height_u * HEIGHT_UNIT
+    total_h = height_u * HEIGHT_UNIT + gf.LIP_HEIGHT
     z_lip = total_h - gf.LIP_HEIGHT
 
     low = FLOOR_TOP - _FLOOR_PROBE_BAND
@@ -269,7 +270,10 @@ def build_body(spec: BodySpec) -> BodyResult:
     if spec.height_u < 3:
         raise GeometryError(f"height must be at least 3U, got {spec.height_u}U")
 
-    total_h = spec.height_u * HEIGHT_UNIT
+    # Official height convention: U * 7 is the body height from the base
+    # bottom to the nominal top plane (the lip bottom). The 4.4 mm lip sits
+    # above that plane, so the overall height is U * 7 + LIP_HEIGHT.
+    total_h = spec.height_u * HEIGHT_UNIT + gf.LIP_HEIGHT
     z_floor = gf.BASE_HEIGHT
     z_lip = total_h - gf.LIP_HEIGHT
     if z_lip - LIP_CUTTER_GAP <= FLOOR_TOP:

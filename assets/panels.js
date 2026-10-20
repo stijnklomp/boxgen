@@ -50,7 +50,7 @@ function table(rows) {
   return `<table class="values"><tbody>${body}</tbody></table>`;
 }
 
-/** The deviations from the calibrated preset, as one line; empty when none. */
+/** The deviations from the standard preset, as one line; empty when none. */
 export function deviationLine(design) {
   if (!design) return "";
   const preset = ctx.preset;
@@ -93,7 +93,7 @@ export function badgesHtml() {
     badges.push(
       deviation
         ? `<span class="badge custom" title="${escapeHtml(deviation)}">custom: ${escapeHtml(deviation)}</span>`
-        : `<span class="badge ok">calibrated preset: 4 × 4 · 6U · lid · ribs</span>`,
+        : `<span class="badge ok">preset: 4 × 4 · 6U · lid · ribs (SYS-2.0 calibration pending)</span>`,
     );
     if (ctx.actions.isDirty()) {
       badges.push(`<span class="badge dirty">unsaved changes</span>`);
@@ -545,7 +545,7 @@ export function renderStandardView(root) {
         ["Calibration material", standard.calibration.material],
         ["Calibration nozzle", standard.calibration.nozzle],
       ])}
-      <p class="hint">Read-only: the fixed architecture is anchored on the 2026-10-18 coupon calibration. The editor cannot change these values.</p>
+      <p class="hint">Read-only: the fixed architecture is anchored on the SYS-2.0 design; the SYS-2.0 coupon calibration is pending. The editor cannot change these values.</p>
     </article>
 
     <article class="panel">

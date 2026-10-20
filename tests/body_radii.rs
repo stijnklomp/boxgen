@@ -1,10 +1,10 @@
-//! SYS-1.0 corner radii and internal fillet contract (ticket #7).
+//! SYS-2.0 corner radii and internal fillet contract (ticket #7).
 //!
 //! `cad/fillets.py` applies the standard's reduce-then-fail rule (2.0 mm,
 //! then 1.0 mm, then a geometry error -- never a sharp internal corner above
 //! the base) and `cad/shell.py` uses it for the floor-to-wall cove.
 //! `cad/tests/radii.py` measures the helper and slices the built 1x1x6U and
-//! 1x1x3U bodies; this test asserts the SYS-1.0 numbers.
+//! 1x1x3U bodies; this test asserts the SYS-2.0 numbers.
 //!
 //! Why synthetic prisms for the reduce and failure paths: the real 1x1 3U
 //! interior cutter -- the smallest legal interior -- still takes the 2.0 mm
@@ -26,10 +26,10 @@ use serde_json::Value;
 /// The measured 1x1x6U body volume under the pinned FreeCAD, with the solid
 /// base zone of ADR-0013 and the 0.8 mm floor slab of ADR-0014. The test
 /// allows +/- 3% for a geometry-kernel drift, like `tests/build.rs`.
-const EXPECTED_VOLUME_6U_MM3: f64 = 19_520.354125;
+const EXPECTED_VOLUME_6U_MM3: f64 = 20_759.282137;
 
 /// The measured 1x1x3U boundary body volume (the smallest legal interior).
-const EXPECTED_VOLUME_3U_MM3: f64 = 13_082.646221;
+const EXPECTED_VOLUME_3U_MM3: f64 = 14_321.574233;
 
 /// Runs `cad/tests/radii.py` under `freecadcmd` once and parses its JSON.
 fn report() -> &'static Value {
@@ -99,7 +99,7 @@ fn fillet_helper_constants_pin_the_standard() {
 /// The report's interior depth is measured from the built model, not from the
 /// design formula (standard §4.2: "The generator reports the exact usable
 /// depth from the model; the table is the design figure"): the floor top and
-/// the lip bottom are found on the shape, so 11.45 / 32.45 / 53.45 / 74.45 mm
+/// the lip bottom are found on the shape, so 15.45 / 36.45 / 57.45 / 78.45 mm
 /// for 3U / 6U / 9U / 12U within the 0.05 mm section tolerance.
 #[test]
 fn the_interior_depth_is_measured_from_the_model() {
@@ -108,7 +108,7 @@ fn the_interior_depth_is_measured_from_the_model() {
     }
     let report = report();
 
-    for (height_u, depth) in [(3, 11.45), (6, 32.45), (9, 53.45), (12, 74.45)] {
+    for (height_u, depth) in [(3, 15.45), (6, 36.45), (9, 57.45), (12, 78.45)] {
         let path = format!("interior_depth.{height_u}");
         common::assert_near(
             common::number(report, &format!("{path}.measured_mm")),
@@ -251,7 +251,7 @@ fn the_6u_body_has_the_standard_corner_radii() {
     );
     common::assert_near(
         common::number(report, "body_6u.height_mm"),
-        42.0,
+        46.4,
         0.2,
         "height",
     );
@@ -404,7 +404,7 @@ fn the_3u_boundary_body_is_filleted_too() {
     assert_eq!(common::value(report, "body_3u.solids").as_u64(), Some(1));
     common::assert_near(
         common::number(report, "body_3u.height_mm"),
-        21.0,
+        25.4,
         0.2,
         "3U height",
     );

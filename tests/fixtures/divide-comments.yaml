@@ -1,7 +1,7 @@
 # boxgen divide formatting fixture: comments must survive an edit
 # that changes only the target split.
 
-system: SYS-1.0
+system: SYS-2.0
 id: 4x4-6U-divide-comments-v1
 footprint: [4, 4]        # footprint comment
 height_u: 6              # height comment

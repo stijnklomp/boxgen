@@ -24,7 +24,7 @@ SPEC = json.loads(r'''{
   "id": "1x1-6U-minimal-v1",
   "lid": false,
   "lid_ribs": false,
-  "system": "SYS-1.0"
+  "system": "SYS-2.0"
 }''')
 
 

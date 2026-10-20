@@ -14,7 +14,7 @@ one code path.
 
 Divider height above the floor is interior depth minus 2.0 mm on 3U bodies
 and minus 10.0 mm on 6U and taller (standard section 4.3), measured plate
-tops 15.0 / 28.0 / 49.0 / 70.0 mm. The cove columns end 0.4 mm lower, at the
+tops 19.0 / 32.0 / 53.0 / 74.0 mm. The cove columns end 0.4 mm lower, at the
 plate chamfer's lower edge.
 
 Junction fillets: OCC cannot fillet a fused shell's divider junctions
@@ -32,7 +32,7 @@ cove is built by boolean instead, exactly like the shell's floor cove:
 Calibration coupon (ticket #10). :func:`build_coupon_divider` fuses the
 coupon's single T-divider into a 1 x 1 x 6U shell: a 2.0 mm plate centred on
 the interior's x = 0, running :data:`COUPON_DIVIDER_LENGTH` from the -y wall
-into the interior, with its top at ``z_floor + divider_height(6) = 28.0``
+into the interior, with its top at ``z_floor + divider_height(6) = 32.0``
 (10 mm below the lip), the 0.4 mm top-edge chamfer, and the same 2.0 mm floor
 rails and wall columns as a tree divider. The free end carries no column
 (there is no wall to fillet against); the calibration's 20 mm weight foot
@@ -223,9 +223,11 @@ def divider_height(height_u: int) -> float:
     if height_u < 3:
         raise GeometryError(f"height must be at least 3U, got {height_u}U")
     gap = DIVIDER_GAP_3U if height_u == 3 else DIVIDER_GAP
-    # Grouped as one subtraction so the f64 result is the clean decimal for
-    # every accepted height (22.45, 9.45, ...).
-    height = height_u * shell.HEIGHT_UNIT - (shell.FLOOR_TOP + gf.LIP_HEIGHT + gap)
+    # U * 7 is the body height to the lip bottom; the official lip sits
+    # above it and does not reduce the interior. Grouped as one subtraction
+    # so the f64 result is the clean decimal for every accepted height
+    # (26.45, 13.45, ...).
+    height = height_u * shell.HEIGHT_UNIT - (shell.FLOOR_TOP + gap)
     if height <= 0.0:
         raise GeometryError(f"{height_u}U leaves no divider height above the floor")
     return height
@@ -490,7 +492,7 @@ def build_coupon_divider(body: Part.Shape, spec: shell.BodySpec) -> Part.Shape:
     """Fuse the calibration coupon's T-divider into ``body`` (ticket #10).
 
     Calibration section 2: one 2.0 mm T-divider fused to the floor and one
-    wall, with its top 10 mm below the lip (28.0 mm on the 6U coupon). The
+    wall, with its top 10 mm below the lip (32.0 mm on the 6U coupon). The
     plate is centred on the interior's x = 0 and runs
     :data:`COUPON_DIVIDER_LENGTH` from the -y wall's inner face into the
     interior, so the calibration's 20 mm weight foot rests on the 20 mm top.

@@ -5,7 +5,7 @@
 // editor never decides validity. The one local arithmetic is the *drag and
 // split clamp*: it derives the legal integer range from `/api/standard`
 // (minimum compartment and divider thickness) and the parent rectangle the
-// plan response carries, so a pointer can never leave the SYS-1.0 model
+// plan response carries, so a pointer can never leave the SYS-2.0 model
 // (ADR-0002; the server still validates every committed edit).
 
 import * as panels from "./panels.js";
@@ -119,7 +119,7 @@ export function renderEditorView(root) {
           <p>This spec cannot be edited: it does not parse.</p>
           ${errorList(state.openErrors)}
         </div>
-        <p><button type="button" class="btn primary" data-action="start-preset">Start from the calibrated preset</button></p>
+        <p><button type="button" class="btn primary" data-action="start-preset">Start from the standard preset</button></p>
         ${rawSpecHtml()}
       </section>`;
     bindActions(root);
@@ -150,7 +150,7 @@ export function renderEditorView(root) {
 
     ${planError ? `<div class="errors"><p>${escapeHtml(planError.message)}</p></div>` : ""}
     ${state.openErrors.length ? `<div class="errors"><p>The spec on disk has errors; fixing them here and saving replaces the file.</p>${errorList(state.openErrors)}</div>` : ""}
-    ${plan && !plan.valid ? `<div class="errors"><p>The spec violates the SYS-1.0 rules; saving and building are blocked until it is valid.</p>${errorList(plan.errors)}</div>` : ""}
+    ${plan && !plan.valid ? `<div class="errors"><p>The spec violates the SYS-2.0 rules; saving and building are blocked until it is valid.</p>${errorList(plan.errors)}</div>` : ""}
     ${plan ? warningsHtml(plan.warnings) : ""}
 
     <div class="editor-body">

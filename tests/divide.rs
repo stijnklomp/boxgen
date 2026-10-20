@@ -276,7 +276,7 @@ fn a_coincident_divider_is_rejected_and_the_file_is_unchanged() {
 fn a_tree_deeper_than_thirty_two_is_rejected_and_the_file_is_unchanged() {
     let depth = 32;
     let text = format!(
-        "system: SYS-1.0\nid: 4x4-6u-deep-v1\nfootprint: [4, 4]\nheight_u: 6\nlid: false\ndivisions:\n{}",
+        "system: SYS-2.0\nid: 4x4-6u-deep-v1\nfootprint: [4, 4]\nheight_u: 6\nlid: false\ndivisions:\n{}",
         deep_divisions(depth)
     );
     let path = format!("root{}", ".near".repeat(depth));

@@ -432,7 +432,7 @@ async fn standard_panel_numbers_equal_the_rust_constants() {
     );
 
     assert_eq!(body["calibration"]["coupon_id"], boxgen::build::COUPON_ID);
-    assert_eq!(body["calibration"]["date"], "2026-10-18");
+    assert_eq!(body["calibration"]["date"], "2026-10-20");
     assert!(
         body["calibration"]["material"]
             .as_str()
@@ -448,7 +448,7 @@ async fn standard_panel_numbers_equal_the_rust_constants() {
     assert!(
         body["calibration"]["result"]
             .as_str()
-            .is_some_and(|result| result.contains("nine")),
+            .is_some_and(|result| result.contains("approved")),
         "{body}"
     );
 }
@@ -782,7 +782,7 @@ async fn open_shows_errors_for_a_broken_spec() {
     write_box(
         temp.path(),
         "broken-rule-v1",
-        "system: SYS-1.0\n\
+        "system: SYS-2.0\n\
          id: broken-rule-v1\n\
          footprint: [4, 4]\n\
          height_u: 6\n\
@@ -841,7 +841,7 @@ async fn open_never_leaves_the_registry() {
     std::fs::create_dir_all(&outside).expect("outside folder");
     std::fs::write(
         outside.join("spec.yaml"),
-        "system: SYS-1.0\nid: outside-v1\nfootprint: [1, 1]\nheight_u: 3\nlid: false\ndivisions: {}\n",
+        "system: SYS-2.0\nid: outside-v1\nfootprint: [1, 1]\nheight_u: 3\nlid: false\ndivisions: {}\n",
     )
     .expect("outside spec");
 
@@ -907,12 +907,12 @@ async fn plan_matches_the_golden_tree() {
     assert_eq!(plan["errors"], serde_json::json!([]));
     assert_eq!(plan["warnings"], serde_json::json!([]));
 
-    // 4x4 6U: outer 167.5, interior 163.5 x 163.5 x 32.45, divider top 28.
+    // 4x4 6U: outer 167.5, interior 163.5 x 163.5 x 36.45, divider top 32.
     assert_mm(&plan, "/body/outer_width_mm", 167.5);
     assert_mm(&plan, "/body/interior_width_mm", 163.5);
-    assert_mm(&plan, "/body/interior_height_mm", 32.45);
-    assert_mm(&plan, "/body/divider_height_mm", 22.45);
-    assert_mm(&plan, "/body/divider_top_mm", 28.0);
+    assert_mm(&plan, "/body/interior_height_mm", 36.45);
+    assert_mm(&plan, "/body/divider_height_mm", 26.45);
+    assert_mm(&plan, "/body/divider_top_mm", 32.0);
 
     // Compartments in near-before-far order, as absolute rectangles.
     let leaves = plan["leaves"].as_array().expect("leaves");
@@ -1156,7 +1156,7 @@ fn contents_warning_free(case: &FitCase) -> bool {
         soft,
     } = *case;
     let mut yaml = format!(
-        "system: SYS-1.0\n\
+        "system: SYS-2.0\n\
          id: {n}x{m}-fit-v1\n\
          footprint: [{n}, {m}]\n\
          height_u: {height_u}\n\
@@ -1205,7 +1205,7 @@ async fn fit_orders_candidates_and_rejects_unusable_items() {
     assert!(!viable.is_empty());
     assert_eq!(
         viable[0],
-        serde_json::json!({"footprint": [1, 2], "height_u": 6}),
+        serde_json::json!({"footprint": [1, 2], "height_u": 3}),
         "the smallest viable combination comes first"
     );
     let areas = viable

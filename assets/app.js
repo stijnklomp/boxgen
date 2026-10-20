@@ -5,7 +5,7 @@
 // (ADR-0002: the UI owns no rules). Save is only offered when the plan is
 // valid; build, export, publish, and preview share the one build job.
 //
-// Drafts autosave to `localStorage` per box id; the calibrated preset is
+// Drafts autosave to `localStorage` per box id; the standard preset is
 // 4 × 4 · 6U · lid + ribs.
 
 import { api, ApiError } from "./api.js";
@@ -13,7 +13,7 @@ import { renderEditorView, setEditorContext } from "./editor.js";
 import { renderStandardView, setPanelsContext } from "./panels.js";
 import { mountViewer } from "./viewer3d.js";
 
-/** The calibrated preset every new box starts from. */
+/** The standard preset every new box starts from. */
 const PRESET = Object.freeze({
   footprint: [4, 4],
   height_u: 6,
@@ -505,7 +505,7 @@ async function newBoxAction() {
   state.publishResult = null;
   state.indexResult = null;
   writeDraft();
-  toast("New box starts from the calibrated preset: 4 × 4 · 6U · lid · ribs.");
+  toast("New box starts from the standard preset: 4 × 4 · 6U · lid · ribs.");
   navigate(`#/box/${encodeURIComponent(id)}`);
   refreshPlan();
 }
@@ -547,7 +547,7 @@ function discardDraft() {
 function resetToPreset() {
   if (!state.design) return;
   setDesign(presetDesign(state.design.id));
-  toast("Reset to the calibrated preset: 4 × 4 · 6U · lid · ribs.");
+  toast("Reset to the standard preset: 4 × 4 · 6U · lid · ribs.");
 }
 
 function startFromPreset() {

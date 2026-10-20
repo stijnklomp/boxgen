@@ -15,11 +15,13 @@ Adapted from FreeCAD-Gridfinity-Workbench (LGPL-2.1-or-later):
       ``rounded_rectangle_extrude`` (here :func:`rounded_rect_loft` and
       :func:`rounded_rect_prism`).
     - ``feature_construction.py``: ``make_complex_bin_base`` (here
-      :func:`make_base_foot`) and ``_stacking_lip_profile`` (here
+      :func:`make_base_foot`) and the profile-construction recipe (here
       :func:`lip_profile_points` and :func:`lip_inner_offset`).
 
-The full license text is in ``cad/LICENSE-LGPL-2.1``. Nothing is redrawn from
-scratch: the dimensions and the profile construction come from the workbench.
+The full license text is in ``cad/LICENSE-LGPL-2.1``. The base profile and
+the rounded-rectangle construction come from the workbench. The lip follows
+the official Gridfinity 4.4 mm profile (0.7 + 1.8 + 1.9, no flat top ledge);
+the workbench's 4.0 mm variant is retained only as history in SYS-1.0.
 
 Coordinate convention
 =====================
@@ -34,16 +36,17 @@ Coordinate convention
   are fused into the body.
 * For the lip, ``z = 0`` is the **lip bottom** -- the plane where the body
   wall ends and the lip begins -- and the profile reaches ``z = +LIP_HEIGHT``
-  (4.0 mm) at the lip top. The skirt extends ``LIP_OVERLAP`` (2.4 mm) below
+  (4.4 mm) at the lip top. The skirt extends ``LIP_OVERLAP`` (2.4 mm) below
   the lip bottom to overlap and fuse with the body wall, so the solid profile
-  spans ``-2.4 .. +4.0`` in z. In x, the workbench measures the profile inward
+  spans ``-2.4 .. +4.4`` in z. In x, the workbench measures the profile inward
   from the cell boundary; :func:`lip_profile_points` keeps that convention,
   while :func:`lip_inner_offset` reports the same profile as an offset inward
   from the body outer face (what the shell, lid, and divider code need).
 * :func:`make_lip_cut` returns the **void** the body cuts away: its wall is
   the material between the body outer face and the void. Cutting it leaves
-  the 4.0 mm lip with the 0.7 + 1.8 + 1.5 split, the 0.4 mm top ledge, and
-  the 0.25 mm clearance to the next body's base.
+  the official 4.4 mm lip with the 0.7 + 1.8 + 1.9 split and the 0.25 mm
+  clearance to the next body's base. The top edge is the official sharp
+  nominal edge; a print-only tip roundover is a separate, measured variant.
 
 Construction note (verified under FreeCAD 1.0.0): the lip profile is not
 monotonic -- its inner surface narrows, widens, then widens again as z rises
@@ -122,15 +125,16 @@ BASE_VERTICAL_RADIUS = 1.6
 #: Outer vertical corner radius of every body, standard section 4.1.
 OUTER_RADIUS = 3.75
 
-#: Stacking lip components: the ledge first (the top chamfer is derived from
-#: it), then the 0.7 + 1.8 + 1.5 mm split.
-LIP_TOP_LEDGE = 0.4
+#: Stacking lip components: the official Gridfinity split is
+#: 0.7 + 1.8 + 1.9 mm, with no flat top ledge. The top chamfer is derived
+#: from the base profile minus the 0.25 mm per-side clearance.
+LIP_TOP_LEDGE = 0.0
 LIP_BOTTOM_CHAMFER = 0.7
 LIP_VERTICAL = 1.8
 LIP_TOP_CHAMFER = BASE_TOP_CHAMFER - CLEARANCE - LIP_TOP_LEDGE
 
-#: Stacking lip height above the body wall, 4.0 mm, as the sum of its
-#: components.
+#: Official stacking lip height above the body wall, 4.4 mm, as the sum of
+#: its components.
 LIP_HEIGHT = LIP_BOTTOM_CHAMFER + LIP_VERTICAL + LIP_TOP_CHAMFER
 
 #: Nominal wall thickness at the lip (the workbench's ``WallThickness``).
@@ -404,21 +408,19 @@ def lip_profile_points() -> tuple[tuple[float, float], ...]:
     Points are ``(x, z)`` in millimetres in the profile plane: x is measured
     inward from the **cell boundary** (the body outer face is at
     ``x = CLEARANCE``), and z is measured from the **lip bottom** (positive
-    up to the lip top, negative down into the body). The nine points are the
-    workbench ``_stacking_lip_profile`` polygon:
+    up to the lip top, negative down into the body). The eight points are the
+    official Gridfinity stacking-lip polygon:
 
-    ``(0.25, 0) (0.25, 4.0) (0.65, 4.0) (2.15, 2.5) (2.15, 0.7) (2.85, 0)
+    ``(0.25, 0) (0.25, 4.4) (2.15, 2.5) (2.15, 0.7) (2.85, 0)
     (2.85, -1.8) (2.25, -2.4) (0.25, -2.4)``.
     """
     x1 = CLEARANCE
-    x2 = CLEARANCE + LIP_TOP_LEDGE
-    x3 = x2 + LIP_TOP_CHAMFER
+    x3 = x1 + LIP_TOP_CHAMFER
     x4 = x3 + LIP_BOTTOM_CHAMFER
     x5 = CLEARANCE + LIP_WALL
     return (
         (x1, 0.0),
         (x1, LIP_HEIGHT),
-        (x2, LIP_HEIGHT),
         (x3, LIP_BOTTOM_CHAMFER + LIP_VERTICAL),
         (x3, LIP_BOTTOM_CHAMFER),
         (x4, 0.0),
@@ -475,7 +477,7 @@ def make_lip_cut(outer_wire: Part.Wire, margin: float = 0.5) -> Part.Shape:
     extensions, so it is safe under OCCT 7.8. Its cross-section at a height
     is the lip's inner opening there: 37.5 mm at the bottom (the body wall
     line), 36.3 mm at the neck, 37.7 mm through the vertical section, and
-    40.7 mm at the top ledge for a 1-unit body.
+    41.5 mm at the top for a 1-unit body.
     """
     if not isinstance(outer_wire, Part.Wire):
         raise GridfinityError(f"outer_wire must be a Part.Wire, got {type(outer_wire).__name__}")
@@ -535,7 +537,7 @@ def make_stacking_lip(outer_wire: Part.Wire) -> Part.Shape:
     The ring is the material between the body's outer contour and the lip
     void from :func:`make_lip_cut`; its outer face is flush with the body
     outer face, so a 1-unit ring is 41.5 x 41.5 mm and spans
-    ``-2.4 .. +4.0`` mm around the lip bottom plane. Fuse it onto the top of
+    ``-2.4 .. +4.4`` mm around the lip bottom plane. Fuse it onto the top of
     a hollow body wall, or cut :func:`make_lip_cut` directly if the shell
     builder prefers to cut the void (both leave the same interface).
     """

@@ -3,7 +3,7 @@
 Run under the pinned launcher with the STEP path and heights in the
 environment:
 
-    BOXGEN_STEP=<path/box.step> BOXGEN_SLICES=20,30 freecadcmd cad/tests/step_slices.py
+    BOXGEN_STEP=<path/box.step> BOXGEN_SLICES=20,33 freecadcmd cad/tests/step_slices.py
 
 The script loads the exported STEP, finds its ``Body`` object, and reports
 the bounding box of every section wire at each height, plus the area each
@@ -15,7 +15,7 @@ wire encloses:
 ``tests/build.rs`` builds the golden tree fixture and asserts the wire boxes
 of the exported model (the divider count and positions in the artifact, not
 just in the report); ``tests/coupon.rs`` uses the areas to prove the coupon's
-T-divider material is in the exported model at z = 20 and gone at z = 29. The
+T-divider material is in the exported model at z = 20 and gone at z = 33. The
 script prints one marker line and exits non-zero on any failure;
 ``freecadcmd`` discards unflushed stdout and exits 0 on an unhandled
 exception, so the marker is flushed.
@@ -42,7 +42,7 @@ def main() -> int:
     step_path = os.environ["BOXGEN_STEP"]
     heights = [
         float(value)
-        for value in os.environ.get("BOXGEN_SLICES", "20,30").split(",")
+        for value in os.environ.get("BOXGEN_SLICES", "20,33").split(",")
         if value.strip()
     ]
 

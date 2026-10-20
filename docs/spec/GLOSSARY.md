@@ -46,7 +46,7 @@ _Avoid_: rim, edge, collar.
 The horizontal slab at the top of the base zone on which contents rest.
 
 **Interior depth**:
-The usable vertical distance from the floor to the bottom of the lip.
+The usable vertical distance from the floor to the bottom of the lip: `U × 7 − 5.55 mm`. The lip is above the body and does not reduce it.
 
 **Footprint**:
 A body's horizontal size in Gridfinity units, written N × M (for example 4 × 4); maximum 4 × 4.
@@ -57,7 +57,7 @@ The 4 × 4 footprint that any smaller body tiles; the reference size of the syst
 _Avoid_: plate, base.
 
 **Height**:
-A body's vertical size in Gridfinity units of 7 mm, written U (for example 6U); 6U is the default.
+A body's nominal vertical size in Gridfinity units of 7 mm, written U (for example 6U); 6U is the default. The body height runs from the base bottom to the nominal top plane (the lip bottom); the official 4.4 mm lip sits above it.
 _Avoid_: depth, tallness.
 
 **Division tree**:
@@ -82,7 +82,13 @@ Bodies with the same footprint that may be stacked together.
 _Avoid_: stack, column.
 
 **Stack pitch**:
-The vertical distance from one body's base to the next body's base in a stack; equal to the body height because the lid sits inside the lip.
+The vertical distance from one body's base bottom to the next body's base bottom in a stack: `U × 7 − 0.35 mm`. The 0.35 mm is the measured base seat below the nominal top plane. Lids are top-only and add no pitch.
+
+**Stack height**:
+The outer height of a stack of n bodies: `Σ(U × 7) + 4.4 − (n−1) × 0.35 mm`. Two 6U bodies stack to 88.05 mm; a single 12U is 88.4 mm.
+
+**Legacy body**:
+A SYS-1.0 body with a 4.0 mm workbench lip and the lip counted inside `U × 7`. It is mechanically stackable with other legacy bodies but is not a SYS-2.0 height class. Its lids fit SYS-2.0 bodies because the lid shape relative to the lip bottom is unchanged.
 
 **Stack limit**:
 The maximum number of bodies in a stack and the maximum contents weight per body; three bodies and 10 kg each.

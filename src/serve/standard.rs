@@ -6,9 +6,8 @@
 //! constant's own comment — and the two sides move together, so the panel
 //! shows the generator's fixed architecture rather than a second source of
 //! values (ADR-0002: the UI owns no geometry and no rules). The calibration
-//! block is the coupon record the current SYS-1.0 toolchain is accepted
-//! against (`docs/spec/docs/calibration.md`; the coupon passed on 2026-10-18
-//! per ticket #16).
+//! block is the calibration record (`docs/spec/docs/calibration.md`). SYS-2.0
+//! was approved on 2026-10-20; the SYS-1.0 record is legacy.
 
 use axum::Json;
 
@@ -21,8 +20,8 @@ use super::dto::{
     LidDto, LimitsDto, MaterialDto, StandardResponse, WallsDto,
 };
 
-/// The calibration record: the day the coupon passed all nine tests.
-const CALIBRATION_DATE: &str = "2026-10-18";
+/// The SYS-2.0 calibration approval date.
+const CALIBRATION_DATE: &str = "2026-10-20";
 
 /// The filament the architecture and the estimates are calibrated for.
 const MATERIAL_NAME: &str = "Bambu Lab PETG Basic";
@@ -31,7 +30,7 @@ const MATERIAL_NAME: &str = "Bambu Lab PETG Basic";
 const NOZZLE: &str = "0.4 mm hardened steel";
 
 /// Where the nine-test procedure and the human record live.
-const CALIBRATION_RESULT: &str = "passed: all nine tests in docs/spec/docs/calibration.md";
+const CALIBRATION_RESULT: &str = "approved: SYS-2.0 is the default; all nine calibration tests are considered complete (owner sign-off 2026-10-20)";
 
 /// `GET /api/standard`.
 pub(crate) async fn get() -> Json<StandardResponse> {

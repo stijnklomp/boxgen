@@ -19,7 +19,7 @@ use crate::error::BoxgenError;
 use crate::tree::{self, Axis, BodyGeometry, Divider, Estimate, Leaf, Node, TreeReport, fmt_mm};
 
 /// The only system version this compiler accepts (contract §3).
-pub const SYSTEM_VERSION: &str = "SYS-1.0";
+pub const SYSTEM_VERSION: &str = "SYS-2.0";
 
 /// Rigid-item clearance added on each side for the contents fit check.
 ///
@@ -629,7 +629,7 @@ fn write_node(out: &mut String, node: &Node, indent: usize) {
 /// Checks the box ID rule, accepting both the contract and standard forms.
 ///
 /// The generator contract §3 states the generic lowercase kebab-case rule
-/// `^[a-z0-9]+(-[a-z0-9]+)*$`, but the frozen SYS-1.0 standard §10 names boxes
+/// `^[a-z0-9]+(-[a-z0-9]+)*$`, but the frozen SYS-2.0 standard §10 names boxes
 /// `<footprint>-<height>-<slug>-<rev>` with an uppercase height unit, for
 /// example `4x4-6U-usb-cables-v1`. The standard wins, so both forms are valid:
 ///
@@ -784,7 +784,7 @@ mod tests {
     use super::*;
 
     const MINIMAL: &str = "\
-system: SYS-1.0
+system: SYS-2.0
 id: 1x1-3u-bits-v1
 footprint: [1, 1]
 height_u: 3
@@ -902,10 +902,10 @@ divisions: { compartment: Bits }
     }
 
     #[test]
-    fn system_must_be_sys_1_0() {
-        let yaml = MINIMAL.replace("system: SYS-1.0", "system: SYS-9.9");
+    fn system_must_be_sys_2_0() {
+        let yaml = MINIMAL.replace("system: SYS-2.0", "system: SYS-9.9");
         assert_error(&yaml, "system");
-        assert!(errors(&yaml).iter().any(|error| error.contains("SYS-1.0")));
+        assert!(errors(&yaml).iter().any(|error| error.contains("SYS-2.0")));
     }
 
     #[test]
@@ -1048,7 +1048,7 @@ divisions: { compartment: Bits }
     #[test]
     fn required_fields_are_required() {
         for line in [
-            "system: SYS-1.0\n",
+            "system: SYS-2.0\n",
             "id: 1x1-3u-bits-v1\n",
             "footprint: [1, 1]\n",
             "height_u: 3\n",
@@ -1195,7 +1195,7 @@ divisions: { compartment: Bits }
     /// where rigid items get 2 mm per side and 5 mm above.
     #[test]
     fn soft_contents_get_the_soft_clearances() {
-        // 1x1 3U: interior width 37.5 mm, interior height 11.45 mm. The same
+        // 1x1 3U: interior width 37.5 mm, interior height 15.45 mm. The same
         // item passes the rigid rules and fails the soft ones.
         let rigid = format!("{MINIMAL}contents:\n  max_width_mm: 30\n  max_height_mm: 6\n");
         assert!(
@@ -1223,7 +1223,7 @@ divisions: { compartment: Bits }
         );
 
         // The soft boundary values fit: width + 2 * 5 <= 37.5 and
-        // height + 10 <= 11.45.
+        // height + 10 <= 15.45.
         let fitting =
             format!("{MINIMAL}contents:\n  soft: true\n  max_width_mm: 27\n  max_height_mm: 1\n");
         assert!(
@@ -1236,7 +1236,7 @@ divisions: { compartment: Bits }
     #[test]
     fn contents_fit_failures_are_warnings_not_errors() {
         let yaml = format!(
-            "{MINIMAL}contents:\n  max_length_mm: 50\n  max_width_mm: 34\n  max_height_mm: 8\n  weight_kg: 11\n"
+            "{MINIMAL}contents:\n  max_length_mm: 50\n  max_width_mm: 34\n  max_height_mm: 11\n  weight_kg: 11\n"
         );
         let validation = validation(&yaml);
 
@@ -1289,7 +1289,7 @@ divisions: { compartment: Bits }
         assert!(!fit.fits());
         assert!(!fit.length_ok, "60 mm exceeds the 43.0 mm usable diagonal");
         assert!(!fit.width_ok, "30 + 10 mm exceeds the 37.5 mm width");
-        assert!(!fit.height_ok, "7 + 10 mm exceeds the 11.45 mm height");
+        assert!(!fit.height_ok, "7 + 10 mm exceeds the 15.45 mm height");
         assert!(!fit.weight_ok, "11 kg exceeds the 10 kg limit");
         assert_eq!(fit.per_side_mm, CONTENTS_SOFT_CLEARANCE_PER_SIDE_MM);
         assert_eq!(fit.height_clearance_mm, CONTENTS_SOFT_HEIGHT_CLEARANCE_MM);
@@ -1375,7 +1375,7 @@ divisions: { compartment: Bits }
     #[test]
     fn schema_errors_are_collected_together() {
         let yaml = MINIMAL
-            .replace("system: SYS-1.0", "system: SYS-9.9")
+            .replace("system: SYS-2.0", "system: SYS-9.9")
             .replace("1x1-3u-bits-v1", "Bad_ID")
             .replace("footprint: [1, 1]", "footprint: [5, 4]")
             .replace("height_u: 3", "height_u: 7");
@@ -1410,8 +1410,8 @@ divisions: { compartment: Bits }
         for expected in [
             "id: 4x4-6U-example-v1",
             "footprint: 4 x 4 (outer 167.5 x 167.5 mm)",
-            "height: 6U (42 mm total)",
-            "interior: 163.5 x 163.5 x 32.45 mm",
+            "height: 6U (46.4 mm total)",
+            "interior: 163.5 x 163.5 x 36.45 mm",
             "lid: yes",
             "compartments: 4",
             "USB-C short",
@@ -1487,7 +1487,7 @@ divisions: { compartment: Bits }
         let spec = parse_ok(MINIMAL);
         assert_eq!(
             spec.to_yaml(),
-            "system: SYS-1.0\n\
+            "system: SYS-2.0\n\
              id: 1x1-3u-bits-v1\n\
              footprint: [1, 1]\n\
              height_u: 3\n\
@@ -1499,7 +1499,7 @@ divisions: { compartment: Bits }
             parse_ok(&MINIMAL.replace("divisions: { compartment: Bits }", "divisions: {}"));
         assert_eq!(
             unnamed.to_yaml(),
-            "system: SYS-1.0\n\
+            "system: SYS-2.0\n\
              id: 1x1-3u-bits-v1\n\
              footprint: [1, 1]\n\
              height_u: 3\n\
@@ -1511,7 +1511,7 @@ divisions: { compartment: Bits }
     #[test]
     fn canonical_yaml_quotes_free_text_and_numbers() {
         let text = concat!(
-            "system: SYS-1.0\n",
+            "system: SYS-2.0\n",
             "id: 2x4-6U-thing-v1\n",
             "footprint: [2, 4]\n",
             "height_u: 6\n",
@@ -1530,7 +1530,7 @@ divisions: { compartment: Bits }
             "  far: {}\n",
         );
         let expected = concat!(
-            "system: SYS-1.0\n",
+            "system: SYS-2.0\n",
             "id: 2x4-6U-thing-v1\n",
             "footprint: [2, 4]\n",
             "height_u: 6\n",

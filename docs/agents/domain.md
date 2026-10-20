@@ -5,7 +5,7 @@ How agents should consume this repository's domain documentation before explorin
 ## Before exploring, read these
 
 - **`GLOSSARY.md`** at the repo root for `boxgen` repository terms (spec compiler, master, build directory, publish, stub).
-- The **SYS-1.0 spec's glossary** for domain terms: `docs/spec/GLOSSARY.md`.
+- The **SYS-2.0 spec's glossary** for domain terms: `docs/spec/GLOSSARY.md`.
 - **`docs/spec/docs/generator.md`** — the authoritative generator contract. Read the section you are touching (`§3` schema, `§4` division tree, `§5` CLI/exit codes, `§6` master, `§7` validation).
 - **`docs/adr/`** for decisions made in this crate. The spec's ADRs (`docs/spec/docs/adr/`) cover the design itself.
 
@@ -13,7 +13,7 @@ If a file does not exist, proceed silently; do not suggest creating it upfront. 
 
 ## File structure
 
-This is a single-context repository. The SYS-1.0 spec is vendored under `docs/spec/` and stays its own domain, not a second boxgen context:
+This is a single-context repository. The SYS-2.0 spec is vendored under `docs/spec/` and stays its own domain, not a second boxgen context:
 
 ```
 /
@@ -22,7 +22,7 @@ This is a single-context repository. The SYS-1.0 spec is vendored under `docs/sp
 ├── docs/
 │   ├── adr/          decisions for this crate
 │   ├── agents/       agent workflow docs
-│   └── spec/         the vendored SYS-1.0 spec (authoritative)
+│   └── spec/         the vendored SYS-2.0 spec (authoritative)
 ├── cad/              FreeCAD Python master
 ├── scripts/          the calibration wizard (#13)
 ├── src/              the Rust CLI

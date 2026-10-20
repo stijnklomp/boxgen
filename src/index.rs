@@ -321,7 +321,7 @@ mod tests {
         write_spec(
             temp.path(),
             "1x1-6U-bits-v1",
-            "system: SYS-1.0\n\
+            "system: SYS-2.0\n\
              id: 1x1-6U-bits-v1\n\
              footprint: [1, 1]\n\
              height_u: 6\n\
@@ -350,7 +350,7 @@ mod tests {
         write_spec(
             temp.path(),
             "1x1-6U-bits-v1",
-            "system: SYS-1.0\n\
+            "system: SYS-2.0\n\
              id: 1x1-6U-bits-v1\n\
              footprint: [1, 1]\n\
              height_u: 6\n\
@@ -380,17 +380,17 @@ mod tests {
         write_spec(
             temp.path(),
             "zeta-folder",
-            "system: SYS-1.0\nid: 4x4-6U-zeta-v1\nfootprint: [4, 4]\nheight_u: 6\nlid: false\ndivisions: { compartment: Z }\n",
+            "system: SYS-2.0\nid: 4x4-6U-zeta-v1\nfootprint: [4, 4]\nheight_u: 6\nlid: false\ndivisions: { compartment: Z }\n",
         );
         write_spec(
             temp.path(),
             "alpha-folder",
-            "system: SYS-1.0\nid: 2x2-3U-alpha-v1\nfootprint: [2, 2]\nheight_u: 3\nlid: false\ndivisions: { compartment: A }\n",
+            "system: SYS-2.0\nid: 2x2-3U-alpha-v1\nfootprint: [2, 2]\nheight_u: 3\nlid: false\ndivisions: { compartment: A }\n",
         );
         write_spec(
             temp.path(),
             "middle-folder",
-            "system: SYS-1.0\nid: 1x4-12U-middle-v1\nfootprint: [1, 4]\nheight_u: 12\nlid: false\ndivisions: { compartment: M }\n",
+            "system: SYS-2.0\nid: 1x4-12U-middle-v1\nfootprint: [1, 4]\nheight_u: 12\nlid: false\ndivisions: { compartment: M }\n",
         );
 
         generate(temp.path()).expect("generate index");
@@ -418,7 +418,7 @@ mod tests {
         write_spec(
             temp.path(),
             "pipes",
-            "system: SYS-1.0\n\
+            "system: SYS-2.0\n\
              id: 1x1-6U-pipes-v1\n\
              footprint: [1, 1]\n\
              height_u: 6\n\
@@ -439,17 +439,17 @@ mod tests {
         write_spec(
             temp.path(),
             "description",
-            "system: SYS-1.0\nid: 1x1-6U-description-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\nnotes: Notes lose\ncontents: { description: Description wins }\ndivisions: { compartment: A }\n",
+            "system: SYS-2.0\nid: 1x1-6U-description-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\nnotes: Notes lose\ncontents: { description: Description wins }\ndivisions: { compartment: A }\n",
         );
         write_spec(
             temp.path(),
             "notes",
-            "system: SYS-1.0\nid: 1x1-6U-notes-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\nnotes: Notes win\ndivisions: { compartment: A }\n",
+            "system: SYS-2.0\nid: 1x1-6U-notes-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\nnotes: Notes win\ndivisions: { compartment: A }\n",
         );
         write_spec(
             temp.path(),
             "neither",
-            "system: SYS-1.0\nid: 1x1-6U-neither-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
+            "system: SYS-2.0\nid: 1x1-6U-neither-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
         );
 
         generate(temp.path()).expect("generate index");
@@ -493,12 +493,12 @@ mod tests {
         write_spec(
             temp.path(),
             "wide",
-            "system: SYS-1.0\nid: 3x2-6U-wide-v1\nfootprint: [3, 2]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
+            "system: SYS-2.0\nid: 3x2-6U-wide-v1\nfootprint: [3, 2]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
         );
         write_spec(
             temp.path(),
             "tall",
-            "system: SYS-1.0\nid: 2x3-6U-tall-v1\nfootprint: [2, 3]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
+            "system: SYS-2.0\nid: 2x3-6U-tall-v1\nfootprint: [2, 3]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
         );
 
         generate(temp.path()).expect("generate index");
@@ -520,7 +520,7 @@ mod tests {
         write_spec(
             temp.path(),
             "printed",
-            "system: SYS-1.0\nid: 1x1-6U-printed-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
+            "system: SYS-2.0\nid: 1x1-6U-printed-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
         );
         write_notes(
             temp.path(),
@@ -530,13 +530,13 @@ mod tests {
         write_spec(
             temp.path(),
             "date",
-            "system: SYS-1.0\nid: 1x1-6U-date-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
+            "system: SYS-2.0\nid: 1x1-6U-date-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
         );
         write_notes(temp.path(), "date", "Print date: 2026-10-02\n");
         write_spec(
             temp.path(),
             "on",
-            "system: SYS-1.0\nid: 1x1-6U-on-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
+            "system: SYS-2.0\nid: 1x1-6U-on-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
         );
         write_notes(temp.path(), "on", "Printed on: 2026-10-03\n");
 
@@ -563,7 +563,7 @@ mod tests {
         write_spec(
             temp.path(),
             "box",
-            "system: SYS-1.0\nid: 1x1-6U-box-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
+            "system: SYS-2.0\nid: 1x1-6U-box-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
         );
 
         generate(temp.path()).expect("generate index");
@@ -577,7 +577,7 @@ mod tests {
         write_spec(
             temp.path(),
             "invalid",
-            "system: SYS-1.0\nid: 5x5-6U-invalid-v1\nfootprint: [5, 5]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
+            "system: SYS-2.0\nid: 5x5-6U-invalid-v1\nfootprint: [5, 5]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
         );
 
         let error = generate(temp.path()).expect_err("invalid registry must fail");

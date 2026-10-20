@@ -1,6 +1,6 @@
 # boxgen divide leaf fixture: comments outside the replaced leaf must survive.
 
-system: SYS-1.0
+system: SYS-2.0
 id: 1x1-3u-divide-leaf-v1
 footprint: [1, 1]   # footprint comment
 height_u: 3         # height comment

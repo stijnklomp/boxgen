@@ -237,9 +237,9 @@ pub fn coupon(out: Option<&Path>, config: &Config) -> Result<(), BoxgenError> {
     print_summary(&outcome);
 
     println!();
-    println!("calibration: print two coupons and one lid in the production recipe");
+    println!("calibration: SYS-2.0 approved 2026-10-20; no initial coupon print required");
     println!(
-        "calibration: run the nine tests in docs/spec/docs/calibration.md and record the result there"
+        "calibration: re-run the nine tests in docs/spec/docs/calibration.md after a filament, nozzle, slicer, or geometry change"
     );
 
     Ok(())
@@ -1399,7 +1399,7 @@ pub struct CouponReport {
     /// Height above the floor: `interior_depth - 10.0` on the 6U coupon.
     pub height_above_floor_mm: f64,
     /// Absolute top elevation: base height plus the height above the floor
-    /// (28.0 mm on the 6U coupon, 10 mm below the lip bottom).
+    /// (32.0 mm on the 6U coupon, 10 mm below the lip bottom).
     pub top_mm: f64,
     /// Top-edge chamfer, the standard 0.4 mm divider edge break.
     pub top_chamfer_mm: f64,
@@ -1462,7 +1462,7 @@ mod tests {
     #[test]
     fn a_compartment_with_a_triple_quote_falls_back_to_a_quoted_literal() {
         let spec = spec::parse(
-            "system: SYS-1.0\nid: 1x1-6U-quote-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ndivisions: { compartment: \"a'''b\" }\n",
+            "system: SYS-2.0\nid: 1x1-6U-quote-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ndivisions: { compartment: \"a'''b\" }\n",
         )
         .expect("the fixture parses");
 
@@ -1489,7 +1489,7 @@ mod tests {
 
     fn lid_spec() -> Spec {
         spec::parse(
-            "system: SYS-1.0\n\
+            "system: SYS-2.0\n\
              id: 4x4-6U-lid-v1\n\
              footprint: [4, 4]\n\
              height_u: 6\n\
@@ -1501,7 +1501,7 @@ mod tests {
 
     fn lid_ribs_spec() -> Spec {
         spec::parse(
-            "system: SYS-1.0\n\
+            "system: SYS-2.0\n\
              id: 4x4-6U-lid-v1\n\
              footprint: [4, 4]\n\
              height_u: 6\n\
@@ -1528,7 +1528,7 @@ mod tests {
     #[test]
     fn generated_script_embeds_soft_contents_only_when_true() {
         let rigid = spec::parse(
-            "system: SYS-1.0\nid: 1x1-6U-soft-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ncontents:\n  max_width_mm: 30\ndivisions: { compartment: Soft }\n",
+            "system: SYS-2.0\nid: 1x1-6U-soft-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ncontents:\n  max_width_mm: 30\ndivisions: { compartment: Soft }\n",
         )
         .expect("the rigid contents fixture parses");
         let script = render_box_py(&rigid);
@@ -1536,7 +1536,7 @@ mod tests {
         assert!(!script.contains("\"soft\""), "{script}");
 
         let soft = spec::parse(
-            "system: SYS-1.0\nid: 1x1-6U-soft-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ncontents:\n  soft: true\n  max_width_mm: 30\ndivisions: { compartment: Soft }\n",
+            "system: SYS-2.0\nid: 1x1-6U-soft-v1\nfootprint: [1, 1]\nheight_u: 6\nlid: false\ncontents:\n  soft: true\n  max_width_mm: 30\ndivisions: { compartment: Soft }\n",
         )
         .expect("the soft contents fixture parses");
         assert!(
@@ -1563,13 +1563,13 @@ mod tests {
         assert_eq!(spec.divisions, Node::leaf(Some("Coupon")));
 
         // The coupon body is the standard 1 x 1 x 6U geometry: 41.5 mm outer,
-        // 42.0 mm tall, divider top at floor + 22.45 = 28.0 mm.
+        // 46.4 mm tall, divider top at floor + 26.45 = 32.0 mm.
         let body = spec.body();
         assert!((body.outer_width_mm - 41.5).abs() < 1e-9);
-        assert!((body.total_height_mm - 42.0).abs() < 1e-9);
+        assert!((body.total_height_mm - 46.4).abs() < 1e-9);
         assert!(
-            (tree::FLOOR_TOP_MM + body.divider_height_mm - 28.0).abs() < 1e-9,
-            "the 6U coupon divider top must be 28.0 mm"
+            (tree::FLOOR_TOP_MM + body.divider_height_mm - 32.0).abs() < 1e-9,
+            "the 6U coupon divider top must be 32.0 mm"
         );
     }
 
@@ -1608,8 +1608,8 @@ mod tests {
     fn report_value(id: &str, with_lid: bool) -> Value {
         let mut value = json!({
             "id": id,
-            "dimensions": {"outer_x_mm": 167.5, "outer_y_mm": 167.5, "height_mm": 42.0},
-            "interior_depth_mm": 32.45,
+            "dimensions": {"outer_x_mm": 167.5, "outer_y_mm": 167.5, "height_mm": 46.4},
+            "interior_depth_mm": 36.45,
             "body": {
                 "volume_mm3": 1.0,
                 "area_mm2": 1.0,
@@ -1638,7 +1638,7 @@ mod tests {
                 "bbox": {
                     "x_min": -1.0, "x_max": 1.0,
                     "y_min": -1.0, "y_max": 1.0,
-                    "z_min": 37.0, "z_max": 41.0,
+                    "z_min": 41.0, "z_max": 45.0,
                 },
             });
             value["lid_stl"] = json!({"facets": 1, "is_solid": true, "volume_mm3": 1.0});
@@ -1716,8 +1716,8 @@ mod tests {
             "wall": "-y",
             "length_mm": 20.0,
             "thickness_mm": 2.0,
-            "height_above_floor_mm": 22.45,
-            "top_mm": 28.0,
+            "height_above_floor_mm": 26.45,
+            "top_mm": 32.0,
             "top_chamfer_mm": 0.4,
         });
         value
@@ -1745,13 +1745,13 @@ mod tests {
     }
 
     /// The coupon section pins the calibration numbers: 2.0 mm thick, the 6U
-    /// height above the floor, the 28.0 mm top, and at least the 20 mm foot.
+    /// height above the floor, the 32.0 mm top, and at least the 20 mm foot.
     #[test]
     fn validate_report_pins_the_coupon_divider_numbers() {
         for (field, wrong) in [
             ("thickness_mm", 1.0),
-            ("height_above_floor_mm", 22.0),
-            ("top_mm", 27.0),
+            ("height_above_floor_mm", 26.0),
+            ("top_mm", 31.0),
             ("length_mm", 19.0),
             ("top_chamfer_mm", 0.3),
         ] {
@@ -1956,8 +1956,8 @@ mod tests {
             out_dir: PathBuf::from("/tmp/boxgen/out"),
             report: parsed_report(&json!({
                 "id": "1x1-6U-minimal-v1",
-                "dimensions": {"outer_x_mm": 41.5, "outer_y_mm": 41.5, "height_mm": 42.0},
-                "interior_depth_mm": 32.45,
+                "dimensions": {"outer_x_mm": 41.5, "outer_y_mm": 41.5, "height_mm": 46.4},
+                "interior_depth_mm": 36.45,
                 "body": {
                     "volume_mm3": 18397.5,
                     "area_mm2": 3456.7,
@@ -1981,8 +1981,8 @@ mod tests {
             summary_text(&body),
             "id: 1x1-6U-minimal-v1\n\
              output: /tmp/boxgen/out\n\
-             outer: 41.5 x 41.5 x 42.0 mm\n\
-             interior depth: 32.45 mm\n\
+             outer: 41.5 x 41.5 x 46.4 mm\n\
+             interior depth: 36.45 mm\n\
              body: 18397.5 mm3, 12 faces, 3456.7 mm2 surface\n\
              floor fillet: 2.0 mm (standard 2.0, fallback 1.0)\n\
              stl: 1234 facets, 18301.0 mm3, watertight\n\
@@ -1997,8 +1997,8 @@ mod tests {
             out_dir: PathBuf::from("/tmp/boxgen/lid"),
             report: parsed_report(&json!({
                 "id": "4x4-6U-lid-v1",
-                "dimensions": {"outer_x_mm": 167.5, "outer_y_mm": 167.5, "height_mm": 42.0},
-                "interior_depth_mm": 32.45,
+                "dimensions": {"outer_x_mm": 167.5, "outer_y_mm": 167.5, "height_mm": 46.4},
+                "interior_depth_mm": 36.45,
                 "body": {
                     "volume_mm3": 100000.0,
                     "area_mm2": 3456.7,
@@ -2033,8 +2033,8 @@ mod tests {
             summary_text(&lid),
             "id: 4x4-6U-lid-v1\n\
              output: /tmp/boxgen/lid\n\
-             outer: 167.5 x 167.5 x 42.0 mm\n\
-             interior depth: 32.45 mm\n\
+             outer: 167.5 x 167.5 x 46.4 mm\n\
+             interior depth: 36.45 mm\n\
              body: 100000.0 mm3, 12 faces, 3456.7 mm2 surface\n\
              lid: 2584.7 mm3, 10 faces, 1234.5 mm2 surface, ribs: yes, roundover: 1.0 mm\n\
              floor fillet: 2.0 mm (standard 2.0, fallback 1.0)\n\

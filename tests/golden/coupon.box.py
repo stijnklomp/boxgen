@@ -25,7 +25,7 @@ SPEC = json.loads(r'''{
   "id": "coupon-1x1-6U-v1",
   "lid": true,
   "lid_ribs": true,
-  "system": "SYS-1.0"
+  "system": "SYS-2.0"
 }''')
 
 

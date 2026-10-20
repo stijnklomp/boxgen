@@ -34,7 +34,7 @@ const PROBE_TOLERANCE: f64 = 0.02;
 /// The pinned coupon numbers from calibration section 2.
 const COUPON_ID: &str = "coupon-1x1-6U-v1";
 const COUPON_OUTER_MM: f64 = 41.5;
-const COUPON_HEIGHT_MM: f64 = 42.0;
+const COUPON_HEIGHT_MM: f64 = 46.4;
 const T_DIVIDER_THICKNESS_MM: f64 = 2.0;
 const T_DIVIDER_LIP_GAP_MM: f64 = 10.0;
 const T_DIVIDER_LENGTH_MM: f64 = 20.0;
@@ -90,7 +90,7 @@ fn the_coupon_golden_script_is_a_pure_function_of_the_spec() {
 fn a_user_spec_with_the_coupon_field_is_rejected() {
     let temp = tempdir().expect("tempdir");
     let spec = "\
-system: SYS-1.0
+system: SYS-2.0
 id: 1x1-6U-coupon-user-v1
 footprint: [1, 1]
 height_u: 6
@@ -157,7 +157,7 @@ fn coupon_defaults_to_build_coupon_and_reuses_the_build_pipeline() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("id: coupon-1x1-6U-v1"), "{stdout}");
     assert!(stdout.contains("output: build/coupon"), "{stdout}");
-    assert!(stdout.contains("print two coupons and one lid"), "{stdout}");
+    assert!(stdout.contains("SYS-2.0 approved 2026-10-20"), "{stdout}");
     assert!(stdout.contains("docs/spec/docs/calibration.md"), "{stdout}");
     assert!(stdout.contains("nine tests"), "{stdout}");
 
@@ -188,11 +188,11 @@ fn coupon_builds_end_to_end() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("id: coupon-1x1-6U-v1"), "{stdout}");
-    assert!(stdout.contains("outer: 41.5 x 41.5 x 42.0 mm"), "{stdout}");
-    assert!(stdout.contains("interior depth: 32.45 mm"), "{stdout}");
+    assert!(stdout.contains("outer: 41.5 x 41.5 x 46.4 mm"), "{stdout}");
+    assert!(stdout.contains("interior depth: 36.45 mm"), "{stdout}");
     assert!(stdout.contains("ribs: yes"), "{stdout}");
     assert!(stdout.contains("warnings: none"), "{stdout}");
-    assert!(stdout.contains("print two coupons and one lid"), "{stdout}");
+    assert!(stdout.contains("SYS-2.0 approved 2026-10-20"), "{stdout}");
     assert!(
         stdout.contains("nine tests in docs/spec/docs/calibration.md"),
         "{stdout}"
@@ -248,7 +248,7 @@ fn coupon_builds_end_to_end() {
     // kernel's section tolerance.
     common::assert_near(
         common::number(&report, "interior_depth_mm"),
-        32.45,
+        36.45,
         0.05,
         "interior depth",
     );
@@ -264,7 +264,7 @@ fn coupon_builds_end_to_end() {
     assert!(common::flag(&report, "stl.is_solid"), "{report}");
 
     // The single-leaf tree adds no tree dividers; the T-divider is the
-    // coupon section, fixed at 2.0 mm with its top at 28.0.
+    // coupon section, fixed at 2.0 mm with its top at 32.0.
     assert_eq!(common::number(&report, "dividers.count"), 0.0);
     assert!(common::flag(&report, "coupon.t_divider"), "{report}");
     assert_eq!(report["coupon"]["wall"].as_str(), Some("-y"));
@@ -280,7 +280,7 @@ fn coupon_builds_end_to_end() {
     );
     common::assert_close(
         common::number(&report, "coupon.top_mm"),
-        COUPON_HEIGHT_MM - 4.0 - T_DIVIDER_LIP_GAP_MM,
+        COUPON_HEIGHT_MM - 4.4 - T_DIVIDER_LIP_GAP_MM,
         "T-divider top (10 mm below the lip)",
     );
     common::assert_close(
@@ -289,7 +289,7 @@ fn coupon_builds_end_to_end() {
         "T-divider top chamfer",
     );
 
-    // The ribbed lid: one valid closed solid, 37.1 x 37.1, z 37.0..41.0.
+    // The ribbed lid: one valid closed solid, 37.1 x 37.1, z 41.0..45.0.
     assert_eq!(common::number(&report, "lid.solids"), 1.0);
     assert!(common::flag(&report, "lid.is_valid"), "{report}");
     assert!(common::flag(&report, "lid.is_closed"), "{report}");
@@ -306,10 +306,10 @@ fn coupon_builds_end_to_end() {
     );
     common::assert_close(
         common::number(&report, "lid.bbox.z_min"),
-        37.0,
+        41.0,
         "lid skirt bottom",
     );
-    common::assert_close(common::number(&report, "lid.bbox.z_max"), 41.0, "lid top");
+    common::assert_close(common::number(&report, "lid.bbox.z_max"), 45.0, "lid top");
     assert!(common::flag(&report, "lid_stl.is_solid"), "{report}");
 
     assert!(
@@ -394,22 +394,22 @@ fn the_coupon_body_carries_the_calibration_features() {
     );
     common::assert_close(
         common::number(report, "body.bbox.z_mm"),
-        42.0,
+        46.4,
         "body bbox z",
     );
 
     // The T-divider: 2.0 mm thick, fused to the floor and the -y wall,
-    // 20 mm from the wall face, top at 28.0 (10 mm below the 38.0 lip).
+    // 20 mm from the wall face, top at 32.0 (10 mm below the 42.0 lip).
     common::assert_near(
         common::number(report, "body.top_probe_mm"),
-        28.0,
+        32.0,
         PROBE_TOLERANCE,
         "T-divider top",
     );
     common::assert_close(common::number(report, "body.z_floor_mm"), 5.55, "floor top");
     common::assert_close(
         common::number(report, "body.divider_top_mm"),
-        28.0,
+        32.0,
         "divider top",
     );
     common::assert_close(
@@ -448,17 +448,17 @@ fn the_coupon_body_carries_the_calibration_features() {
         "T-divider length from the wall",
     );
 
-    // Slice at z = 20: divider material; at z = 29: none. The area difference
+    // Slice at z = 20: divider material; at z = 33: none. The area difference
     // is the 2 x 20 mm plate plus the two quarter-round wall columns.
     assert!(common::flag(report, "body.material_at_z20"));
-    assert!(!common::flag(report, "body.material_at_z29"));
+    assert!(!common::flag(report, "body.material_at_z33"));
     let z20 = common::number(report, "body.section_z20.area_mm2");
-    let z29 = common::number(report, "body.section_z29.area_mm2");
+    let z33 = common::number(report, "body.section_z33.area_mm2");
     let expected = common::number(report, "expected_slice_area_difference_mm2");
-    common::assert_near(z20 - z29, expected, AREA_TOLERANCE, "slice area difference");
+    common::assert_near(z20 - z33, expected, AREA_TOLERANCE, "slice area difference");
     assert!(
-        z20 > z29,
-        "the divider material must be present at z = 20 only: {z20} vs {z29}"
+        z20 > z33,
+        "the divider material must be present at z = 20 only: {z20} vs {z33}"
     );
 
     // The 2.0 mm floor cove: material at the expected quarter-round boundary
@@ -478,11 +478,11 @@ fn the_coupon_body_carries_the_calibration_features() {
     assert!(common::flag(report, "body.cove_wall_void"));
     assert!(common::flag(report, "body.cove_wall_material_far"));
     assert!(common::flag(report, "body.cove_wall_void_far"));
-    // The columns stop at the 0.4 mm top chamfer's lower edge: 27.6 mm, not
-    // the plate's 28.0 mm.
+    // The columns stop at the 0.4 mm top chamfer's lower edge: 31.6 mm, not
+    // the plate's 32.0 mm.
     common::assert_near(
         common::number(report, "body.cove_wall_top_mm"),
-        27.6,
+        31.6,
         PROBE_TOLERANCE,
         "coupon wall cove column top",
     );
@@ -552,10 +552,10 @@ fn the_coupon_lid_is_the_standard_ribbed_lid() {
     );
     common::assert_close(
         common::number(report, "lid.bbox.z_min_mm"),
-        37.0,
+        41.0,
         "skirt bottom",
     );
-    common::assert_close(common::number(report, "lid.bbox.z_max_mm"), 41.0, "lid top");
+    common::assert_close(common::number(report, "lid.bbox.z_max_mm"), 45.0, "lid top");
     assert!(common::flag(report, "lid.roundover_applied"));
 
     // The plate section just above the plate bottom carries the plate and the
@@ -602,7 +602,7 @@ fn the_coupon_lid_is_the_standard_ribbed_lid() {
 }
 
 /// The exported `box.step` carries the T-divider: the slice at z = 20
-/// encloses 41.7168 mm2 less void than z = 29 (the 2 x 20 mm plate plus the
+/// encloses 41.7168 mm2 less void than z = 33 (the 2 x 20 mm plate plus the
 /// two quarter-round wall columns), and the body is one closed solid.
 #[test]
 fn the_exported_coupon_step_slices_show_the_t_divider() {
@@ -614,7 +614,7 @@ fn the_exported_coupon_step_slices_show_the_t_divider() {
     let out = temp.path().join("build/coupon");
     common::assert_success(&coupon_into(&out));
 
-    let slices = common::slice_step(&out.join("box.step"), "20,29");
+    let slices = common::slice_step(&out.join("box.step"), "20,33");
     assert_eq!(
         slices["objects"],
         serde_json::json!(["Body", "Lid"]),
@@ -640,18 +640,18 @@ fn the_exported_coupon_step_slices_show_the_t_divider() {
     let divider = 2.0 * T_DIVIDER_LENGTH_MM + 2.0 * (4.0 - std::f64::consts::PI);
 
     let z20 = areas("section_z20_areas");
-    let z29 = areas("section_z29_areas");
+    let z33 = areas("section_z33_areas");
     assert_eq!(z20.len(), 2, "z = 20 wires: {z20:?}");
-    assert_eq!(z29.len(), 2, "z = 29 wires: {z29:?}");
+    assert_eq!(z33.len(), 2, "z = 33 wires: {z33:?}");
     common::assert_near(
         z20[0],
         interior - divider,
         AREA_TOLERANCE,
         "z = 20 void area",
     );
-    common::assert_near(z29[0], interior, AREA_TOLERANCE, "z = 29 void area");
+    common::assert_near(z33[0], interior, AREA_TOLERANCE, "z = 33 void area");
     common::assert_near(z20[1], outer, AREA_TOLERANCE, "z = 20 outer area");
-    common::assert_near(z29[1], outer, AREA_TOLERANCE, "z = 29 outer area");
+    common::assert_near(z33[1], outer, AREA_TOLERANCE, "z = 33 outer area");
 
     // And the outer wire boxes pin the 41.5 x 41.5 footprint in the artifact.
     let outer_box = wire_box(&slices, "section_z20.0");
@@ -731,7 +731,7 @@ fn coupon_uses_the_contract_exit_codes() {
         );
 }
 
-/// The SYS-1.0 spec repository is vendored at `docs/spec/`.
+/// The SYS-2.0 spec repository is vendored at `docs/spec/`.
 fn spec_repository() -> Option<PathBuf> {
     let candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/spec");
     candidate
@@ -784,7 +784,9 @@ fn the_coupon_feature_set_matches_the_calibration_document() {
     assert!(height.contains("6U") && height.contains("42"), "{height}");
     let divider = row("| Divider |");
     assert!(
-        divider.contains("2.0 mm") && divider.contains("10 mm below the lip"),
+        divider.contains("2.0 mm")
+            && divider.contains("10 mm below")
+            && divider.contains("42.0 mm lip bottom"),
         "{divider}"
     );
     let lid = row("| Lid |");
@@ -800,8 +802,8 @@ fn the_coupon_feature_set_matches_the_calibration_document() {
 fn fake_coupon_report() -> String {
     serde_json::to_string(&serde_json::json!({
         "id": COUPON_ID,
-        "dimensions": {"outer_x_mm": 41.5, "outer_y_mm": 41.5, "height_mm": 42.0},
-        "interior_depth_mm": 32.45,
+        "dimensions": {"outer_x_mm": 41.5, "outer_y_mm": 41.5, "height_mm": 46.4},
+        "interior_depth_mm": 36.45,
         "body": {
             "volume_mm3": 19393.0,
             "area_mm2": 1.0,
@@ -823,7 +825,7 @@ fn fake_coupon_report() -> String {
             "bbox": {
                 "x_min": -18.55, "x_max": 18.55,
                 "y_min": -18.55, "y_max": 18.55,
-                "z_min": 37.0, "z_max": 41.0,
+                "z_min": 41.0, "z_max": 45.0,
             },
         },
         "coupon": {
@@ -831,8 +833,8 @@ fn fake_coupon_report() -> String {
             "wall": "-y",
             "length_mm": 20.0,
             "thickness_mm": 2.0,
-            "height_above_floor_mm": 22.45,
-            "top_mm": 28.0,
+            "height_above_floor_mm": 26.45,
+            "top_mm": 32.0,
             "top_chamfer_mm": 0.4,
         },
         "stl": {"facets": 1, "is_solid": true, "volume_mm3": 1.0},

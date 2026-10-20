@@ -1,8 +1,8 @@
-# boxgen spec template — SYS-1.0
+# boxgen spec template — SYS-2.0
 # Copy this file to boxes/<id>/spec.yaml and edit the values.
 # The schema is defined in docs/generator.md.
 
-system: SYS-1.0
+system: SYS-2.0
 id: 4x4-6U-example-v1
 footprint: [4, 4]        # 1..4 units per side
 height_u: 6              # 3, 6, 9, or 12

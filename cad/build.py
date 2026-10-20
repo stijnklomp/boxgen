@@ -15,7 +15,7 @@ The report records the floor-to-wall fillet radius actually applied in
 ``body.floor_fillet_mm`` (2.0 mm, or the 1.0 mm fallback), the resolved
 divider rectangles in ``dividers``, the usable interior depth measured from
 the built body (standard §4.2: floor top to lip bottom; the design formula
-``U * 7 - 9.55`` stays the reference in :mod:`cad.shell`), and the lid's
+``U * 7 - 5.55`` stays the reference in :mod:`cad.shell`), and the lid's
 actual measurements in ``lid`` (including the top roundover that was applied
 and whether the friction ribs are present), adding a deterministic warning
 when a standard radius had to be reduced. The radii and the reduce-then-fail

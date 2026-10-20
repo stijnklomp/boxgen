@@ -1,6 +1,6 @@
 # `boxgen` — Generator Contract
 
-**Status:** `SYS-1.0`. This document is the contract between the design standard and the generator implementation. The generator lives in a separate repository, forked from the Rust template and stripped of the server infrastructure it does not need.
+**Status:** `SYS-2.0`. This document is the contract between the design standard and the generator implementation. The generator lives in a separate repository, forked from the Rust template and stripped of the server infrastructure it does not need.
 
 ## 1. Purpose
 
@@ -42,7 +42,7 @@ The Rust template's layering, typed config, logging, error contract, and `just` 
 ## 3. Input schema
 
 ```yaml
-system: SYS-1.0
+system: SYS-2.0
 id: 4x4-6U-usb-cables-v1
 footprint: [4, 4]        # units, 1..4 each
 height_u: 6              # 3, 6, 9, or 12
@@ -68,10 +68,10 @@ Fields:
 
 | Field | Required | Meaning |
 | --- | --- | --- |
-| `system` | yes | Must be `SYS-1.0` for this contract. |
+| `system` | yes | Must be `SYS-2.0` for this contract. |
 | `id` | yes | `^[a-z0-9]+(-[a-z0-9]+)*$`; used as the folder name. |
 | `footprint` | yes | `[N, M]`, each 1–4. The larger number is not required to be first; the body is generated as given. |
-| `height_u` | yes | 3, 6, 9, or 12. |
+| `height_u` | yes | 3, 6, 9, or 12. Counts the nominal body height to the lip bottom; the official 4.4 mm lip is above it. |
 | `lid` | yes | `true` or `false`. |
 | `notes` | no | Free text for `notes.md`. |
 | `divisions` | yes | Root division node; see section 4. |
@@ -184,7 +184,7 @@ The generator enforces the standard:
 
 | Rule | Result |
 | --- | --- |
-| `system == SYS-1.0` | error otherwise |
+| `system == SYS-2.0` | error otherwise |
 | `footprint` each 1–4 | error otherwise |
 | `height_u` in {3, 6, 9, 12} | error otherwise |
 | `lid` boolean | error otherwise |
@@ -210,8 +210,8 @@ If present, the generator checks the item fits the chosen interior with the stan
 ## 8. Testing plan
 
 - **Unit tests:** spec parsing, tree validation, leaf-size math, error codes.
-- **Golden geometry:** build a known 4 × 4 × 6U spec under `freecadcmd`; assert outer dimensions 167.5 × 167.5 × 42.0 ±0.2 mm, watertight STL, and a stable volume range.
-- **Interface test:** assert the base/lip profile dimensions match the pinned Gridfinity reference.
+- **Golden geometry:** build a known 4 × 4 × 6U spec under `freecadcmd`; assert outer dimensions 167.5 × 167.5 × 46.4 ±0.2 mm, watertight STL, and a stable volume range.
+- **Interface test:** assert the base profile and the official 4.4 mm lip dimensions match the pinned Gridfinity reference.
 - **Golden script:** snapshot the generated `box.py` for a fixed spec; changes require an intentional snapshot update.
 - **Coupon test:** generate the coupon and assert its dimensions and feature set.
 - **Manual acceptance:** print the coupon, record measurements in the calibration record; this is the only test that proves the print recipe.
@@ -223,7 +223,8 @@ If present, the generator checks the item fits the chosen interior with the stan
 - No Postgres, accounts, cloud, or multi-user service in v1.
 - No slicer automation; the generator stops at STL/STEP. Bambu Studio slices.
 - No label generation; labels are out of scope (ADR-0012).
-- No architecture parameters exposed to the user; wall thickness, lip, floor, radii, and lid clearance are fixed by the standard.
+- No architecture parameters exposed to the user; wall thickness, lip, floor, radii, and lid clearance are fixed by the standard. Lids are top-only; the stack pitch is `U × 7 − 0.35 mm`.
+- `system` must be `SYS-2.0`. SYS-1.0 specs are legacy and are not accepted by the current generator; keep them as historical records or rebuild from the old commit.
 
 ## 10. Relationship to the standard
 

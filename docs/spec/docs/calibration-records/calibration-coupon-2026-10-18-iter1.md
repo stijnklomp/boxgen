@@ -1,3 +1,5 @@
+> **SYS-1.0 legacy record.** This coupon is 42.0 mm overall with the 4.0 mm workbench lip. SYS-2.0 requires a new coupon (46.4 mm, 4.4 mm lip) and a fresh nine-test run.
+
 # Calibration coupon record — iteration 1
 
 - **Date:** 2026-10-18

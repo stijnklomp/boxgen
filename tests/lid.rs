@@ -1,12 +1,12 @@
-//! SYS-1.0 inset friction lid contract (ticket #9, standard §4.4/§4.5).
+//! SYS-2.0 inset friction lid contract (ticket #9, standard §4.4/§4.5).
 //!
 //! `cad/lid.py` builds the lid; `cad/tests/lid.py` measures it headless on a
 //! non-square 2 x 4 x 6U footprint and on the 1 x 1 pins. This test asserts
 //! the standard's numbers: 2.0 mm plate, 2.0 x 2.0 mm skirt, 0.30 mm per-side
 //! clearance to the lip, 1.40 mm plate corners, 1.0 mm top roundover, 0.6 mm
 //! skirt-bottom chamfer, the 20 mm finger hole 14 mm from the +y footprint
-//! edge, the 1.0 mm stack gap at the design pitch (plus the seated-base
-//! clearance finding at the lip's contact seat, human checkpoint #14), and
+//! edge, the top-only lid rule and the seated-base clearance finding
+//! (human checkpoint #14), and
 //! the optional 0.15 mm friction ribs.
 //!
 //! Like `tests/body_radii.rs`, this skips on a native host without FreeCAD.
@@ -135,7 +135,7 @@ fn lid_constants_pin_the_standard() {
     );
     common::assert_close(
         common::number(report, "constants.LIP_HEIGHT"),
-        4.0,
+        4.4,
         "lip height",
     );
 }
@@ -179,18 +179,18 @@ fn the_non_square_lid_is_one_closed_solid_at_the_standard_height() {
     // Lid top 1.0 mm below the lip top, skirt 1.0 mm below the lip bottom.
     common::assert_close(
         common::number(report, "lid_plain.bbox.z_max_mm"),
-        41.0,
+        45.0,
         "lid top",
     );
     common::assert_close(
         common::number(report, "lid_plain.bbox.z_min_mm"),
-        37.0,
+        41.0,
         "skirt bottom",
     );
     common::assert_close(
         common::number(report, "lid_plain.expected.z_top_mm"),
-        41.0,
-        "z_top = U * 7 - 1.0",
+        45.0,
+        "z_top = lip bottom + 3.0",
     );
 
     let volume = common::number(report, "lid_plain.volume_mm3");
@@ -309,24 +309,24 @@ fn the_lid_edges_follow_the_standard() {
     }
     let report = report();
 
-    // Plate corner cylinders: radius 1.40, trimmed by the roundover at 40.0,
-    // so the corner wall runs from the plate bottom (39.0) to 40.0.
+    // Plate corner cylinders: radius 1.40, trimmed by the roundover at 44.0,
+    // so the corner wall runs from the plate bottom (43.0) to 44.0.
     circle(
         report,
         "lid_plain",
         1.40,
         Some((-38.15, -80.15)),
-        Some((39.0, 39.0)),
+        Some((43.0, 43.0)),
     );
     circle(
         report,
         "lid_plain",
         1.40,
         Some((-38.15, -80.15)),
-        Some((40.0, 40.0)),
+        Some((44.0, 44.0)),
     );
 
-    // 1.0 mm roundover on the plate top: the applied band spans 40.0..41.0 and
+    // 1.0 mm roundover on the plate top: the applied band spans 44.0..45.0 and
     // the top face is inset by the radius.
     assert!(common::flag(report, "lid_plain.roundover_applied"));
     common::assert_close(
@@ -339,16 +339,16 @@ fn the_lid_edges_follow_the_standard() {
         "lid_plain",
         1.0,
         Some((-38.55, -80.15)),
-        Some((40.0, 41.0)),
+        Some((44.0, 45.0)),
     );
     common::assert_close(
         roundover["z_min_mm"].as_f64().unwrap(),
-        40.0,
+        44.0,
         "roundover z min",
     );
     common::assert_close(
         roundover["z_max_mm"].as_f64().unwrap(),
-        41.0,
+        45.0,
         "roundover z max",
     );
 
@@ -386,14 +386,14 @@ fn the_finger_hole_is_20mm_14mm_from_the_positive_y_edge() {
         "lid_plain",
         10.0,
         Some((0.0, centre_y)),
-        Some((39.0, 39.0)),
+        Some((43.0, 43.0)),
     );
     circle(
         report,
         "lid_plain",
         10.0,
         Some((0.0, centre_y)),
-        Some((41.0, 41.0)),
+        Some((45.0, 45.0)),
     );
 
     // The cut through the plate is exactly 20.0 wide at the plate bottom.
@@ -413,15 +413,13 @@ fn the_finger_hole_is_20mm_14mm_from_the_positive_y_edge() {
     );
 }
 
-/// The lid top is 1.0 mm below the lip top; at the design stack pitch the
-/// next body's base bottom starts one pitch up, so it is 1.0 mm above the
-/// lid -- never touching. Seating the same base in the lip's measured
-/// contact position is a different story: its solid underside (ADR-0013)
-/// then sits 3.35 mm below the lid's plate top, so a stacked body would rest
-/// on the lid instead of the lip. That is the documented finding for the
-/// human checkpoint (#14); the architecture is deliberately unchanged.
+/// SYS-2.0 lids are top-only. The body's nominal top plane is `U * 7`
+/// (42.0 mm for 6U), the official 4.4 mm lip sits above it, and the seated
+/// base's physical pitch is `U * 7 - 0.35` (41.65 mm). The lid top is
+/// 3.0 mm above the lip bottom (45.0 mm), so a lid left under another body
+/// would be hit by the base; that is why the standard forbids it.
 #[test]
-fn the_lid_is_out_of_the_stack_load_path_at_the_design_pitch() {
+fn lids_are_top_only_and_out_of_the_stack_load_path() {
     if !common::freecad_required() {
         return;
     }
@@ -429,14 +427,19 @@ fn the_lid_is_out_of_the_stack_load_path_at_the_design_pitch() {
 
     let lid_top = common::number(report, "lid_plain.bbox.z_max_mm");
     let pitch = common::number(report, "stack.pitch_mm");
-    let next_base_bottom = common::number(report, "stack.next_body_base_z_min_mm");
-    common::assert_close(pitch, 42.0, "stack pitch for 6U");
-    common::assert_close(next_base_bottom, 42.0, "next body base bottom");
     common::assert_close(
-        next_base_bottom - lid_top,
-        1.0,
-        "gap between the lid top and the next body's base",
+        common::number(report, "stack.body_height_mm"),
+        46.4,
+        "overall 6U body height",
     );
+    common::assert_close(
+        common::number(report, "stack.body_top_mm"),
+        42.0,
+        "body top / lip bottom",
+    );
+    common::assert_close(pitch, 41.65, "physical stack pitch for 6U");
+    common::assert_close(lid_top, 45.0, "lid top");
+    common::assert_close(lid_top - pitch, 3.35, "seated base underside to lid top");
 
     // The measured lip contact seat: the base's bottom chamfer rests on the
     // lip's upper ramp with the base bottom 0.35 mm below the lip bottom.
@@ -470,7 +473,7 @@ fn the_lid_is_out_of_the_stack_load_path_at_the_design_pitch() {
     );
     common::assert_near(
         common::number(report, "stack.base_underside_z_mm"),
-        37.65,
+        41.65,
         0.02,
         "seated base underside at the cell centre",
     );
@@ -592,12 +595,12 @@ fn the_1x1_lids_match_the_prototype() {
     );
     common::assert_close(
         common::number(report, "lid_1x1.bbox.z_min_mm"),
-        37.0,
+        41.0,
         "1x1 lid bottom",
     );
     common::assert_close(
         common::number(report, "lid_1x1.bbox.z_max_mm"),
-        41.0,
+        45.0,
         "1x1 lid top",
     );
     let volume = common::number(report, "lid_1x1.volume_mm3");
@@ -606,16 +609,16 @@ fn the_1x1_lids_match_the_prototype() {
         "1x1 lid volume drifted from the prototype: {volume} mm3"
     );
 
-    // The 3U lid: 16.0 .. 20.0 (21.0 total height, lid top 1.0 below the top).
+    // The 3U lid: 20.0 .. 24.0 (25.4 total height, lid top 1.4 below the top).
     assert_eq!(common::number(report, "lid_1x1_3u.solids"), 1.0);
     common::assert_close(
         common::number(report, "lid_1x1_3u.bbox.z_min_mm"),
-        16.0,
+        20.0,
         "3U lid bottom",
     );
     common::assert_close(
         common::number(report, "lid_1x1_3u.bbox.z_max_mm"),
-        20.0,
+        24.0,
         "3U lid top",
     );
 }

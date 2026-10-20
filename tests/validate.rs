@@ -24,8 +24,8 @@ fn a_valid_minimal_spec_prints_a_report_and_exits_zero() {
         .stdout(predicate::str::contains(
             "footprint: 1 x 1 (outer 41.5 x 41.5 mm)",
         ))
-        .stdout(predicate::str::contains("height: 3U (21 mm total)"))
-        .stdout(predicate::str::contains("interior: 37.5 x 37.5 x 11.45 mm"))
+        .stdout(predicate::str::contains("height: 3U (25.4 mm total)"))
+        .stdout(predicate::str::contains("interior: 37.5 x 37.5 x 15.45 mm"))
         .stdout(predicate::str::contains("lid: no"))
         .stdout(predicate::str::contains("compartments: 1"))
         .stdout(predicate::str::contains("Bits"))
@@ -188,11 +188,11 @@ fn mass_and_print_time_warnings_do_not_fail() {
         .stderr(predicate::str::is_empty())
         .stdout(predicate::str::contains("estimated mass"))
         .stdout(predicate::str::contains(
-            "exceeds the 500 g warning threshold",
+            "exceeds the 550 g warning threshold",
         ))
         .stdout(predicate::str::contains("estimated print time"))
         .stdout(predicate::str::contains(
-            "exceeds the 20 h warning threshold",
+            "exceeds the 22 h warning threshold",
         ));
 }
 

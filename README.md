@@ -1,6 +1,6 @@
 # boxgen
 
-`boxgen` is the **SYS-1.0 spec compiler**: it turns a YAML box spec into a FreeCAD model and printable files.
+`boxgen` is the **SYS-2.0 spec compiler**: it turns a YAML box spec into a FreeCAD model and printable files.
 
 ```
 spec.yaml ──validate──▶ build/<id>/box.py ──freecadcmd──▶ box.step + body.stl + lid.stl
@@ -12,6 +12,8 @@ spec.yaml ──validate──▶ build/<id>/box.py ──freecadcmd──▶ bo
 FreeCAD is the geometry engine. `boxgen` validates specs, renders the FreeCAD Python build script, runs it headless with `freecadcmd`, reports dimensions and warnings, and maintains the box registry. It never implements a CAD kernel and it never generates meshes itself.
 
 > **Status: all five contract commands implemented, the v2 local web UI shipped, and profiles pinned.** The crate, CLI surface, typed config, logging, error contract, Docker-first gates, `boxgen validate`, `boxgen divide`, the build path with the ticketed body shell (#6), the division-tree dividers (#8), the inset friction lid (#9), `boxgen coupon` (#10), `boxgen index` (#11), and `boxgen build --publish` (#11) are in place. `boxgen build` turns a spec into `box.py`, `box.FCStd`, `box.step`, `body.stl`, `lid.stl` (when `lid: true`), and `report.json` under the pinned FreeCAD; every split becomes a 2.0 mm divider fused into the body with 2.0 mm junction coves and a 0.4 mm top chamfer, and validation warnings (a leaf below 15 mm) flow into `report.json`; `--publish` copies the accepted files into the spec's box folder. `boxgen coupon` builds the calibration coupon (1 × 1 × 6U, T-divider, ribbed lid) through the same pipeline into `build/coupon`. `cad/gridfinity.py` vendors the pinned Gridfinity base and stacking-lip profiles, `cad/shell.py` + `cad/dividers.py` + `cad/build.py` assemble and export the body (shell, dividers, and lid), `cad/fillets.py` applies the standard's 2.0 -> 1.0 mm reduce-then-fail contract for internal fillets (recorded as `body.floor_fillet_mm`), and `cad/lid.py` builds the 2.0 mm plate with its 2.0 mm skirt, optional `lid_ribs`, and measured lid report. The v2 local web UI (`boxgen serve`, ADR-0002) is shipped as well: one axum + tokio binary serving the embedded frontend and the Rust API on `127.0.0.1` only, with the division editor, fit assistant, read-only system panel, and the one build pipeline with 3D preview, export, publish, and index; `scripts/boxgen-ui.sh` (or `just ui`) starts it in Docker with one command. The binary is `boxgen`, and `boxgen --help` lists the full contract plus the one non-contract v2 command.
+
+> **SYS-2.0 note:** bodies use the official Gridfinity 4.4 mm lip and `U × 7` body-height convention; SYS-1.0 prints are legacy. SYS-2.0 is the approved default as of 2026-10-20; the calibration is accepted as complete.
 
 ## Docker-first quick start
 
@@ -100,7 +102,7 @@ The mapping lives in exactly one place: `src/error.rs`. Commands return `BoxgenE
 
 `boxgen validate <spec>` is pure Rust and needs no FreeCAD. It parses the YAML with a closed schema and enforces the generator contract:
 
-- **Schema:** required `system`, `id`, `footprint`, `height_u`, `lid`, and `divisions`; optional `notes`, `contents` (including the `soft` fit-clearance switch), and the `lid_ribs` switch. Unknown fields are rejected at the root, inside every division node, and inside `contents`, so wall thickness, radii, lip dimensions, and print settings cannot be expressed. `lid_ribs` must be a boolean and requires `lid: true`; it defaults to `false` and adds the standard's optional pair of 0.15 mm friction ribs. `system` must be `SYS-1.0`; `id` must be lowercase kebab-case or the standard `<footprint>-<height>U-<slug>-<rev>` form (for example `4x4-6U-usb-cables-v1`); each footprint side is 1–4; and `height_u` is 3, 6, 9, or 12. The standard's uppercase height unit wins over the generator contract's lowercase-only example; arbitrary uppercase is still rejected.
+- **Schema:** required `system`, `id`, `footprint`, `height_u`, `lid`, and `divisions`; optional `notes`, `contents` (including the `soft` fit-clearance switch), and the `lid_ribs` switch. Unknown fields are rejected at the root, inside every division node, and inside `contents`, so wall thickness, radii, lip dimensions, and print settings cannot be expressed. `lid_ribs` must be a boolean and requires `lid: true`; it defaults to `false` and adds the standard's optional pair of 0.15 mm friction ribs. `system` must be `SYS-2.0`; `id` must be lowercase kebab-case or the standard `<footprint>-<height>U-<slug>-<rev>` form (for example `4x4-6U-usb-cables-v1`); each footprint side is 1–4; and `height_u` is 3, 6, 9, or 12. The standard's uppercase height unit wins over the generator contract's lowercase-only example; arbitrary uppercase is still rejected.
 - **Division tree:** each node is a leaf (optional `compartment`) or a split (`axis`, `at_mm`, `near`, `far`). The root covers the body interior, `N × 42 − 4.5` by `M × 42 − 4.5` mm. Dividers are 2.0 mm and `at_mm` must be an integer ≥ 12: the position is the distance from the parent rectangle's origin edge to the divider's near face, and the far child starts 2.0 mm later. Every leaf must be at least 12 mm in both directions; leaves below 15 mm warn. Duplicate compartment names, a path deeper than 32, and a divider coincident with an ancestor divider on the same axis are errors.
 - **Contents:** when present, a weight above 10 kg warns. Fit warns when length exceeds the interior diagonal minus 10 mm, width plus the per-side clearance exceeds the interior width, or height plus the vertical clearance exceeds the interior depth. The clearances follow standard §8: 2 mm per side and 5 mm above for rigid items, 5 mm per side and 10 mm above when `contents.soft: true` (soft items and cables). The standard's 10 mm "where fingers must reach" rule stays a human sizing rule, so the schema has no field for it.
 - **Estimates:** the report includes a deliberately simple mass and print-time estimate (`shell + dividers + lid`, PETG 1.27 g/cm³, 5.5 mm³/s effective flow). Mass above 500 g or time above 20 h warns. These are estimates, not slicer results.
@@ -134,11 +136,11 @@ build/<id>/
 
 `report.json` is deterministic: no timestamps, no wall-clock durations, sorted keys, and the same text for the same spec and master. It carries the measured dimensions, the resolved `dividers` plan (`count`, `height_above_floor_mm`, `top_mm`, and one entry per split with the absolute `near_face_mm`/`far_face_mm` and the full parent `span_lo_mm`/`span_hi_mm` in centred coordinates), the body volume/area/faces and validity, `body.floor_fillet_mm` (the floor-to-wall fillet radius actually applied: 2.0 mm, or the 1.0 mm fallback), the body STL facts, artifact sizes, mass and print-time estimates (body plus lid when present), and warnings. For a lid build it also carries `lid` (volume/area/faces/solids/validity, bbox, `roundover_mm`, and the `ribs` flag) and `lid_stl` (facets, watertightness, volume). `body.stl`, `lid.stl`, and `report.json` are byte-identical across runs; `box.step` differs only in its `FILE_NAME` timestamp; `box.FCStd` is a zip with an internal timestamp (not hashed).
 
-The lid follows standard §4.4: a 2.0 mm plate whose top sits 1.0 mm below the lip top (`height_u * 7 - 1.0`), a 2.0 mm thick x 2.0 mm deep skirt with 0.30 mm per-side clearance to the lip, 0.6 mm skirt-bottom chamfer, 1.40 mm outer plate corners, a 1.0 mm top roundover, and one 20 mm finger hole centred 14 mm from the +y footprint edge. At the design stack pitch the next body's base bottom starts one pitch up (`height_u * 7`), 1.0 mm above the lid top, so the lid is out of the stack load path there. `cad/tests/lid.py` also seats the same base in the lip's *measured contact position* (base bottom 0.35 mm below the lip bottom) and reports the clearances to the lid's plate edge and top face: both are negative (about -1.15 mm and -0.6 mm), i.e. a fully seated base would rest on the lid rather than the lip. That is the documented finding for the human checkpoint (#14); the architecture is unchanged pending that checkpoint. `lid_ribs: true` adds the standard's optional pair of 0.15 mm friction ribs to the skirt and requires `lid: true`; `lid_ribs: false` is the default. The lid is sized per axis, so a 2 x 4 body does not get a square lid.
+The lid follows standard §4.4: a 2.0 mm plate whose top sits 3.0 mm above the lip bottom (1.4 mm below the official 4.4 mm lip top), a 2.0 mm thick x 2.0 mm deep skirt with 0.30 mm per-side clearance to the lip, 0.6 mm skirt-bottom chamfer, 1.40 mm outer plate corners, a 1.0 mm top roundover, and one 20 mm finger hole centred 14 mm from the +y footprint edge. The lid shape relative to the lip bottom is unchanged from SYS-1.0, so existing lids fit SYS-2.0 bodies. **Lids are top-only:** a lid must be removed before another body is placed on the box. The seated base's underside is 3.35 mm below the lid top, so a lid left under a body would be hit; keep it out of the stack load path. `lid_ribs: true` adds the standard's optional pair of 0.15 mm friction ribs to the skirt and requires `lid: true`; `lid_ribs: false` is the default. The lid is sized per axis, so a 2 x 4 body does not get a square lid.
 
 `freecadcmd` exits 0 even on an unhandled Python exception, a syntax error, or a missing script. The build therefore never trusts the exit status alone: missing, empty, or unparseable artifacts are a build failure (exit 3). A missing launcher or a release other than `BOXGEN_EXPECT_FREECAD_VERSION` is an environment failure (exit 4).
 
-The 1×1×6U body from `tests/fixtures/minimal-build.yaml` measures 41.5 × 41.5 × 42.0 mm, has an interior depth of 32.45 mm, one closed shell, and roughly 19 520.4 mm³ / 24.8 g (before slicer settings). Its outer vertical corners are 3.75 mm, its inner body and lip corners follow `OUTER_RADIUS − offset` (1.75 mm through the body zone, 1.15 mm at the lip neck, 1.85 mm through the lip vertical section), and the floor-to-wall cove is a 2.0 mm radius; no internal corner above the base is sharper than 1.0 mm. The base zone is solid (ADR-0013) with a 0.8 mm floor slab on top (ADR-0014): the bottom prints as filled foot pads, the interior floor is flat at 5.55 mm over the per-cell grooves, and the sharpest base curve is the pinned profile's 0.8 mm bottom chamfer radius. `tests/build.rs` pins the dimensions, the `body.floor_fillet_mm` value, a ±3% volume range, the lid artifact and report contract, byte-level determinism, and the exit-code cases; `tests/body_radii.rs` slices the built body and pins every radius. The 2×4×6U lid fixtures (`tests/fixtures/2x4-6u-lid.yaml` and `2x4-6u-lid-ribs.yaml`) pin the lid build end to end, while `cad/tests/lid.py` + `tests/lid.rs` slice and measure the lid's seven standard features and the rib variant. `tests/golden/minimal.box.py` and `tests/golden/2x4-6u-lid.box.py` are byte-for-byte snapshots of the generated scripts; update them only for an intentional script change.
+The 1×1×6U body from `tests/fixtures/minimal-build.yaml` measures 41.5 × 41.5 × 46.4 mm, has an interior depth of 36.45 mm, one closed shell, and roughly 20 759.3 mm³ / 26.4 g (before slicer settings). Its outer vertical corners are 3.75 mm, its inner body and lip corners follow `OUTER_RADIUS − offset` (1.75 mm through the body zone, 1.15 mm at the lip neck, 1.85 mm through the lip vertical section), and the floor-to-wall cove is a 2.0 mm radius; no internal corner above the base is sharper than 1.0 mm. The base zone is solid (ADR-0013) with a 0.8 mm floor slab on top (ADR-0014): the bottom prints as filled foot pads, the interior floor is flat at 5.55 mm over the per-cell grooves, and the sharpest base curve is the pinned profile's 0.8 mm bottom chamfer radius. `tests/build.rs` pins the dimensions, the `body.floor_fillet_mm` value, a ±3% volume range, the lid artifact and report contract, byte-level determinism, and the exit-code cases; `tests/body_radii.rs` slices the built body and pins every radius. The 2×4×6U lid fixtures (`tests/fixtures/2x4-6u-lid.yaml` and `2x4-6u-lid-ribs.yaml`) pin the lid build end to end, while `cad/tests/lid.py` + `tests/lid.rs` slice and measure the lid's seven standard features and the rib variant. `tests/golden/minimal.box.py` and `tests/golden/2x4-6u-lid.box.py` are byte-for-byte snapshots of the generated scripts; update them only for an intentional script change.
 
 ### Publish
 
@@ -153,7 +155,7 @@ Without `--publish`, the build stays in `build/<id>/` and `boxes/` is untouched.
 
 ## Coupon
 
-`boxgen coupon [--out DIR]` builds the **calibration coupon** exactly as specified in the spec's `docs/spec/docs/calibration.md`: a 1 × 1, 6U body with the standard architecture (2.0 mm walls and lip; a solid 4.75 mm base zone with a 0.8 mm floor slab on top; 3.75/1.75 mm corner radii; 2.0 mm joint coves; 0.4 mm divider top chamfer), one 2.0 mm T-divider fused to the floor and one wall with its top 10 mm below the lip (z = 28.0), and the ribbed friction lid (two 0.15 mm ribs, 20 mm finger hole, 0.30 mm clearance).
+`boxgen coupon [--out DIR]` builds the **calibration coupon** exactly as specified in the spec's `docs/spec/docs/calibration.md`: a 1 × 1, 6U body with the standard architecture (2.0 mm walls and lip; a solid 4.75 mm base zone with a 0.8 mm floor slab on top; 3.75/1.75 mm corner radii; 2.0 mm joint coves; 0.4 mm divider top chamfer), one 2.0 mm T-divider fused to the floor and one wall with its top 10 mm below the lip bottom (z = 32.0), and the ribbed friction lid (two 0.15 mm ribs, 20 mm finger hole, 0.30 mm clearance).
 
 The coupon is not a user spec: `boxgen coupon` constructs the one internal spec in code (`coupon-1x1-6U-v1`, `footprint [1, 1]`, `height_u 6`, `lid: true`, `lid_ribs: true`, a single-leaf division tree, and an internal `coupon: true` flag) and runs it through the **normal master/build path** — the same `cad/build.py::build(spec, out_dir)` that builds every body, with the T-divider fused by `cad/dividers.py::build_coupon_divider`, no hand-made geometry. That is the point: passing the physical tests validates the real pipeline. The closed user schema still rejects `coupon` as an unknown field (exit 2), so a hand-written spec can never approximate the coupon.
 
@@ -168,11 +170,11 @@ build/coupon/            the default --out
   cad/                   the copied FreeCAD master
 ```
 
-The `coupon` report section records the T-divider (`wall: -y`, 20 mm from the wall's inner face, 2.0 mm thick, 28.0 mm top, 0.4 mm chamfer); the Rust build requires it for the coupon spec, so the master cannot silently skip the divider and still pass.
+The `coupon` report section records the T-divider (`wall: -y`, 20 mm from the wall's inner face, 2.0 mm thick, 32.0 mm top, 0.4 mm chamfer); the Rust build requires it for the coupon spec, so the master cannot silently skip the divider and still pass.
 
-After a successful build the command prints the calibration reminder: **print two coupons and one lid** in the production recipe, run the nine tests in `docs/spec/docs/calibration.md`, and record the result in its record table. The coupon is the only iteration; no production box is printed until it passes every acceptance criterion.
+After a successful build the command prints the calibration status: SYS-2.0 is approved (2026-10-20), so no initial coupon print is required. The reminder points at the re-calibration procedure in `docs/spec/docs/calibration.md`, which is run after a filament, nozzle, slicer, or geometry change.
 
-`scripts/calibration-wizard.sh` walks the human checkpoint (ticket #13): it checks the coupon build, steps through the Bambu Studio/X2D production recipe and the print, walks the nine tests one stage at a time, resumes across the 1 h and 24 h load-test waits (state in `build/calibration/state.env`), and writes a dated record with the go/no-go, the calibration-record-table row, and a paste-ready issue comment. The calibration record table stays in the spec (`docs/spec/docs/calibration.md` §5): the wizard prints the row to paste there, and closing #13 or #14 stays a human action — the wizard prints the `gh` commands.
+`scripts/calibration-wizard.sh` walks the re-calibration checkpoint (ticket #13): it checks the coupon build, steps through the Bambu Studio/X2D production recipe and the print, walks the nine tests one stage at a time, resumes across the 1 h and 24 h load-test waits (state in `build/calibration-sys2/state.env`), and writes a dated record with the go/no-go, the calibration-record-table row, and a paste-ready issue comment. The calibration record table stays in the spec (`docs/spec/docs/calibration.md` §5): the wizard prints the row to paste there, and closing #13 or #14 stays a human action — the wizard prints the `gh` commands.
 
 ## Index
 
@@ -264,7 +266,7 @@ reviewable; `cad/tests/` never enters a build.
   Workbench** (LGPL-2.1, attribution kept in the file header and the license
   text in `cad/LICENSE-LGPL-2.1`), adapted rather than redrawn, and it imports
   only `FreeCAD` and `Part`: no installed workbench is required or called.
-- `cad/fillets.py` — the SYS-1.0 internal-fillet contract (ticket #7):
+- `cad/fillets.py` — the SYS-2.0 internal-fillet contract (ticket #7):
   `fillet_with_fallback(shape, radius, edges, fallback=1.0)` tries the
   standard 2.0 mm radius, accepts it only when the result is valid, contains
   exactly one solid, and has positive volume, then tries the 1.0 mm fallback
@@ -279,18 +281,15 @@ reviewable; `cad/tests/` never enters a build.
   `GeometryError` is re-exported by `cad/fillets.py`; the vendored
   `cad/gridfinity.py` keeps its own standalone guard because it must import
   with only `FreeCAD` and `Part`.
-- `cad/shell.py` — the SYS-1.0 body shell for ticket #6: outer prism (3.75 mm
-  corners), one centred base foot per cell, the pinned underside cutters
-  (solid base zone with the floor as its top face, ADR-0013), the
-  pre-filleted interior cutter (2.0 mm floor cove through `cad/fillets.py`,
-  1.0 mm fallback), a cell-boundary web per internal 42 mm grid line (fills
-  each 0.5 mm Gridfinity groove over the 0.2 mm lift band, so the interior
-  feet of a 4 × 4 body stay fused to the prism instead of coming out as
-  separate solids; it sits above the base zone where a standard baseplate's
-  rib has already narrowed to zero width), and the pinned lip void;
-  `build_body` returns a `BodyResult` with the body and the fillet radius
-  actually applied. Every fuse and cut must leave exactly one solid with
-  positive volume; `GeometryError` otherwise.
+- `cad/shell.py` — the SYS-2.0 body shell for ticket #6: outer prism (3.75 mm
+  corners), one centred base foot per cell fused into a solid base zone
+  (ADR-0013) with no underside cavity or cell webs, the pre-filleted
+  interior cutter starting at `FLOOR_TOP = BASE_HEIGHT + FLOOR` (the 0.8 mm
+  floor slab above the profile, ADR-0014; 2.0 mm floor cove through
+  `cad/fillets.py`, 1.0 mm fallback), and the pinned official 4.4 mm lip
+  void. `build_body` returns a `BodyResult` with the body and the fillet
+  radius actually applied. Every fuse and cut must leave exactly one solid
+  with positive volume; `GeometryError` otherwise.
 - `cad/dividers.py` — the division tree compiled to solids (ticket #8):
   `divider_plan` walks the tree from the body interior origin and resolves
   each split to its absolute rectangle (centred coordinates), `divider_height`
@@ -308,10 +307,10 @@ reviewable; `cad/tests/` never enters a build.
   (ticket #10) `build_coupon_divider` fuses the calibration T-divider: one
   2.0 mm plate centred on the interior's x = 0, running 20.0 mm from the -y
   wall's inner face into the interior (the calibration's 20 mm weight foot
-  rests on the 20 mm top), top at 28.0 mm, the 0.4 mm top-edge chamfer, and
+  rests on the 20 mm top), top at 32.0 mm, the 0.4 mm top-edge chamfer, and
   the same floor rails and wall cove columns as a tree divider; the free end
   carries no column.
-- `cad/lid.py` — the SYS-1.0 inset friction lid (ticket #9):
+- `cad/lid.py` — the SYS-2.0 inset friction lid (ticket #9):
   `build_lid(units_x, units_y, height_u, ribs=False)` returns one valid closed
   solid. The plate is `outer_width(units) - 2 * (1.9 + 0.30)` per axis, so it
   clears the lip's vertical section by 0.30 mm per side; the skirt is a stack
@@ -369,7 +368,7 @@ reviewable; `cad/tests/` never enters a build.
   #10). It builds the coupon body (`cad.shell.build_body` +
   `cad.dividers.build_coupon_divider`) and the ribbed 1 × 1 × 6U lid,
   measures the T-divider's faces, top, length, and chamfer by bisection, the
-  thin-slab slice areas at z = 20 and z = 29, the 2.0 mm floor and wall
+  thin-slab slice areas at z = 20 and z = 33, the 2.0 mm floor and wall
   coves by material probes, and the lid's plate, finger hole, pilot
   clearance, and ribs, and prints one `BOXGEN_JSON:` line.
 - `cad/tests/step_slices.py` — the headless STEP slice script (ticket #8).
@@ -385,9 +384,9 @@ reviewable; `cad/tests/` never enters a build.
   `tests/standard_mirror.rs` can prove the Rust constants and their Python
   counterparts still agree.
 - `tests/gridfinity_interface.rs` — runs that script with `freecadcmd` when
-  `BOXGEN_REQUIRE_FREECAD=1` and asserts the SYS-1.0 numbers: grid 42 and
+  `BOXGEN_REQUIRE_FREECAD=1` and asserts the SYS-2.0 numbers: grid 42 and
   0.25 mm per-side clearance; base 4.75 mm (35.6 -> 37.2 -> 37.2 -> 41.5,
-  radii 0.8 / 1.6 / 3.75); lip 4.0 mm (0.7 + 1.8 + 1.5, 0.4 mm ledge, 2.4 mm
+  radii 0.8 / 1.6 / 3.75); lip 4.4 mm (0.7 + 1.8 + 1.9, 2.4 mm
   skirt overlap); a 1-unit foot and lip at 41.5 mm; a 4 x 4 base at
   167.5 x 167.5 mm; and the 0.25 mm per-side base-to-lip stacking fit.
 - `tests/body_radii.rs` — runs `cad/tests/radii.py` under the pinned FreeCAD
@@ -406,8 +405,8 @@ reviewable; `cad/tests/` never enters a build.
 - `tests/dividers.rs` — runs `cad/tests/dividers.py` under the pinned FreeCAD
   and pins the divider contract: 2.0 mm thickness, the golden tree's absolute
   near faces at x = -1.75, y = -31.75, x = 40.25 with their full spans and a
-  single valid closed body, top heights 15.0 / 28.0 / 49.0 / 70.0, the 0.4 mm
-  top chamfer, cove columns that stop at the chamfer's lower edge (27.6 mm on
+  single valid closed body, top heights 19.0 / 32.0 / 53.0 / 74.0, the 0.4 mm
+  top chamfer, cove columns that stop at the chamfer's lower edge (31.6 mm on
   6U with no extra islands in the top section), the 2.0 mm floor cove taper,
   T/wall junction probes, one split of a 4 × 4 body staying one solid (the
   floor slab ties the centre feet), and two synthetic corner-arc trees whose
@@ -419,10 +418,10 @@ reviewable; `cad/tests/` never enters a build.
   the geometry the generated scripts build.
 
 The profiles are the interface that must never drift. Change them only by
-bumping the SYS-1.0 standard and recording an ADR; the workbench (and the
+bumping the SYS-2.0 standard and recording an ADR; the workbench (and the
 `lip.ring.volume` reference in the interface test) is the reference.
 
-## SYS-1.0 specification
+## SYS-2.0 specification
 
 The authoritative spec is **vendored in this repository at `docs/spec/`** (it was a separate local repository before 2026-10-18). The generator contract is this crate's blueprint.
 
@@ -437,13 +436,15 @@ The authoritative spec is **vendored in this repository at `docs/spec/`** (it wa
 
 Key contract points:
 
-- A spec fixes the system version (`SYS-1.0`), box ID, footprint (1 × 1 to 4 × 4 units), height (3U, 6U, 9U, or 12U), lid flag, notes, and the recursive division tree. Wall thickness, radii, lip dimensions, and print settings are fixed by the standard and cannot appear in a spec.
-- The division tree is the only stored compartment form. Dividers are 2.0 mm, leaves are at least 12 mm (warn below 15 mm), and nested splits resolve from the parent's origin. Every split becomes a divider spanning its whole parent rectangle, fused into the body with the standard 2.0 mm junction fillets and a 0.4 mm top-edge chamfer; the height above the floor is interior depth minus 2.0 mm on 3U bodies and minus 10.0 mm on 6U and taller (tops at 15.0 / 28.0 / 49.0 / 70.0 mm). Validation warnings (a leaf below 15 mm) flow into the build's `report.json` without failing it.
+- A spec fixes the system version (`SYS-2.0`), box ID, footprint (1 × 1 to 4 × 4 units), height (3U, 6U, 9U, or 12U), lid flag, notes, and the recursive division tree. `height_u` counts the nominal body height to the lip bottom; the official 4.4 mm lip is above it. Wall thickness, radii, lip dimensions, and print settings are fixed by the standard and cannot appear in a spec.
+- The division tree is the only stored compartment form. Dividers are 2.0 mm, leaves are at least 12 mm (warn below 15 mm), and nested splits resolve from the parent's origin. Every split becomes a divider spanning its whole parent rectangle, fused into the body with the standard 2.0 mm junction fillets and a 0.4 mm top-edge chamfer; the height above the floor is interior depth minus 2.0 mm on 3U bodies and minus 10.0 mm on 6U and taller (tops at 19.0 / 32.0 / 53.0 / 74.0 mm). Validation warnings (a leaf below 15 mm) flow into the build's `report.json` without failing it.
 - `build` writes `build/<id>/box.py`, `box.FCStd`, `box.step`, `body.stl`, `lid.stl` (when `lid: true`), and `report.json`. Only `--publish` copies accepted artifacts (`box.step`, the STLs, `notes.md`) into `boxes/<id>/`; `spec.yaml` is never rewritten and an existing `notes.md` is never overwritten.
 - `boxes/INDEX.md` is generated by `boxgen index` from the box folders and is never edited by hand.
 - FreeCAD master modules in `cad/` expose `build(spec, out_dir) -> dict`; the Rust side only orchestrates. `cad/gridfinity.py` owns the pinned Gridfinity profiles and is LGPL-2.1, not MIT.
 
 The standard wins if it and the generator contract disagree.
+
+**SYS-1.0 legacy:** bodies printed before SYS-2.0 have the 4.0 mm workbench lip and the lip counted inside `U × 7` (12U = 84.0 mm, 6U = 42.0 mm). They remain mechanically stackable with each other and fit baseplates, but they are not SYS-2.0 height classes. Their lids fit SYS-2.0 bodies because the lid shape relative to the lip bottom is unchanged. Do not mix SYS-1.0 and SYS-2.0 bodies in one height-critical stack; the SYS-2.0 coupon and nine-test calibration are a new run.
 
 ## Repository layout
 
@@ -468,13 +469,13 @@ cad/             FreeCAD Python master: gridfinity.py pins the base/lip,
                  and reports
   tests/         headless interface, radii, divider, lid, coupon, and
                  STEP-slice measurements (freecadcmd), sharing _harness.py
-docs/spec/       the vendored SYS-1.0 spec: generator contract, design
+docs/spec/       the vendored SYS-2.0 spec: generator contract, design
                  standard, calibration procedure, ADRs, box-spec template,
                  empty registry
 templates/       box-spec.yaml, the copyable spec skeleton
 assets/          embedded frontend (ES modules + SVG; no Node, no CDN) and
                  vendored three.js (MIT)
-scripts/         calibration-wizard.sh (the human #13 walkthrough) and
+scripts/         calibration-wizard.sh (the re-calibration walkthrough) and
                  boxgen-ui.sh (the one-command local UI launcher)
 tests/           CLI and integration tests (shared scaffolding in
                  tests/common/, golden scripts under tests/golden/)
@@ -496,9 +497,9 @@ Current tests pin:
 
 - `boxgen --help` and every subcommand help;
 - every contract command name (all five are implemented after ticket #10);
-- the coupon build end to end under FreeCAD: exit 0, the full artifact set in `build/coupon` (or `--out`), `report.json` with the `coupon` T-divider section (`wall: -y`, 20.0 mm long, 2.0 mm thick, 28.0 mm top, 0.4 mm chamfer), the ribbed 1 × 1 × 6U lid, the calibration reminder on stdout, the golden `box.py` snapshot, and the calibration-document feature table compared against the vendored `docs/spec/`;
-- the coupon geometry under FreeCAD: `cad/tests/coupon.py` pins the 41.5 × 41.5 × 42.0 body, the T-divider's 2.0 mm thickness and 28.0 top by bisection, the 20 mm length from the -y wall, the thin-slab slice areas at z = 20 and z = 29 (the divider material and its absence), the 2.0 mm floor and wall coves, the wall cove columns stopping at the 0.4 mm top chamfer's lower edge (27.6 mm), the 0.4 mm top chamfer, and the lid's 20 mm finger hole, 0.30 mm pilot clearance, and 0.15 mm ribs;
-- the coupon in the exported artifact: slicing `box.step` at z = 20 and z = 29 shows the divider material in the wire areas, plus the 41.5 mm outer wire and one closed Body solid, with the Lid product present;
+- the coupon build end to end under FreeCAD: exit 0, the full artifact set in `build/coupon` (or `--out`), `report.json` with the `coupon` T-divider section (`wall: -y`, 20.0 mm long, 2.0 mm thick, 32.0 mm top, 0.4 mm chamfer), the ribbed 1 × 1 × 6U lid, the calibration status on stdout, the golden `box.py` snapshot, and the calibration-document feature table compared against the vendored `docs/spec/`;
+- the coupon geometry under FreeCAD: `cad/tests/coupon.py` pins the 41.5 × 41.5 × 46.4 body, the T-divider's 2.0 mm thickness and 32.0 top by bisection, the 20 mm length from the -y wall, the thin-slab slice areas at z = 20 and z = 33 (the divider material and its absence), the 2.0 mm floor and wall coves, the wall cove columns stopping at the 0.4 mm top chamfer's lower edge (31.6 mm), the 0.4 mm top chamfer, and the lid's 20 mm finger hole, 0.30 mm pilot clearance, and 0.15 mm ribs;
+- the coupon in the exported artifact: slicing `box.step` at z = 20 and z = 33 shows the divider material in the wire areas, plus the 41.5 mm outer wire and one closed Body solid, with the Lid product present;
 - coupon determinism: `box.py`, `body.stl`, `lid.stl`, and `report.json` are byte-identical across runs and `box.step` matches after normalizing its `FILE_NAME` timestamp;
 - coupon exit codes: 2 for a user spec containing `coupon` (unknown field), 3 for a FreeCAD failure, 4 for a missing launcher;
 - every schema rule, including forbidden fields at the root and inside division nodes and `contents`;
@@ -507,13 +508,13 @@ Current tests pin:
 - process-level `validate` behaviour: report on stdout, diagnostics on stderr, malformed and unreadable files exiting 2, and collected schema errors;
 - process-level `divide` behaviour: split edits, one-flag edits, leaf-to-split edits at the root and nested, nested and `root` paths, unresolved paths, missing flags, invalid results, byte-for-byte unchanged files on every failure, comment/formatting preservation, and `validate` passing after a successful edit;
 - the golden generated `box.py` for `tests/fixtures/minimal-build.yaml` and `tests/fixtures/2x4-6u-lid.yaml`, compared byte-for-byte (`tests/golden/minimal.box.py` and `tests/golden/2x4-6u-lid.box.py`);
-- the body-only build end to end under FreeCAD: 41.5 x 41.5 x 42.0 mm ±0.2, interior depth 32.45 mm, one valid closed solid, a ±3% body-volume range, `body.floor_fillet_mm` at the standard 2.0 mm with no fallback warning, a watertight `body.stl`, a self-contained `cad/` copy, no `lid.stl`, and no `Lid` object in the STEP;
-- the split-tree build end to end under FreeCAD: the contract's golden 4 × 4 tree (`4x4-6u-tree.yaml`) exits 0 with the resolved `dividers` plan in `report.json` (near faces at x = -1.75, y = -31.75, x = 40.25, full parent spans), and slicing the *exported* `box.step` at z = 20 shows exactly the four contract compartments while z = 30 shows one open interior;
+- the body-only build end to end under FreeCAD: 41.5 x 41.5 x 46.4 mm ±0.2, interior depth 36.45 mm, one valid closed solid, a ±3% body-volume range, `body.floor_fillet_mm` at the standard 2.0 mm with no fallback warning, a watertight `body.stl`, a self-contained `cad/` copy, no `lid.stl`, and no `Lid` object in the STEP;
+- the split-tree build end to end under FreeCAD: the contract's golden 4 × 4 tree (`4x4-6u-tree.yaml`) exits 0 with the resolved `dividers` plan in `report.json` (near faces at x = -1.75, y = -31.75, x = 40.25, full parent spans), and slicing the *exported* `box.step` at z = 20 shows exactly the four contract compartments while z = 33 shows one open interior;
 - the deepest legal corner nesting (`4x4-6u-corner.yaml`) building with the small-leaf warning and its exported compartments at the nested positions, a 4 × 4 split whose divider misses the centre base feet staying one solid, and body + dividers + lid in one document with both STEP products and both print files (`4x4-6u.yaml`);
 - split-build warnings: a leaf below 15 mm still builds (exit 0) and the warning reaches `report.json` and stdout;
-- the divider geometry under FreeCAD: `cad/tests/dividers.py` pins the 2.0 mm thickness, the 0.4 mm top chamfer (measured as a 0.3 mm cut 0.1 mm below the top), the cove columns stopping at the chamfer's lower edge (27.6 mm on 6U, with no extra wires in the section just below the top), the 2.0 mm floor cove taper (1.032 mm clear at 0.25 mm above the floor, flush at the 2.0 mm cove top), the T and wall junction probes, and top heights 15.0 / 28.0 / 49.0 / 70.0 mm for 3U / 6U / 9U / 12U;
+- the divider geometry under FreeCAD: `cad/tests/dividers.py` pins the 2.0 mm thickness, the 0.4 mm top chamfer (measured as a 0.3 mm cut 0.1 mm below the top), the cove columns stopping at the chamfer's lower edge (31.6 mm on 6U, with no extra wires in the section just below the top), the 2.0 mm floor cove taper (1.032 mm clear at 0.25 mm above the floor, flush at the 2.0 mm cove top), the T and wall junction probes, and top heights 19.0 / 32.0 / 53.0 / 74.0 mm for 3U / 6U / 9U / 12U;
 - the corner-arc handling under FreeCAD with two synthetic trees whose divider face (and whose divider cross position) lands on the 1.75 mm inner corner arc: the acute notch is buried by the 2.0 mm cove (tip and notch probes material, no section vertex at the sharp tip, the four cove circles at r = 2.0) and the body stays one valid closed solid; contract validation rejects every tree that could reach the arc (`invalid/corner-divider.yaml`, exit 2);
-- the lid build end to end under FreeCAD: `body.stl` and `lid.stl`, one STEP with both `Body` and `Lid` products, a ±3% lid-volume range, `lid.roundover_mm` at 1.0, `lid.ribs` false/true matching the spec, a watertight `lid.stl`, and the lid bbox at 79.1 x 163.1 x (37.0..41.0) mm for the 2×4×6U fixture;
+- the lid build end to end under FreeCAD: `body.stl` and `lid.stl`, one STEP with both `Body` and `Lid` products, a ±3% lid-volume range, `lid.roundover_mm` at 1.0, `lid.ribs` false/true matching the spec, a watertight `lid.stl`, and the lid bbox at 79.1 x 163.1 x (41.0..45.0) mm for the 2×4×6U fixture;
 - the lid geometry under FreeCAD: `cad/tests/lid.py` slices the built lid and pins the 2.0 mm plate, 2.0 x 2.0 mm skirt, 0.30 mm per-side clearance, 1.40 mm corners, 1.0 mm roundover, 0.6 mm chamfer, 20 mm finger hole at 14 mm, the 1.0 mm stack gap at the design pitch, the seated-base clearances at the lip's contact seat (negative, the checkpoint #14 finding), and the two 0.15 mm ribs;
 - the body radii under FreeCAD: `cad/tests/radii.py` slices the built 1x1x6U and 1x1x3U bodies and pins the outer 3.75 mm and inner 1.75 mm corner arcs, the lip rows at `OUTER_RADIUS - offset`, the 2.0 mm floor cove, the 1.0 mm minimum for every circular edge above the base, the base zone's 0.8 mm profile minimum, and the fillet helper's 2.0 → 1.0 mm reduce path and total-failure path on synthetic thin prisms;
 - the fixed-architecture mirror under FreeCAD: `cad/tests/standard_mirror.py` pins every mirrored `src/tree.rs` constant against its `cad/*.py` counterpart, so the `/api/standard` panel cannot drift from the geometry the generated scripts build;
@@ -529,7 +530,7 @@ Current tests pin:
   from `freecad_version` when `BOXGEN_REQUIRE_FREECAD=1`;
 - the pinned Gridfinity interface: `cad/gridfinity.py` imports with no
   workbench installed, and its base foot and lip profiles measure against the
-  SYS-1.0 numbers under `freecadcmd`.
+  SYS-2.0 numbers under `freecadcmd`.
 
 Native `cargo test` works without FreeCAD: the toolchain and interface tests
 print a skip and pass. Only the image can prove the geometry toolchain claim.
@@ -541,7 +542,7 @@ print a skip and pass. Only the image can prove the geometry toolchain claim.
 - `docs/adr/` — architecture decisions for this crate.
 - `docs/agents/` — issue tracker, triage labels, and domain-doc conventions.
 - `docs/serve-walkthrough.md` — the human browser checklist for the local UI (ticket #22).
-- `docs/spec/` — the vendored SYS-1.0 spec (generator contract, design standard, calibration, ADRs, template, registry).
+- `docs/spec/` — the vendored SYS-2.0 spec (generator contract, design standard, calibration, ADRs, template, registry).
 
 ## License
 

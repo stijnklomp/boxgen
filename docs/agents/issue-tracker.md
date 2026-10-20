@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-Issues, specs, and the SYS-1.0 build-out tickets live as GitHub issues in `stijnklomp/boxgen`. Use the `gh` CLI for all operations.
+Issues, specs, and the SYS-2.0 build-out tickets live as GitHub issues in `stijnklomp/boxgen`. Use the `gh` CLI for all operations.
 
 ## Conventions
 

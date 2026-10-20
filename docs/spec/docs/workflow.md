@@ -1,6 +1,6 @@
 # Design Workflow
 
-**Status:** `SYS-1.0` (frozen). FreeCAD Python output, YAML specs plus a Python master, CLI first.
+**Status:** `SYS-2.0` (frozen). FreeCAD Python output, YAML specs plus a Python master, CLI first.
 
 This document describes how to go from an item in a drawer to a finished, recorded box. It describes design patterns and interfaces, not a CAD or slicer tutorial.
 
@@ -120,7 +120,7 @@ Remove the brim, deburr the bottom edge, and test the lid. There are no labels t
 
 ### Step 9 — Record and stack
 
-Fill in `boxes/<box-id>/notes.md`: contents, print date, filament spool, coupon result, actual mass and print time. Regenerate `boxes/INDEX.md`. Stack only with bodies of the same footprint, at most three high.
+Fill in `boxes/<box-id>/notes.md`: contents, print date, filament spool, coupon result, actual mass and print time. Regenerate `boxes/INDEX.md`. Stack only with bodies of the same footprint, at most three high. **Remove the lid from every body that has another body above it; lids are top-only.** SYS-1.0 legacy bodies (84 mm 12U, 4.0 mm lip) must not be mixed with SYS-2.0 bodies in one height-critical stack.
 
 ## 4. Generator architecture
 
@@ -173,7 +173,7 @@ The architecture is validated once. After that:
 - [ ] Validate with `boxgen validate` or the manual checklist.
 - [ ] Build the FreeCAD model and export `box.step`, `body.stl`, `lid.stl`.
 - [ ] If this is the first box, print the coupon and pass every criterion.
-- [ ] Print one test box; check the lid and a two-box stack.
+- [ ] Print one test box; check the lid on the top body and a two-box stack with no lid between the bodies.
 - [ ] Print the production body and lid with the standard recipe.
 - [ ] Record the print and contents in `boxes/<box-id>/notes.md`; regenerate the index.
 - [ ] Stack only with the same footprint, at most three high, 10 kg per body.

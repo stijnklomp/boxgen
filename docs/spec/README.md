@@ -2,12 +2,12 @@
 
 A 3D-printed storage system for household equipment: Gridfinity-compatible bodies with integral compartments, optional friction lids, and a maximum-thickness shell designed for the Bambu Lab X2D in PETG Basic.
 
-**Status:** `SYS-1.0`, frozen 2026-10-17. The architecture, sizing, division model, corner radii, and generator contract are settled. The next step is the calibration coupon and the separate `boxgen` repository.
+**Status:** `SYS-2.0`, approved default 2026-10-20. The architecture, sizing, division model, corner radii, and generator contract are settled; the calibration is accepted as complete. The generator lives in the `boxgen` repository.
 
 ## What is fixed, what varies
 
 **Fixed — the architecture:**
-- Gridfinity 42 × 42 × 7 mm base and stacking lip.
+- Gridfinity 42 × 42 × 7 mm base and the official 4.4 mm stacking lip; nominal body height excludes the lip.
 - 2.0 mm walls; a solid 4.75 mm base zone with a 0.8 mm floor slab on top (ADR-0013, ADR-0014); the base prints filled on the bed.
 - Integral dividers connected to the walls; no separate inserts.
 - Inset friction lid, 2.0 mm plate and skirt; no latch, magnet, or hinge.
@@ -31,7 +31,7 @@ The fixed part is the "one strong design"; the variable part is generated per bo
 | [`docs/catalog.md`](docs/catalog.md) | Footprints, heights, use-case combinations, stack groups. |
 | [`docs/workflow.md`](docs/workflow.md) | How to go from an item to a finished box, manually in FreeCAD or through the generator. |
 | [`docs/generator.md`](docs/generator.md) | The `boxgen` contract: YAML schema, division tree, CLI, FreeCAD master, tests. |
-| [`docs/calibration.md`](docs/calibration.md) | The calibration coupon and acceptance criteria. Print this before any production box. |
+| [`docs/calibration.md`](docs/calibration.md) | The calibration coupon and acceptance criteria. SYS-2.0 is accepted; use this for re-calibration after a change. |
 | [`templates/box-spec.yaml`](templates/box-spec.yaml) | Copy-ready box spec. |
 | [`boxes/README.md`](boxes/README.md) | Box folder layout and generated index. |
 | [`docs/research/gridfinity-wall-thickness.md`](docs/research/gridfinity-wall-thickness.md) | Why the walls are 2.0 mm and the base zone is solid. |
@@ -57,7 +57,7 @@ The fixed part is the "one strong design"; the variable part is generated per bo
 
 ## Confirmed decisions
 
-All of the following are locked in `SYS-1.0`:
+All of the following are locked in `SYS-2.0`:
 
 1. **Shell:** 2.0 mm body, lip, dividers, and lid; a solid 4.75 mm base zone with a 0.8 mm floor slab on top (ADR-0013, ADR-0014); no underside cavity and no floor-thickness fallback.
 2. **Division model:** recursive tree with integer-millimetre positions, near-face measured.
@@ -72,13 +72,13 @@ All of the following are locked in `SYS-1.0`:
 ## Next steps
 
 1. Build the `boxgen` repository against the contract in [`docs/generator.md`](docs/generator.md).
-2. Generate and print the coupon in [`docs/calibration.md`](docs/calibration.md); pass every criterion.
+2. The SYS-2.0 calibration is accepted; use [`docs/calibration.md`](docs/calibration.md) only for a re-calibration after a filament, nozzle, slicer, or geometry change.
 3. Print one 4 × 4 × 6U test box and check the lid and a two-box stack.
 
 ## The short version
 
 1. Read [`docs/standard.md`](docs/standard.md).
-2. Build the coupon, manually in FreeCAD or with `boxgen`, and pass every acceptance criterion.
+2. The SYS-2.0 calibration is accepted; re-run the coupon only after a filament, nozzle, slicer, or geometry change.
 3. Print one 4 × 4 × 6U test box and check the lid and a two-box stack.
 4. Generate production boxes from division-tree specs.
 5. Record each print and its contents in the box folder.
@@ -86,7 +86,8 @@ All of the following are locked in `SYS-1.0`:
 ## References
 
 - Gridfinity: <https://gridfinity.xyz/>
-- FreeCAD Gridfinity Workbench: <https://github.com/Stu142/FreeCAD-Gridfinity-Workbench>
+- FreeCAD Gridfinity Workbench (base profile source): <https://github.com/Stu142/FreeCAD-Gridfinity-Workbench>
+- Unofficial Gridfinity specification (lip source): <https://github.com/gridfinity-unofficial/specification>
 - Bambu Lab X2D specifications: <https://bambulab.com/en/x2d/specs>
 - Bambu Lab PETG Basic: <https://uk.store.bambulab.com/products/petg-basic>
 - PETG Basic technical data sheet: <https://store.bblcdn.com/s1/default/cb94589bf7994fdcbfa833badefae9cd/Bambu_PETG_Basic_Technical_Data_Sheet.pdf>

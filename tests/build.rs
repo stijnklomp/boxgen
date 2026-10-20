@@ -24,7 +24,7 @@ const MINIMAL_SPEC: &str = "minimal-build.yaml";
 
 /// The measured 1x1x6U body volume under the pinned FreeCAD (solid base zone,
 /// ADR-0013); the test allows ±3% for a geometry-kernel drift.
-const EXPECTED_BODY_VOLUME_MM3: f64 = 19_520.4;
+const EXPECTED_BODY_VOLUME_MM3: f64 = 20_759.282137;
 
 /// The measured 2 x 4 x 6U lid volume (the 4 x 4 prototype lid is 54 761.46
 /// mm3); ±3% for geometry-kernel drift.
@@ -110,8 +110,8 @@ fn minimal_body_builds_end_to_end() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("id: 1x1-6U-minimal-v1"), "{stdout}");
-    assert!(stdout.contains("outer: 41.5 x 41.5 x 42.0 mm"), "{stdout}");
-    assert!(stdout.contains("interior depth: 32.45 mm"), "{stdout}");
+    assert!(stdout.contains("outer: 41.5 x 41.5 x 46.4 mm"), "{stdout}");
+    assert!(stdout.contains("interior depth: 36.45 mm"), "{stdout}");
     assert!(stdout.contains("warnings: none"), "{stdout}");
 
     let report = verify_artifacts(&out);
@@ -121,14 +121,14 @@ fn minimal_body_builds_end_to_end() {
     let height = common::number(&report, "dimensions.height_mm");
     assert!((outer_x - 41.5).abs() <= 0.2, "outer x {outer_x} mm");
     assert!((outer_y - 41.5).abs() <= 0.2, "outer y {outer_y} mm");
-    assert!((height - 42.0).abs() <= 0.2, "height {height} mm");
+    assert!((height - 46.4).abs() <= 0.2, "height {height} mm");
 
     let interior = common::number(&report, "interior_depth_mm");
     // Standard §4.2: the report carries the depth measured from the model
     // (floor top to lip bottom), not the design formula; 0.05 mm covers the
     // kernel's section tolerance.
     assert!(
-        (interior - 32.45).abs() <= 0.05,
+        (interior - 36.45).abs() <= 0.05,
         "interior depth {interior} mm"
     );
 
@@ -366,7 +366,7 @@ fn validation_warnings_are_added_to_the_report() {
 
     let temp = tempdir().expect("tempdir");
     let spec = "\
-system: SYS-1.0
+system: SYS-2.0
 id: 1x1-6U-warning-v1
 footprint: [1, 1]
 height_u: 6
@@ -535,9 +535,9 @@ fn a_split_tree_builds_end_to_end() {
     assert_eq!(common::number(&report, "dividers.count"), 3.0);
     assert_eq!(
         common::number(&report, "dividers.height_above_floor_mm"),
-        22.45
+        26.45
     );
-    assert_eq!(common::number(&report, "dividers.top_mm"), 28.0);
+    assert_eq!(common::number(&report, "dividers.top_mm"), 32.0);
 
     let plan = report
         .pointer("/dividers/plan")
@@ -603,9 +603,9 @@ fn assert_slice_wires(slices: &Value, key: &str, expected: &[[f64; 4]]) {
 }
 
 /// The exported model carries the dividers: slicing the STEP at z = 20 (well
-/// below the 28.0 top) shows exactly the four contract compartments, which
+/// below the 32.0 top) shows exactly the four contract compartments, which
 /// pin the three near faces at x = -1.75, y = -31.75, x = 40.25 and their
-/// full spans; z = 30 shows one open interior.
+/// full spans; z = 33 shows one open interior.
 #[test]
 fn the_exported_golden_tree_step_slices_show_the_three_dividers() {
     if !common::freecad_required() {
@@ -616,7 +616,7 @@ fn the_exported_golden_tree_step_slices_show_the_three_dividers() {
     let out = temp.path().join("build/4x4-6U-tree-v1");
     common::assert_success(&build_fixture(TREE_SPEC, &out));
 
-    let slices = common::slice_step(&out.join("box.step"), "20,30");
+    let slices = common::slice_step(&out.join("box.step"), "20,33");
     assert_eq!(
         slices["objects"].as_array().map(Vec::len),
         Some(1),
@@ -639,7 +639,7 @@ fn the_exported_golden_tree_step_slices_show_the_three_dividers() {
     );
     assert_slice_wires(
         &slices,
-        "section_z30",
+        "section_z33",
         &[
             [-83.75, -83.75, 83.75, 83.75],
             [-81.75, -81.75, 81.75, 81.75],
@@ -1042,10 +1042,10 @@ fn a_lid_build_writes_both_print_files_and_measures_the_lid() {
         "lid volume {volume} mm3 is outside {EXPECTED_LID_VOLUME_MM3} +/- {tolerance} mm3"
     );
 
-    // Standard section 4.4: plate top 1.0 mm below the 42.0 mm lip top, skirt
-    // 1.0 mm below the 38.0 mm lip bottom; plate 0.30 mm clear per side.
-    assert!((common::number(&report, "lid.bbox.z_max") - 41.0).abs() < 1e-6);
-    assert!((common::number(&report, "lid.bbox.z_min") - 37.0).abs() < 1e-6);
+    // Standard section 4.4: plate top 3.0 mm above the 42.0 mm lip bottom,
+    // 1.4 mm below the 46.4 mm lip top; skirt 1.0 mm below the lip bottom; plate 0.30 mm clear per side.
+    assert!((common::number(&report, "lid.bbox.z_max") - 45.0).abs() < 1e-6);
+    assert!((common::number(&report, "lid.bbox.z_min") - 41.0).abs() < 1e-6);
     assert!(
         (common::number(&report, "lid.bbox.x_max")
             - common::number(&report, "lid.bbox.x_min")
@@ -1233,8 +1233,8 @@ fn folder_names(folder: &Path) -> Vec<String> {
 fn fake_report(id: &str, lid: bool) -> String {
     let mut value = serde_json::json!({
         "id": id,
-        "dimensions": {"outer_x_mm": 41.5, "outer_y_mm": 41.5, "height_mm": 42.0},
-        "interior_depth_mm": 32.45,
+        "dimensions": {"outer_x_mm": 41.5, "outer_y_mm": 41.5, "height_mm": 46.4},
+        "interior_depth_mm": 36.45,
         "body": {
             "volume_mm3": 18397.5,
             "area_mm2": 1.0,
@@ -1263,7 +1263,7 @@ fn fake_report(id: &str, lid: bool) -> String {
             "bbox": {
                 "x_min": -18.55, "x_max": 18.55,
                 "y_min": -18.55, "y_max": 18.55,
-                "z_min": 37.0, "z_max": 41.0,
+                "z_min": 41.0, "z_max": 45.0,
             },
         });
         value["lid_stl"] = serde_json::json!({"facets": 1, "is_solid": true, "volume_mm3": 1.0});

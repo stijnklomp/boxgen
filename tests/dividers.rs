@@ -1,4 +1,4 @@
-//! SYS-1.0 division tree divider contract (ticket #8, standard section 4.3).
+//! SYS-2.0 division tree divider contract (ticket #8, standard section 4.3).
 //!
 //! `cad/dividers.py` resolves a division tree to absolute divider rectangles
 //! and fuses them into the body shell; `cad/tests/dividers.py` measures the
@@ -7,7 +7,7 @@
 //! coves, the 0.4 mm top chamfer, and two synthetic trees that force the
 //! divider/junction onto the inner corner arc. This test asserts the pinned
 //! numbers: 2.0 mm thickness, whole-parent spans, near-face positions on the
-//! integer millimetre, tops at 15.0 / 28.0 / 49.0 / 70.0 mm, cove columns
+//! integer millimetre, tops at 19.0 / 32.0 / 53.0 / 74.0 mm, cove columns
 //! that stop at the chamfer's lower edge, and a single valid closed solid.
 //!
 //! Like `tests/body_radii.rs`, this skips on a native host without FreeCAD.
@@ -259,12 +259,12 @@ fn the_golden_tree_is_one_valid_closed_solid() {
     );
     common::assert_close(
         common::number(report, "golden.divider_top_mm"),
-        28.0,
+        32.0,
         "6U divider top",
     );
 }
 
-/// Slicing at z = 20 (well below the 28.0 top) shows exactly the four
+/// Slicing at z = 20 (well below the 32.0 top) shows exactly the four
 /// compartments the tree defines; their wire boxes pin the three dividers'
 /// near faces and full spans.
 #[test]
@@ -286,19 +286,19 @@ fn the_golden_slice_at_twenty_shows_the_three_dividers() {
     );
 }
 
-/// Above the divider top the body is one open interior; at z = 30 no divider
+/// Above the divider top the body is one open interior; at z = 33 no divider
 /// material remains.
 #[test]
-fn the_golden_slice_at_thirty_shows_no_divider() {
+fn the_golden_slice_at_thirty_three_shows_no_divider() {
     if !common::freecad_required() {
         return;
     }
 
     assert_wire_boxes(
         &[[-81.75, -81.75, 81.75, 81.75]],
-        "golden.section_z30",
+        "golden.section_z33",
         EPS,
-        "4 x 4 interior at z = 30",
+        "4 x 4 interior at z = 33",
     );
 }
 
@@ -317,7 +317,7 @@ fn the_golden_divider_tops_carry_the_chamfer() {
             [0.25, -81.75, 40.25, 81.75],
             [42.25, -81.75, 81.75, 81.75],
         ],
-        "golden.section_z27_5",
+        "golden.section_z31_5",
         EPS,
         "compartments 0.5 mm below the divider top",
     );
@@ -329,7 +329,7 @@ fn the_golden_divider_tops_carry_the_chamfer() {
             [-0.05, -81.75, 40.55, 81.75],
             [41.95, -81.75, 81.75, 81.75],
         ],
-        "golden.section_z27_9",
+        "golden.section_z31_9",
         COVE_TOLERANCE,
         "compartments 0.1 mm below the divider top (0.4 mm chamfer)",
     );
@@ -337,8 +337,8 @@ fn the_golden_divider_tops_carry_the_chamfer() {
 
 /// The cove columns stop at the 0.4 mm top chamfer's lower edge, so no
 /// junction corner stands above the chamfered plate top. On a 6U body the
-/// plate top is 28.0 mm, so both a wall-end and a T-junction column measure
-/// 27.6 mm; the raw section 0.01 mm below the top holds only the body outline
+/// plate top is 32.0 mm, so both a wall-end and a T-junction column measure
+/// 31.6 mm; the raw section 0.01 mm below the top holds only the body outline
 /// and the four compartments (an extra island would be a protruding corner).
 #[test]
 fn the_golden_cove_columns_stop_at_the_chamfer() {
@@ -351,7 +351,7 @@ fn the_golden_cove_columns_stop_at_the_chamfer() {
         ("golden.wall_corner_top_mm", "wall-end cove column top"),
         ("golden.tee_corner_top_mm", "T-junction cove column top"),
     ] {
-        common::assert_near(common::number(report, path), 27.6, TOP_TOLERANCE, what);
+        common::assert_near(common::number(report, path), 31.6, TOP_TOLERANCE, what);
     }
 
     assert_eq!(
@@ -435,10 +435,10 @@ fn divider_heights_follow_the_standard() {
     let report = report();
 
     for (height_u, above_floor, top) in [
-        (3, 9.45, 15.0),
-        (6, 22.45, 28.0),
-        (9, 43.45, 49.0),
-        (12, 64.45, 70.0),
+        (3, 13.45, 19.0),
+        (6, 26.45, 32.0),
+        (9, 47.45, 53.0),
+        (12, 68.45, 74.0),
     ] {
         let path = format!("heights.{height_u}");
         common::assert_close(

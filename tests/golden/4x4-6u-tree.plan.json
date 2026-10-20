@@ -5,12 +5,12 @@
   "body": {
     "outer_width_mm": 167.5,
     "outer_depth_mm": 167.5,
-    "total_height_mm": 42.0,
+    "total_height_mm": 46.4,
     "interior_width_mm": 163.5,
     "interior_depth_mm": 163.5,
-    "interior_height_mm": 32.45,
-    "divider_height_mm": 22.45,
-    "divider_top_mm": 28.0
+    "interior_height_mm": 36.45,
+    "divider_height_mm": 26.45,
+    "divider_top_mm": 32.0
   },
   "leaves": [
     {
@@ -91,8 +91,8 @@
     }
   ],
   "estimate": {
-    "volume_mm3": 329175.2874999999,
-    "mass_g": 418.0526151249999,
-    "print_hours": 16.625014520202015
+    "volume_mm3": 348949.7875,
+    "mass_g": 443.16623,
+    "print_hours": 17.623727
   }
 }

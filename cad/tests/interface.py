@@ -190,7 +190,7 @@ def main() -> int:
         "profile": [[harness.round6(x), harness.round6(z)] for x, z in gf.lip_profile_points()],
         "offsets": [
             {"z": harness.round6(z), "offset": harness.round6(gf.lip_inner_offset(z))}
-            for z in (-2.4, -1.8, 0.0, 0.7, 2.5, 4.0)
+            for z in (-2.4, -1.8, 0.0, 0.7, 2.5, 4.4)
         ],
         "cut_sections": cut_sections,
         "ring": {

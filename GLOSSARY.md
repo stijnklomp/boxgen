@@ -1,6 +1,6 @@
 # boxgen
 
-Vocabulary for the SYS-1.0 spec compiler. The authoritative domain glossary — body, lid, divider, compartment, footprint, height, coupon — lives at `docs/spec/GLOSSARY.md` (the SYS-1.0 spec is vendored at `docs/spec/`); use its terms and spellings.
+Vocabulary for the SYS-2.0 spec compiler. The authoritative domain glossary — body, lid, divider, compartment, footprint, height, coupon — lives at `docs/spec/GLOSSARY.md` (the SYS-2.0 spec is vendored at `docs/spec/`); use its terms and spellings.
 
 ## Repository concepts
 
@@ -21,7 +21,7 @@ _Avoid_: template, FreeCAD script (that is the generated `box.py`).
 _Avoid_: output folder, artifacts (be specific).
 
 **Coupon**:
-The calibration build: a 1 × 1 × 6U body with one 2.0 mm T-divider fused to the floor and one wall, plus the ribbed friction lid, built by `boxgen coupon` into `build/coupon` through the same master path as every body. It is an internal spec (`coupon: true`), never a user spec, and it is the only iteration before production boxes (spec: `docs/spec/docs/calibration.md`).
+The calibration build: a 1 × 1 × 6U body with one 2.0 mm T-divider fused to the floor and one wall, plus the ribbed friction lid, built by `boxgen coupon` into `build/coupon` through the same master path as every body. It is an internal spec (`coupon: true`), never a user spec. SYS-2.0 is approved (2026-10-20); the coupon remains the only iteration when a re-calibration is needed (spec: `docs/spec/docs/calibration.md`).
 _Avoid_: test box, sample, prototype.
 
 **Publish**:
@@ -52,6 +52,6 @@ _Avoid_: split command, tree editor.
 The `boxgen serve` command: the one local web UI (v2, ADR-0002) over the same terms as the CLI — Spec, Division tree, Body, Compartment, Lid. The API's `design` field is the wire name for a Spec (the ticket #16 name for the same object, not a separate concept). It binds `127.0.0.1` only (one local user, no auth), serves the embedded frontend, and answers every edit through the Rust validator and every build through the one build pipeline: it owns no geometry and no rules.
 _Avoid_: web app, frontend, dashboard.
 
-**Calibrated preset**:
-The UI editor's fixed starting design: 4 × 4 · 6U · lid · ribs, the architecture the 2026-10-18 coupon calibration covers. Every legal deviation (3/9/12U, another footprint, lid or ribs off) shows an amber "custom" badge with a diff; red is reserved for invalid, and resetting to the preset is always one click.
+**Standard preset**:
+The UI editor's fixed starting design: 4 × 4 · 6U · lid · ribs. The SYS-1.0 calibration is historical; SYS-2.0 is approved as the default (2026-10-20), with its nine calibration tests accepted as complete. Every legal deviation (3/9/12U, another footprint, lid or ribs off) shows an amber "custom" badge with a diff; red is reserved for invalid, and resetting to the preset is always one click.
 _Avoid_: default box, sample, template.

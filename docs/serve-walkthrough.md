@@ -29,10 +29,10 @@ walking.
 
 | # | Step | Expected observation | Result |
 | --- | --- | --- | --- |
-| 1 | Start the UI and open the printed URL. | The browser shows the box list, `SYS-1.0` in the header, and no console errors. | |
-| 2 | Click **New box**, give it an id such as `1x1-6U-walkthrough-v1`. | The editor opens on the calibrated preset: badge `calibrated preset: 4 × 4 · 6U · lid · ribs`, amber `unsaved changes`. | |
+| 1 | Start the UI and open the printed URL. | The browser shows the box list, `SYS-2.0` in the header, and no console errors. | |
+| 2 | Click **New box**, give it an id such as `1x1-6U-walkthrough-v1`. | The editor opens on the calibrated preset: badge `preset: 4 × 4 · 6U · lid · ribs`, amber `unsaved changes`. | |
 | 3 | In **Spec**, set footprint 2 × 4 and height 9U. | The badge turns amber `custom: …` with a one-line diff; the plan redraws; the **Estimate** line under the outer/interior readout updates its mass and print time. | |
-| 4 | Click **Reset to preset**. | The badge returns to the calibrated preset and the diff disappears. Reset is visible the whole time. | |
+| 4 | Click **Reset to preset**. | The badge returns to the standard preset and the diff disappears. Reset is visible the whole time. | |
 | 5 | Set footprint 2 × 4 · 6U, keep lid + ribs. | The outer/interior readout matches 83.5 × 167.5 mm. | |
 | 6 | Click inside the single compartment and press **Split ↔ x**; then click the left compartment and press **Split ↕ y**. | Two dividers appear; the first split's near child kept the original compartment name; the plan stays `valid`. | |
 | 6a | Drag from a side of a compartment into it and release. | A divider preview follows the pointer with a live integer-mm label, and releasing adds the division where it was released; the plan stays `valid`. | |
@@ -57,9 +57,9 @@ walking.
 | 23 | Open the exported STL in Bambu Studio and the STEP in FreeCAD. | The STL imports and slices with the standard recipe; the STEP opens with `Body` and `Lid` objects. | |
 | 24 | Click **Publish**, then look at `boxes/<id>/`. | `box.step`, `body.stl`, `lid.stl` (lid specs), and `notes.md` are copied into `boxes/<id>/`; `spec.yaml` is unchanged; an existing `notes.md` is never overwritten. A box opened from a folder with a legacy name is refused here with a clear message (open still works; **Save as** creates the id-named folder). | |
 | 25 | Click **Regenerate index** and open `boxes/INDEX.md`. | The row for the box appears with footprint, height, contents, stack group, and print date; a broken spec in the registry blocks the whole index with a clear error. | |
-| 26 | Open the **System standard** view. | Every fixed value is shown read-only and matches the calibration: 2.0 walls, 4.75 base + 0.8 floor slab, 3.75/1.75 radii, 2.0 dividers with 12/15 mm leaf limits, 15/28/49/70 mm tops, lid 2.0/2.0/0.30, ribs 0.15, PETG Basic, coupon `coupon-1x1-6U-v1` dated 2026-10-18. | |
+| 26 | Open the **System standard** view. | Every fixed value is shown read-only and matches the calibration: 2.0 walls, 4.75 base + 0.8 floor slab, 3.75/1.75 radii, 2.0 dividers with 12/15 mm leaf limits, 19/32/53/74 mm tops, lid 2.0/2.0/0.30, ribs 0.15, PETG Basic, coupon `coupon-1x1-6U-v1` (SYS-2.0; approved 2026-10-20). | |
 | 27 | Check the **Print recipe (fixed)** panel in the editor. | The static reminder matches `docs/spec/docs/standard.md` §5 (0.20 mm layers, 5 wall loops, 5 shells, 40% gyroid, no supports, 5 mm brim, textured PEI, the PETG temperature profile, and the drying rule). | |
-| 28 | Put a broken spec (for example a split at `at_mm: 8`) into `boxes/broken-v1/spec.yaml` and refresh the list. | The row is flagged red with its first error; **Open** shows the errors (and the raw text for a spec that does not parse) with **Start from the calibrated preset**. | |
+| 28 | Put a broken spec (for example a split at `at_mm: 8`) into `boxes/broken-v1/spec.yaml` and refresh the list. | The row is flagged red with its first error; **Open** shows the errors (and the raw text for a spec that does not parse) with **Start from the standard preset**. | |
 | 29 | Trigger a failed build and click **Build**. For the Docker launcher, put a failing script in the workdir (print `FreeCAD 1.0.0` for `--version`, then exit non-zero) and start with `BOXGEN_FREECADCMD=/app/<script> just ui`; the launcher forwards the variable, and `/app` is the mounted workdir. | The panel shows the exit-contract message plus the `freecadcmd` diagnostic tail; nothing is published. | |
 | 30 | Run `just check-docker` on the final commit. | The gate is green; the golden scripts and the CLI output are unchanged. | |
 

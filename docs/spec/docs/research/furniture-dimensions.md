@@ -16,10 +16,10 @@
 **Implications for this system:**
 
 - The **4 × 4 module (167.5 mm)** divides a Kallax cube cleanly: two 2 × 4 bodies or four 2 × 2 bodies are 167 mm across, leaving ~169 mm of the 336 mm cube free. A single 4 × 4 body also fits with room.
-- **6U (42 mm)** is the most universally compatible height. Three 6U bodies stacked are 126 mm, which fits a Billy shelf with ≥200 mm clearance and a Kallax cube with 336 mm. A single 6U body fits a ~70 mm drawer insert.
-- **9U (63 mm)** fits most drawers and shelves; three stacked are 189 mm. Use it for cables.
-- **12U (84 mm)** does not fit shallow drawers; use it for bulky items and prefer 2-high stacks (168 mm) on shelves.
-- **3U (21 mm)** is for flat contents only; it is the most space-efficient for a single layer of small parts.
+- **6U (46.4 mm overall)** is the most universally compatible height. Three 6U bodies stacked are 129.7 mm, which fits a Billy shelf with ≥200 mm clearance and a Kallax cube with 336 mm. A single 6U body fits a ~70 mm drawer insert.
+- **9U (67.4 mm overall)** fits most drawers and shelves; three stacked are 192.7 mm. Use it for cables.
+- **12U (88.4 mm overall)** does not fit shallow drawers; use it for bulky items and prefer 2-high stacks (172.05 mm) on shelves. SYS-1.0 12U prints are 84 mm and are legacy.
+- **3U (25.4 mm overall)** is for flat contents only; it is the most space-efficient for a single layer of small parts.
 - A 4 × 4 footprint leaves about 44 mm of bed margin per side on the X2D, so brims and first layers are comfortable.
 
 **Decision:** the default height is **6U**, with 3U, 9U, and 12U as options, and the maximum footprint is **4 × 4**. See [ADR-0011](../adr/0011-4x4-module.md).

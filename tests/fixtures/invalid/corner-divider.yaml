@@ -5,7 +5,7 @@
 # arc (the far face at y = 80.25, the band starting at 80.0); the far child
 # is 1.5 mm deep. `cad/dividers.py` still handles the case defensively and
 # `cad/tests/dividers.py` forces it with a synthetic tree.
-system: SYS-1.0
+system: SYS-2.0
 id: 4x4-6U-corner-invalid-v1
 footprint: [4, 4]
 height_u: 6

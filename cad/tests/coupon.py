@@ -9,16 +9,16 @@ The script builds the calibration coupon through the normal master path --
 body and ``cad.lid.build_lid`` for the ribbed lid -- and measures every
 number calibration section 2 fixes:
 
-* body: outer 41.5 x 41.5 x 42.0 mm, one valid closed solid;
+* body: outer 41.5 x 41.5 x 46.4 mm, one valid closed solid;
 * T-divider: 2.0 mm thick, fused to the floor and the -y wall, 20 mm long
-  from the wall's inner face, top at 28.0 mm (10 mm below the 38.0 lip
+  from the wall's inner face, top at 32.0 mm (10 mm below the 42.0 lip
   bottom), 0.4 mm top chamfer; the thin-slab slice areas at z = 20 and
-  z = 29 show the divider material and its absence above the top;
+  z = 33 show the divider material and its absence above the top;
 * junctions: the 2.0 mm floor and wall coves taper like the tree dividers'
   (material probes sit on the expected quarter-round boundary); the wall
-  columns stop at the 0.4 mm top chamfer's lower edge (27.6 mm on the 6U
+  columns stop at the 0.4 mm top chamfer's lower edge (31.6 mm on the 6U
   coupon), so no corner stands above the chamfered plate top;
-* lid: the ribbed 1 x 1 x 6U lid is 37.1 x 37.1 mm spanning z 37.0..41.0,
+* lid: the ribbed 1 x 1 x 6U lid is 37.1 x 37.1 mm spanning z 41.0..45.0,
   with the 20 mm finger hole centred 14 mm from the +y edge and the ribs
   adding exactly 0.30 mm to the pilot width.
 
@@ -106,15 +106,15 @@ def _measure_body(dividers, gf, shell) -> dict[str, object]:
         "far_face_mm": harness.round6(harness.bisect_x(fused, -10.0, 20.0, 0.0, 3.0)),
         "free_end_mm": harness.round6(harness.bisect_y(fused, 0.0, 20.0, 0.0, 3.0)),
         "top_probe_mm": harness.round6(
-            harness.measure_top(fused, 0.0, -10.0, z_floor + 0.5, 38.0)
+            harness.measure_top(fused, 0.0, -10.0, z_floor + 0.5, 42.0)
         ),
         # Slices: the divider material is present at z = 20 and gone at 29.
         # The area difference is the 2 x 20 mm plate plus the two quarter-round
         # wall columns, 2 * (4 - pi).
         "material_at_z20": harness.point_is_material(fused, 0.0, -10.0, 20.0),
-        "material_at_z29": harness.point_is_material(fused, 0.0, -10.0, 29.0),
+        "material_at_z33": harness.point_is_material(fused, 0.0, -10.0, 33.0),
         "section_z20": _section(fused, 20.0),
-        "section_z29": _section(fused, 29.0),
+        "section_z33": _section(fused, 33.0),
         # The 2.0 mm floor cove taper: inset 1.3755 at 0.1 above the floor,
         # 0.4388 at 0.75, gone at 1.95.
         "cove_floor_material_0_1": harness.point_is_material(
@@ -149,9 +149,9 @@ def _measure_body(dividers, gf, shell) -> dict[str, object]:
         "cove_wall_material_far": harness.point_is_material(fused, 1.1, -18.6, 10.0),
         "cove_wall_void_far": not harness.point_is_material(fused, 2.2, -17.9, 10.0),
         # The wall columns stop at the 0.4 mm top chamfer's lower edge, so
-        # their top is 27.6 mm rather than the plate's 28.0 mm.
+        # their top is 31.6 mm rather than the plate's 32.0 mm.
         "cove_wall_top_mm": harness.round6(
-            harness.measure_top(fused, -1.1, -18.6, z_floor + 0.5, 38.0)
+            harness.measure_top(fused, -1.1, -18.6, z_floor + 0.5, 42.0)
         ),
         # The 0.4 mm top chamfer: 0.3 clear per side 0.1 below the top, flush
         # 0.5 below, and 0.3 short at the free end.
@@ -170,9 +170,9 @@ def _measure_lid(lid_module, gf) -> dict[str, object]:
     spec = lid_module.BodySpec(UNITS_X, UNITS_Y, HEIGHT_U)
     plain = lid_module.build_lid(spec)
     ribbed = lid_module.build_lid(spec, ribs=True)
-    total_h = HEIGHT_U * lid_module.HEIGHT_UNIT
+    total_h = HEIGHT_U * lid_module.HEIGHT_UNIT + gf.LIP_HEIGHT
     z_lip = total_h - gf.LIP_HEIGHT
-    z_top = total_h - 1.0
+    z_top = z_lip + lid_module.SKIRT_INTRUSION + lid_module.LID_PLATE
     z_plate_bottom = z_top - lid_module.LID_PLATE
     shells = ribbed.Shells
 
@@ -216,13 +216,13 @@ def main() -> int:
             "DIVIDER_TOP_CHAMFER": harness.round6(dividers.DIVIDER_TOP_CHAMFER),
             "JUNCTION_FILLET": harness.round6(dividers.JUNCTION_FILLET),
             "OUTER_WIDTH_MM": harness.round6(gf.outer_width(UNITS_X)),
-            "HEIGHT_MM": harness.round6(HEIGHT_U * shell.HEIGHT_UNIT),
+            "HEIGHT_MM": harness.round6(HEIGHT_U * shell.HEIGHT_UNIT + gf.LIP_HEIGHT),
             "DIVIDER_GAP_MM": harness.round6(dividers.DIVIDER_GAP),
         },
         "body": _measure_body(dividers, gf, shell),
         "lid": _measure_lid(lid_module, gf),
         # The thin-slab slice areas prove the divider material is inside the
-        # 20 mm top (z = 20) and gone above it (z = 29); the difference is the
+        # 20 mm top (z = 20) and gone above it (z = 33); the difference is the
         # 2 x 20 mm plate plus the two quarter-round wall columns.
         "expected_slice_area_difference_mm2": harness.round6(
             2.0 * dividers.COUPON_DIVIDER_LENGTH + 2.0 * (4.0 - math.pi)

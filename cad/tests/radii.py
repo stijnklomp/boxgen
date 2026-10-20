@@ -14,7 +14,7 @@ The script covers the ticket #7 contract:
 * ``cad/shell.py::measure_interior_depth_mm`` measures the usable depth from
   the built body (floor top to lip bottom) for every legal height; the report
   carries that measurement, and ``interior_depth_mm`` stays the standard's
-  design formula (``U * 7 - 9.55``).
+  design formula (``U * 7 - 5.55``).
 * The built 1x1x6U and 1x1x3U bodies: horizontal slices measure the outer
   3.75 mm and inner 1.75 mm vertical corner arcs and the lip rows
   (``OUTER_RADIUS - offset``), a vertical slice measures the 2.0 mm floor
@@ -176,7 +176,7 @@ def _measure_body(module, gf, units_x: int, units_y: int, height_u: int) -> dict
     """Build one body and measure its radii and junctions."""
     result = module.build_body(module.BodySpec(units_x, units_y, height_u))
     body = result.shape
-    total_h = height_u * module.HEIGHT_UNIT
+    total_h = height_u * module.HEIGHT_UNIT + gf.LIP_HEIGHT
     z_lip = total_h - gf.LIP_HEIGHT
     z_base = gf.BASE_HEIGHT
     z_floor = module.FLOOR_TOP
@@ -231,7 +231,7 @@ def _measure_body(module, gf, units_x: int, units_y: int, height_u: int) -> dict
 def _measure_interior_depth(module) -> dict[str, object]:
     """The measured usable depth for every legal height (standard section 4.2).
 
-    ``design_mm`` is the standard's formula (``U * 7 - 9.55``); ``measured_mm``
+    ``design_mm`` is the standard's formula (``U * 7 - 5.55``); ``measured_mm``
     is ``cad/shell.py::measure_interior_depth_mm`` on the built 1 x 1 body.
     """
     out: dict[str, object] = {}
@@ -271,7 +271,7 @@ def main() -> int:
         inner_width,
         shell.INNER_RADIUS,
         shell.FLOOR_TOP,
-        3 * shell.HEIGHT_UNIT - gf.LIP_HEIGHT - shell.LIP_CUTTER_GAP,
+        3 * shell.HEIGHT_UNIT - shell.LIP_CUTTER_GAP,
     )
     report["helper_standard"] = _fillet_case(
         fillets,

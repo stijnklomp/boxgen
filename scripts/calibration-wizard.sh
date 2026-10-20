@@ -199,7 +199,7 @@ finish() {
 # ──────────────────────────────────────────────────────────────────────────
 
 # ══════════════════════════════════════════════════════════════════════════
-# SYS-1.0 calibration coupon wizard — the human checkpoint for issue #13.
+# SYS-2.0 calibration coupon wizard — the human checkpoint for issue #13.
 #
 # Walks one coupon print run through the coupon build check, the Bambu
 # Studio/X2D set-up, the print, the nine tests of docs/calibration.md §3,
@@ -208,7 +208,7 @@ finish() {
 # joint (1 h) and the stack load (24 h) require stopping and resuming.
 #
 #   run:      bash scripts/calibration-wizard.sh
-#   state:    build/calibration/state.env          (build/ is git-ignored)
+#   state:    build/calibration-sys2/state.env          (build/ is git-ignored)
 #   records:  chosen at run time; default is <calibration doc dir>/calibration-records
 #
 # Sources of truth: docs/spec/docs/calibration.md §3–§5 (tests, criteria,
@@ -225,7 +225,7 @@ finish() {
 #   docker run --rm -v "$PWD/scripts":/mnt:ro koalaman/shellcheck:stable \
 #     -e SC1087,SC2329 /mnt/calibration-wizard.sh
 #   and a scripted-stdin dry run (prompts read plain lines when stdin is not
-#   a TTY); afterwards delete build/calibration/ so the real run starts fresh.
+#   a TTY); afterwards delete build/calibration-sys2/ so the real run starts fresh.
 # The two shellcheck exclusions are quirks of the skill's wizard library
 # above the STAGES marker, which stays byte-identical and is never edited.
 # ══════════════════════════════════════════════════════════════════════════
@@ -238,7 +238,7 @@ TOTAL_STAGES=18
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(dirname -- "$SCRIPT_DIR")
-STATE_DIR="$REPO_ROOT/build/calibration"
+STATE_DIR="$REPO_ROOT/build/calibration-sys2"
 ENV_FILE="$STATE_DIR/state.env"
 mkdir -p "$STATE_DIR"
 
@@ -471,7 +471,7 @@ FIXES=("" "$FIX1" "$FIX2" "$FIX3" "$FIX4" "$FIX5" "$FIX6" "$FIX7" "$FIX8" "$FIX9
 
 # ── Opening ───────────────────────────────────────────────────────────────
 
-banner "SYS-1.0 calibration coupon"
+banner "SYS-2.0 calibration coupon"
 
 say "1–6 prepare and print · 7–12 the fit and finish tests · 13–17 the load-test set-ups and inspections · 18 the record."
 if [[ -n "$calibration_doc" ]]; then
@@ -893,7 +893,7 @@ if todo; then
 - **Nozzle:** ${nozzle_v}
 - **Bambu Studio:** ${studio_v}
 - **Slicer estimate:** ${slice_h} h / ${slice_g} g
-- **Coupon:** coupon-1x1-6U-v1 — 41.5 × 41.5 × 42.0 mm body, ribbed lid, built by \`boxgen coupon\`
+- **Coupon:** coupon-1x1-6U-v1 — 41.5 × 41.5 × 46.4 mm body, ribbed lid, built by \`boxgen coupon\`
 - **Artifacts:** body.stl sha256 ${body_sha}…, lid.stl sha256 ${lid_sha}…
 - **Procedure:** ${procedure_v}
 - **Go/no-go:** **${gonogo}**

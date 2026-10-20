@@ -1,6 +1,6 @@
 # Box Catalog
 
-**Status:** `SYS-1.0`. The maximum footprint is 4 × 4; any footprint from 1 × 1 to 4 × 4 is supported. The default height is 6U.
+**Status:** `SYS-2.0`. The maximum footprint is 4 × 4; any footprint from 1 × 1 to 4 × 4 is supported. The default height is 6U.
 
 ## 1. Footprints
 
@@ -25,12 +25,14 @@ Interior diagonal: **231.2 mm** for 4 × 4. An item can lie diagonally if its le
 
 ## 2. Heights
 
-| Height | Total height | Interior depth | Typical use |
-| --- | --- | --- | --- |
-| 3U | 21.0 mm | 11.45 mm | A single layer of flat items: bolts, bits, adapters |
-| 6U | 42.0 mm | 32.45 mm | Default: pens, measuring equipment, hand tools |
-| 9U | 63.0 mm | 53.45 mm | Cables, medium tools, power supplies |
-| 12U | 84.0 mm | 74.45 mm | Bulky cables, large tools; shelf or deep drawer |
+| Height | Body height | Overall height | Interior depth | Typical use |
+| --- | --- | --- | --- | --- |
+| 3U | 21.0 mm | 25.4 mm | 15.45 mm | A single layer of flat items: bolts, bits, adapters |
+| 6U | 42.0 mm | 46.4 mm | 36.45 mm | Default: pens, measuring equipment, hand tools |
+| 9U | 63.0 mm | 67.4 mm | 57.45 mm | Cables, medium tools, power supplies |
+| 12U | 84.0 mm | 88.4 mm | 78.45 mm | Bulky cables, large tools; shelf or deep drawer |
+
+The body height is `U × 7`; the official 4.4 mm lip sits above it. Stack pitch is `U × 7 − 0.35 mm`, and lids are top-only.
 
 Maximum height is 12U. 6U is the most universally compatible height and the default for new boxes. See [`docs/research/furniture-dimensions.md`](research/furniture-dimensions.md).
 
@@ -59,7 +61,7 @@ Bodies stack only with the same footprint. Mixed footprints tile a 4 × 4 basepl
 | E | 1 × 4 | 3 high | Thin long tools |
 | F | smaller footprints | 3 high | Light contents; keep stacks shallow |
 
-For 12U bodies, prefer 2-high stacks on shelves with limited clearance; 2 × 84 mm = 168 mm.
+For 12U bodies, prefer 2-high stacks on shelves with limited clearance; 2 × 12U = 172.05 mm. Do not mix SYS-1.0 legacy bodies (12U = 84 mm) with SYS-2.0 bodies in one height-critical stack.
 
 ## 5. Baseplates
 

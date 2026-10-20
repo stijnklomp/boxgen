@@ -13,7 +13,7 @@ mod common;
 use predicates::prelude::*;
 use tempfile::tempdir;
 
-/// The SYS-1.0 spec repository is vendored at `docs/spec/`.
+/// The SYS-2.0 spec repository is vendored at `docs/spec/`.
 fn spec_repository() -> Option<PathBuf> {
     let candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/spec");
     (candidate.join("boxes/INDEX.md").is_file() && candidate.join("docs/generator.md").is_file())
@@ -94,7 +94,7 @@ fn an_invalid_spec_in_the_registry_exits_two_without_writing_the_index() {
     fs::create_dir_all(&folder).expect("box folder");
     fs::write(
         folder.join("spec.yaml"),
-        "system: SYS-1.0\nid: 5x5-6U-broken-v1\nfootprint: [5, 5]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
+        "system: SYS-2.0\nid: 5x5-6U-broken-v1\nfootprint: [5, 5]\nheight_u: 6\nlid: false\ndivisions: { compartment: A }\n",
     )
     .expect("write spec");
 

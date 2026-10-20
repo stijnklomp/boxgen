@@ -136,8 +136,8 @@ fn lid_design() -> Value {
 fn fake_report(id: &str, lid: bool) -> String {
     let mut value = json!({
         "id": id,
-        "dimensions": {"outer_x_mm": 41.5, "outer_y_mm": 41.5, "height_mm": 42.0},
-        "interior_depth_mm": 32.45,
+        "dimensions": {"outer_x_mm": 41.5, "outer_y_mm": 41.5, "height_mm": 46.4},
+        "interior_depth_mm": 36.45,
         "body": {
             "volume_mm3": 18397.5,
             "area_mm2": 1.0,
@@ -1274,8 +1274,8 @@ fn the_cli_build_summary_is_byte_identical_to_the_pinned_block() {
         format!(
             "id: 1x1-6U-minimal-v1\n\
              output: {out}\n\
-             outer: 41.5 x 41.5 x 42.0 mm\n\
-             interior depth: 32.45 mm\n\
+             outer: 41.5 x 41.5 x 46.4 mm\n\
+             interior depth: 36.45 mm\n\
              body: 18397.5 mm3, 1 faces, 1.0 mm2 surface\n\
              floor fillet: 2.0 mm (standard 2.0, fallback 1.0)\n\
              stl: 1 facets, 1.0 mm3, watertight\n\
@@ -1326,8 +1326,8 @@ async fn api_build_end_to_end_with_real_freecad() {
         .as_f64()
         .expect("body volume");
     assert!(
-        (volume - 19520.4).abs() <= 19520.4 * 0.03,
-        "the 1x1 6U body volume must be about 19520.4 mm3, measured {volume}"
+        (volume - 20759.282137).abs() <= 20759.282137 * 0.03,
+        "the 1x1 6U body volume must be about 20759.282137 mm3, measured {volume}"
     );
 
     let (status, exported) = json(

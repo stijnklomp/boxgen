@@ -106,13 +106,13 @@ fn constants_pin_the_gridfinity_grid_and_profile_heights() {
 
     common::assert_close(
         common::number(report, "constants.LIP_HEIGHT"),
-        4.0,
+        4.4,
         "stacking lip height",
     );
     let lip_split = common::number(report, "constants.LIP_BOTTOM_CHAMFER")
         + common::number(report, "constants.LIP_VERTICAL")
         + common::number(report, "constants.LIP_TOP_CHAMFER");
-    common::assert_close(lip_split, 4.0, "lip 0.7 + 1.8 + 1.5 split");
+    common::assert_close(lip_split, 4.4, "lip 0.7 + 1.8 + 1.9 split");
     common::assert_close(
         common::number(report, "constants.LIP_BOTTOM_CHAMFER"),
         0.7,
@@ -125,12 +125,12 @@ fn constants_pin_the_gridfinity_grid_and_profile_heights() {
     );
     common::assert_close(
         common::number(report, "constants.LIP_TOP_CHAMFER"),
-        1.5,
+        1.9,
         "lip top chamfer",
     );
     common::assert_close(
         common::number(report, "constants.LIP_TOP_LEDGE"),
-        0.4,
+        0.0,
         "lip top ledge",
     );
     common::assert_close(
@@ -273,8 +273,7 @@ fn stacking_lip_matches_the_pinned_profile() {
         .expect("lip.profile is a list");
     let expected = [
         (0.25, 0.0),
-        (0.25, 4.0),
-        (0.65, 4.0),
+        (0.25, 4.4),
         (2.15, 2.5),
         (2.15, 0.7),
         (2.85, 0.0),
@@ -298,7 +297,7 @@ fn stacking_lip_matches_the_pinned_profile() {
         (0.0, 2.6),
         (0.7, 1.9),
         (2.5, 1.9),
-        (4.0, 0.4),
+        (4.4, 0.0),
     ];
     assert_eq!(offsets.len(), expected.len(), "lip offset rows");
     for (row, (z, offset)) in offsets.iter().zip(expected) {
@@ -320,7 +319,7 @@ fn stacking_lip_matches_the_pinned_profile() {
         (0.0, 36.3, &[1.15][..]),
         (0.7, 37.7, &[1.85][..]),
         (2.5, 37.7, &[1.85][..]),
-        (4.0, 40.7, &[3.35][..]),
+        (4.4, 41.5, &[3.75][..]),
     ];
     assert_eq!(sections.len(), expected.len(), "lip cutter levels");
     for (section, (z, width, radii)) in sections.iter().zip(expected) {
@@ -352,8 +351,8 @@ fn stacking_lip_matches_the_pinned_profile() {
         "base-to-lip clearance per side",
     );
 
-    // Ring: flush with the body outer face, 4.0 mm above the lip bottom,
-    // 2.4 mm of skirt below it, and the workbench's swept volume.
+    // Ring: flush with the body outer face, 4.4 mm above the lip bottom,
+    // 2.4 mm of skirt below it, and the official swept volume.
     common::assert_close(
         common::number(report, "lip.ring.bbox.width"),
         41.5,
@@ -366,7 +365,7 @@ fn stacking_lip_matches_the_pinned_profile() {
     );
     common::assert_close(
         common::number(report, "lip.ring.height_above_bottom"),
-        4.0,
+        4.4,
         "lip height above the body top",
     );
     common::assert_close(
@@ -381,12 +380,12 @@ fn stacking_lip_matches_the_pinned_profile() {
     );
     common::assert_close(
         common::number(report, "lip.ring.bbox.zmax"),
-        4.0,
+        4.4,
         "ring top",
     );
     assert!(
-        (common::number(report, "lip.ring.volume") - 1_952.194_200_107_862_6).abs() < 1e-3,
-        "lip volume drifted from the workbench reference: {} mm^3",
+        (common::number(report, "lip.ring.volume") - 1_964.892_135).abs() < 1e-3,
+        "lip volume drifted from the official profile reference: {} mm^3",
         common::number(report, "lip.ring.volume")
     );
 
@@ -408,7 +407,7 @@ fn stacking_lip_matches_the_pinned_profile() {
     );
     common::assert_close(
         common::number(report, "lip.rect_ring.bbox.zmax"),
-        4.0,
+        4.4,
         "2x1 lip top",
     );
 }

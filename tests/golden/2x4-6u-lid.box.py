@@ -24,7 +24,7 @@ SPEC = json.loads(r'''{
   "id": "2x4-6U-lid-box-v1",
   "lid": true,
   "lid_ribs": false,
-  "system": "SYS-1.0"
+  "system": "SYS-2.0"
 }''')
 
 

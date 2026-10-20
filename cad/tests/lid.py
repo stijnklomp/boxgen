@@ -16,12 +16,11 @@ matching body, and measures every number the standard fixes:
 * ``body``: the 2 x 4 x 6U body's lip rows, so the lid clearances can be
   compared against the mating surfaces (0.30 mm per side at the neck and the
   vertical section).
-* ``stack``: the next body's base bottom sits 1.0 mm above the lid top at
-  the design stack pitch (the lid is not in the load path there); the same
-  base is also seated in the lip's measured contact position (base bottom
-  0.35 mm below the lip bottom), where its solid underside meets the lid's
-  plate -- the documented finding for the human checkpoint (#14): with the
-  lid fitted, a stacked body rests on the lid, not on the lip.
+* ``stack``: the next body's base seats at the measured contact position
+  (base bottom 0.35 mm below the lip bottom; physical pitch
+  ``height_u * 7 - 0.35``). A lid left under another body has its plate top
+  3.35 mm above the seated base underside, which is why SYS-2.0 lids are
+  top-only. The lid's own shape relative to the lip bottom is unchanged.
 
 The script prints one marker line:
 
@@ -128,9 +127,9 @@ def _measure_lid(lid_module, gf, units_x, units_y, height_u, ribs) -> dict[str, 
     shape = lid_module.build_lid(
         lid_module.BodySpec(units_x, units_y, height_u), ribs=ribs
     )
-    total_h = height_u * lid_module.HEIGHT_UNIT
+    total_h = height_u * lid_module.HEIGHT_UNIT + gf.LIP_HEIGHT
     z_lip = total_h - gf.LIP_HEIGHT
-    z_top = total_h - 1.0
+    z_top = z_lip + lid_module.SKIRT_INTRUSION + lid_module.LID_PLATE
     z_plate_bottom = z_top - lid_module.LID_PLATE
     z_skirt_bottom = z_lip - lid_module.SKIRT_INTRUSION
 
@@ -195,7 +194,7 @@ def _measure_body(shell_module, gf, units_x, units_y, height_u) -> dict[str, obj
     body = shell_module.build_body(
         shell_module.BodySpec(units_x, units_y, height_u)
     ).shape
-    total_h = height_u * shell_module.HEIGHT_UNIT
+    total_h = height_u * shell_module.HEIGHT_UNIT + gf.LIP_HEIGHT
     z_lip = total_h - gf.LIP_HEIGHT
     return {
         "solids": len(body.Solids),
@@ -211,28 +210,17 @@ def _measure_stack(
 ) -> dict[str, object]:
     """Seat a base foot in the pinned lip void and measure the clearances.
 
-    The design stack places the next body's base bottom at the lip top plane
-    (the nominal pitch, base bottom at ``height_u * 7``), 1.0 mm above the lid
-    top. The model's contact seat is deeper: the base's bottom chamfer rests
-    on the lip's upper ramp and its top chamfer on the lip's top chamfer,
-    with the base bottom 0.35 mm below the lip bottom. Both positions are
-    measured here:
-
-    * the nominal position (``next_body_base_*``): the 1.0 mm gap that keeps
-      the lid out of the stack load path at the design pitch;
-    * the contact seat (``seat_*``, bisected on the built body): the seated
-      base's solid underside against the lid's plate top.
-
-    The base is solid (ADR-0013), so at the seat the lid's plate top is above
-    the base's underside (``lid_top_clearance_mm`` is negative) and the base's
-    wall material at the plate's mid height passes the plate's edge: with the
-    lid installed the base cannot reach the lip seat, so a stacked body rests
-    on the lid. That is the documented finding for the human checkpoint
-    (#14); the architecture is deliberately unchanged.
+    The body's nominal top plane (the lip bottom) is ``height_u * 7``; the
+    official 4.4 mm lip sits above it. The base footer's contact seat is
+    0.35 mm below that plane, so the physical stack pitch is
+    ``height_u * 7 - 0.35``. The lid top is 3.0 mm above the lip bottom, so a
+    lid left under another body would be hit by the seated base. That is why
+    SYS-2.0 lids are top-only; the measurement still records the interference
+    as the reason for the rule.
     """
     import FreeCAD as App
 
-    total_h = height_u * shell_module.HEIGHT_UNIT
+    total_h = height_u * shell_module.HEIGHT_UNIT + gf.LIP_HEIGHT
     z_lip = total_h - gf.LIP_HEIGHT
 
     # The next body's base: the pinned solid foot, centred on one cell of the
@@ -249,11 +237,9 @@ def _measure_stack(
     lid = lid_module.build_lid(lid_module.BodySpec(units_x, units_y, height_u))
     lid_top = lid.BoundBox.ZMax
 
-    nominal = base.translated(App.Vector(0.0, 0.0, total_h))
     out: dict[str, object] = {
-        "next_body_base_z_min_mm": harness.round6(nominal.BoundBox.ZMin),
-        "next_body_base_z_max_mm": harness.round6(nominal.BoundBox.ZMax),
-        "pitch_mm": harness.round6(total_h),
+        "body_height_mm": harness.round6(total_h),
+        "body_top_mm": harness.round6(z_lip),
         "lid_top_z_mm": harness.round6(lid_top),
     }
 
@@ -273,6 +259,7 @@ def _measure_stack(
     seat = high
     out["seat_z0_mm"] = harness.round6(seat)
     out["seat_rel_lip_bottom_mm"] = harness.round6(seat - z_lip)
+    out["pitch_mm"] = harness.round6(seat)
     out["seat_intersection_mm3"] = harness.round6(abs(lip_intersection(seat)))
     out["seat_contact_below_mm3"] = harness.round6(lip_intersection(seat - 0.05))
 

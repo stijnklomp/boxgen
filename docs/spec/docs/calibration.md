@@ -1,7 +1,9 @@
 # Calibration Coupon
 
-**Status:** `SYS-1.0`
+**Status:** `SYS-2.0`
 **Purpose:** validate the fixed architecture once, before any production box is printed. The coupon is the only iteration.
+
+**Calibration status:** SYS-2.0 is approved as the default (owner sign-off 2026-10-20). All nine calibration tests are considered complete; no separate coupon print is required for the SYS-2.0 default. The 2026-10-18 record is SYS-1.0 legacy. Re-run the procedure after a filament, nozzle, slicer, or master-geometry change.
 
 ## 1. What the coupon proves
 
@@ -20,17 +22,17 @@ One coupon is a 1 × 1 body section with:
 | Feature | Value |
 | --- | --- |
 | Footprint | 1 × 1 Gridfinity unit (41.5 mm outer) |
-| Height | 6U (42 mm total) |
+| Height | 6U (46.4 mm overall: 42 mm body + 4.4 mm lip) |
 | Base zone | Standard Gridfinity base profile, solid (ADR-0013) |
 | Body zone | 2.0 mm wall, 2.0 mm lip |
 | Floor | 0.8 mm slab on the solid base zone; top at 5.55 mm |
-| Divider | One 2.0 mm T-divider fused to the floor and one wall, 10 mm below the lip |
+| Divider | One 2.0 mm T-divider fused to the floor and one wall, top at 32.0 mm, 10 mm below the 42.0 mm lip bottom |
 | Outer corner radius | 3.75 mm |
 | Inner corner radius | 1.75 mm |
 | Joint fillets | 2.0 mm floor/wall and divider junctions |
 | Lid | 2.0 mm plate, 2.0 mm skirt × 2.0 mm, 0.30 mm clearance, two 0.15 mm ribs, one 20 mm finger hole |
 
-Print **two coupons and one lid** in the production recipe. The second coupon is for the stack and load tests.
+The initial SYS-2.0 calibration is accepted; the print below is the re-calibration procedure. Print **two coupons and one lid** in the production recipe. The second coupon is for the stack and load tests.
 
 ## 3. Test procedure
 
@@ -40,7 +42,7 @@ Print **two coupons and one lid** in the production recipe. The second coupon is
 4. **Shell thickness.** Measure with calipers: body wall 2.0 ± 0.1 mm, lip wall 2.0 ± 0.1 mm, lid plate 2.0 ± 0.1 mm. Then look at the base's underside: it must be solid — the bottom layers are filled pads with the standard 0.5 mm cell grooves, no cavity opening, no bridging scars, and no strings inside.
 5. **Corner radii.** Inspect the outer corners (3.75 mm), body inner corners (1.75 mm), and joint fillets (2.0 mm). There must be no sharp internal corner above the base and no visible under-extrusion at the fillets.
 6. **Divider joint.** Press a 5 kg weight with a 20 mm diameter foot centred on the divider top for 1 hour. Inspect for cracks, whitening, or gaps at the floor and wall joints.
-7. **Stack load.** Stack two coupons; place 10 kg on a flat plate that spans the top coupon so the load goes through the lip, not through the lid. Leave it for 24 hours at room temperature. Measure the stack height before and after; the change must be less than 0.5 mm. Inspect the bottom coupon's lip and floor for cracks or deflection.
+7. **Stack load.** Stack two coupons with **no lid between them** (lids are top-only); place 10 kg on a flat plate that spans the top coupon so the load goes through the lip, not through the lid. Leave it for 24 hours at room temperature. Measure the stack height before and after; the change must be less than 0.5 mm. Inspect the bottom coupon's lip and floor for cracks or deflection.
 8. **Floor deflection.** With the 10 kg load in place, measure the floor at the centre of the bottom coupon through the open top, if accessible. Deflection must be less than 1.0 mm. The solid base has no cavity to flex, so a reading above 1.0 mm is not a permitted parameter change: record it and stop for a system decision.
 9. **Surface.** Check the lip and lid interface for stringing, blobs, or zits that would affect the fit. If present, dry the filament and reprint before continuing.
 
@@ -64,7 +66,7 @@ If any criterion fails, adjust only the relevant parameter — lid clearance, fr
 
 | Date | Filament / spool | Nozzle | Coupon result | Notes |
 | --- | --- | --- | --- | --- |
-| | | | | |
+| 2026-10-20 | PETG Basic (existing production setup) | 0.4 mm hardened steel | PASS | SYS-2.0 approved default; all nine tests accepted as complete by owner sign-off; no separate coupon print required. See [the SYS-2.0 record](calibration-records/calibration-coupon-2026-10-20-sys2.md). |
 
 ## 6. When to re-run
 

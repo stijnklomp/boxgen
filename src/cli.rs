@@ -22,8 +22,8 @@ use crate::tree;
 #[command(
     name = "boxgen",
     version,
-    about = "Compile SYS-1.0 YAML box specs into FreeCAD models and print files",
-    long_about = "boxgen is the SYS-1.0 spec compiler.\n\n\
+    about = "Compile SYS-2.0 YAML box specs into FreeCAD models and print files",
+    long_about = "boxgen is the SYS-2.0 spec compiler.\n\n\
         It validates a YAML box spec, generates a FreeCAD Python build script, \
         runs it headless with freecadcmd, and maintains the box registry. \
         FreeCAD is the geometry engine; boxgen never generates meshes itself.",
@@ -35,7 +35,7 @@ pub struct Cli {
     pub command: Command,
 }
 
-/// The five SYS-1.0 contract commands plus the v2 local UI.
+/// The five SYS-2.0 contract commands plus the v2 local UI.
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Parse and validate a spec; print a human-readable report.

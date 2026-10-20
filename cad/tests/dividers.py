@@ -12,11 +12,11 @@ contract section 4):
   plates, the 0.4 mm top chamfers, the 2.0 mm floor and wall junction coves,
   and returns the body as one valid, closed solid.
 * Divider height above the floor: interior depth minus 2.0 mm on 3U bodies,
-  minus 10.0 mm on 6U and taller (measured tops 15.0 / 28.0 / 49.0 / 70.0).
+  minus 10.0 mm on 6U and taller (measured tops 19.0 / 32.0 / 53.0 / 74.0).
 * The contract's 4 x 4 golden tree (x at 80; left child y at 50; right child
   x at 40) is measured by slicing the built body: at z = 20 the four
   compartment wires pin the three dividers' near faces and full spans; at
-  z = 30 the dividers are gone.
+  z = 33 the dividers are gone.
 * Junction coves: slicing just above the floor shows the 2.0 mm cove inset
   tapering from the face; corner junction and T junction probes are material
   where the sharp corner used to be, and void where the cove does not reach.
@@ -202,9 +202,9 @@ def _measure_golden(module, shell, gf) -> dict[str, object]:
     top = shell.FLOOR_TOP + module.divider_height(6)
     out["divider_top_mm"] = harness.round6(top)
     out["section_z20"] = _compartments(fused, 20.0)
-    out["section_z30"] = _compartments(fused, 30.0)
-    out["section_z27_9"] = _compartments(fused, top - 0.1)
-    out["section_z27_5"] = _compartments(fused, top - 0.5)
+    out["section_z33"] = _compartments(fused, 33.0)
+    out["section_z31_9"] = _compartments(fused, top - 0.1)
+    out["section_z31_5"] = _compartments(fused, top - 0.5)
 
     # Junction coves: the void inset from a face at height z is
     # 2.0 - sqrt(4 - (z - floor - 2.0)^2), 2.0 at the floor tapering to 0.
@@ -222,7 +222,7 @@ def _measure_golden(module, shell, gf) -> dict[str, object]:
     out["wall_void"] = harness.point_is_material(fused, -5.0, -80.4, floor + 0.6)
 
     # The cove columns stop at the 0.4 mm top chamfer's lower edge, so their
-    # top is 27.6 mm on a 6U body rather than the plate's 28.0 mm. The raw
+    # top is 31.6 mm on a 6U body rather than the plate's 32.0 mm. The raw
     # section just under the top must contain only the body outline and the
     # four compartments: any island beside a divider face would be a corner
     # standing above the chamfer.
@@ -309,7 +309,7 @@ def _measure_heights(module, shell, gf) -> dict[str, object]:
             0.25,
             0.0,
             shell.FLOOR_TOP + 0.5,
-            height_u * 7.0 - gf.LIP_HEIGHT,
+            height_u * 7.0,
         )
         out[str(height_u)] = {
             "height_above_floor_mm": harness.round6(module.divider_height(height_u)),

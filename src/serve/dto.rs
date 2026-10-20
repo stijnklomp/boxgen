@@ -402,15 +402,19 @@ pub(crate) struct EstimateDto {
 impl BodyDto {
     /// Resolves the body block from fixed geometry.
     pub(crate) fn from_geometry(geometry: &crate::tree::BodyGeometry) -> Self {
+        // Keep the wire values at the standard's precision; subtracting a
+        // divider gap from 36.45 must not surface as 26.450000000000003.
+        let round6 = |value: f64| (value * 1_000_000.0).round() / 1_000_000.0;
+        let divider_height_mm = round6(geometry.divider_height_mm);
         Self {
             outer_width_mm: geometry.outer_width_mm,
             outer_depth_mm: geometry.outer_depth_mm,
-            total_height_mm: geometry.total_height_mm,
+            total_height_mm: round6(geometry.total_height_mm),
             interior_width_mm: geometry.interior_width_mm,
             interior_depth_mm: geometry.interior_depth_mm,
-            interior_height_mm: geometry.interior_height_mm,
-            divider_height_mm: geometry.divider_height_mm,
-            divider_top_mm: crate::tree::FLOOR_TOP_MM + geometry.divider_height_mm,
+            interior_height_mm: round6(geometry.interior_height_mm),
+            divider_height_mm,
+            divider_top_mm: round6(crate::tree::FLOOR_TOP_MM + divider_height_mm),
         }
     }
 }
@@ -449,10 +453,14 @@ impl From<&crate::tree::Divider> for DividerRectDto {
 
 impl From<crate::tree::Estimate> for EstimateDto {
     fn from(estimate: crate::tree::Estimate) -> Self {
+        // The estimate is a planning figure, not a measured artifact; keep
+        // the wire values at six decimals so f64 accumulation noise does not
+        // leak into the API/golden JSON.
+        let round6 = |value: f64| (value * 1_000_000.0).round() / 1_000_000.0;
         Self {
-            volume_mm3: estimate.volume_mm3,
-            mass_g: estimate.mass_g,
-            print_hours: estimate.print_hours,
+            volume_mm3: round6(estimate.volume_mm3),
+            mass_g: round6(estimate.mass_g),
+            print_hours: round6(estimate.print_hours),
         }
     }
 }
@@ -573,7 +581,7 @@ pub(crate) struct DividersDto {
     pub warn_leaf_mm: u32,
     /// Maximum splits on one root-to-leaf path.
     pub max_depth: u32,
-    /// Per-height divider top, above the bed (3U/6U/9U/12U: 15/28/49/70).
+    /// Per-height divider top, above the bed (3U/6U/9U/12U: 19/32/53/74).
     pub tops_mm: Vec<DividerTopDto>,
 }
 
@@ -685,7 +693,7 @@ pub(crate) struct MaterialDto {
 pub(crate) struct CalibrationDto {
     /// The internal coupon id.
     pub coupon_id: &'static str,
-    /// The day all nine calibration tests passed.
+    /// The SYS-2.0 calibration approval date.
     pub date: &'static str,
     /// Filament used.
     pub material: &'static str,

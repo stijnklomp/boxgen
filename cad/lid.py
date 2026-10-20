@@ -4,9 +4,11 @@ The lid is a removable plate that sits inside the lip zone; it never carries
 stack load and adds no pitch. Verified geometry (FreeCAD API notes section 7,
 ported from the prototype):
 
-* **Plate** 2.0 mm thick. Its top sits 1.0 mm below the lip top
-  (``z_top = height_u * 7 - 1.0``), so the next body's base -- which starts
-  at the lip top plane -- can never touch it.
+* **Plate** 2.0 mm thick. Its top sits 3.0 mm above the lip bottom, which is
+  1.4 mm below the official 4.4 mm lip top
+  (``z_top = z_lip + SKIRT_INTRUSION + LID_PLATE``). The lid geometry
+  relative to the lip is unchanged from SYS-1.0; only the lip top moved up by
+  0.4 mm. Lids are top-only and never sit under another body.
 * **Skirt** a 2.0 mm thick ring that follows the lip's inner profile with
   0.30 mm clearance per side and reaches 1.0 mm below the lip bottom. The
   plate is ``outer_width(units) - 2 * (LIP_VERTICAL_OFFSET + LID_CLEARANCE)``
@@ -169,7 +171,7 @@ def top_roundover_applied(shape: Part.Shape, height_u: int) -> bool:
     :func:`build_lid` falls back to a sharp plate when the limit fillet is
     rejected.
     """
-    z_top = height_u * HEIGHT_UNIT - 1.0
+    z_top = height_u * HEIGHT_UNIT + SKIRT_INTRUSION + LID_PLATE
     insets = [
         shape.BoundBox.XLength - face.BoundBox.XLength
         for face in shape.Faces
@@ -291,11 +293,13 @@ def build_lid(spec: BodySpec, ribs: bool = False) -> Part.Shape:
     """Build the inset friction lid for a body of ``spec``.
 
     The lid is centred in X/Y, ``z = 0`` is the body's bed face, and all
-    dimensions are millimetres: ``z_top = height_u * 7 - 1.0``,
-    ``z_plate_bottom = z_top - 2.0``, ``z_skirt_bottom = height_u * 7 - 5.0``.
-    Rectangular footprints use ``outer_width`` per axis, so a 2 x 4 lid is
-    not square. ``ribs=True`` adds the standard's optional pair of 0.15 mm
-    friction ribs. Returns one valid closed solid.
+    dimensions are millimetres: the lip bottom is ``height_u * 7``,
+    ``z_top = z_lip + SKIRT_INTRUSION + LID_PLATE``,
+    ``z_plate_bottom = z_top - 2.0``, and
+    ``z_skirt_bottom = z_lip - SKIRT_INTRUSION``. Rectangular footprints use
+    ``outer_width`` per axis, so a 2 x 4 lid is not square. ``ribs=True``
+    adds the standard's optional pair of 0.15 mm friction ribs. Returns one
+    valid closed solid.
     """
     if spec.units_x < 1 or spec.units_y < 1:
         raise GeometryError(
@@ -304,9 +308,12 @@ def build_lid(spec: BodySpec, ribs: bool = False) -> Part.Shape:
     if spec.height_u < 3:
         raise GeometryError(f"height must be at least 3U, got {spec.height_u}U")
 
-    total_h = spec.height_u * HEIGHT_UNIT
+    total_h = spec.height_u * HEIGHT_UNIT + gf.LIP_HEIGHT
     z_lip = total_h - gf.LIP_HEIGHT
-    z_top = total_h - 1.0
+    # Keep the SYS-1.0 lid shape relative to the lip bottom: plate bottom
+    # 1.0 mm above the lip bottom, skirt bottom 1.0 mm below it. With the
+    # official 4.4 mm lip the lid top is therefore 1.4 mm below the lip top.
+    z_top = z_lip + SKIRT_INTRUSION + LID_PLATE
     z_plate_bottom = z_top - LID_PLATE
     z_skirt_bottom = z_lip - SKIRT_INTRUSION
     if z_skirt_bottom <= 0.0:

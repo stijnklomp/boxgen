@@ -39,9 +39,11 @@ pub const HEIGHT_UNIT_MM: f64 = 7.0;
 /// top chamfer; mirrors `cad/gridfinity.py::BASE_HEIGHT`.
 pub const BASE_HEIGHT_MM: f64 = 4.75;
 
-/// Stacking lip height, standard §3: 0.7 bottom chamfer + 1.8 vertical + 1.5
-/// top chamfer; mirrors `cad/gridfinity.py::LIP_HEIGHT`.
-pub const LIP_HEIGHT_MM: f64 = 4.0;
+/// Official Gridfinity stacking lip height, standard §3: 0.7 mm bottom
+/// chamfer, 1.8 mm vertical, 1.9 mm top chamfer; mirrors
+/// `cad/gridfinity.py::LIP_HEIGHT`. The lip sits above the nominal body
+/// height; it is not subtracted from the interior.
+pub const LIP_HEIGHT_MM: f64 = 4.4;
 
 /// Floor slab above the pinned base profile, standard §4; mirrors
 /// `cad/shell.py::FLOOR`. The profile's top face cannot be continuous across
@@ -53,9 +55,10 @@ pub const FLOOR_MM: f64 = 0.8;
 /// slab; mirrors `cad/shell.py::FLOOR_TOP`.
 pub const FLOOR_TOP_MM: f64 = BASE_HEIGHT_MM + FLOOR_MM;
 
-/// Base zone (4.75 mm profile + 0.8 mm floor slab) plus stacking lip (4.0 mm),
-/// standard §4.2.
-pub const BASE_AND_LIP_MM: f64 = FLOOR_TOP_MM + LIP_HEIGHT_MM;
+/// Nominal stack pitch for one body on another: the body height (U × 7)
+/// minus the measured 0.35 mm base seat. Mirrors the measured
+/// `cad/tests/lid.py::_measure_stack` value; lids are top-only.
+pub const STACK_SEAT_MM: f64 = 0.35;
 
 /// Divider-to-lip gap on 3U bodies, standard §4.3; mirrors
 /// `cad/dividers.py::DIVIDER_GAP_3U`.
@@ -105,10 +108,10 @@ pub const PETG_DENSITY_G_PER_CM3: f64 = 1.27;
 pub const EFFECTIVE_FLOW_MM3_PER_S: f64 = 5.5;
 
 /// Estimated mass above this value is a warning (contract §7).
-pub const MAX_MASS_G: f64 = 500.0;
+pub const MAX_MASS_G: f64 = 550.0;
 
 /// Estimated print time above this value is a warning (contract §7).
-pub const MAX_PRINT_HOURS: f64 = 20.0;
+pub const MAX_PRINT_HOURS: f64 = 22.0;
 
 /// Smallest footprint side the schema accepts, in Gridfinity units (contract §3).
 pub const MIN_FOOTPRINT_UNITS: u32 = 1;
@@ -268,8 +271,9 @@ impl BodyGeometry {
     pub fn new(footprint: [u32; 2], height_u: u32) -> Self {
         let outer_width_mm = f64::from(footprint[0]) * GRID_MM - OUTER_CLEARANCE_MM;
         let outer_depth_mm = f64::from(footprint[1]) * GRID_MM - OUTER_CLEARANCE_MM;
-        let total_height_mm = f64::from(height_u) * HEIGHT_UNIT_MM;
-        let interior_height_mm = total_height_mm - BASE_AND_LIP_MM;
+        let body_height_mm = f64::from(height_u) * HEIGHT_UNIT_MM;
+        let total_height_mm = body_height_mm + LIP_HEIGHT_MM;
+        let interior_height_mm = body_height_mm - FLOOR_TOP_MM;
         let divider_gap_mm = if height_u == 3 {
             DIVIDER_GAP_3U_MM
         } else {
@@ -284,8 +288,8 @@ impl BodyGeometry {
             interior_depth_mm: outer_depth_mm - 2.0 * WALL_MM,
             interior_height_mm,
             // Grouped as one subtraction so the f64 result is the clean
-            // decimal for every accepted height (22.45, 9.45, ...).
-            divider_height_mm: total_height_mm - (BASE_AND_LIP_MM + divider_gap_mm),
+            // decimal for every accepted height (26.45, 13.45, ...).
+            divider_height_mm: interior_height_mm - divider_gap_mm,
         }
     }
 
@@ -1087,22 +1091,22 @@ mod tests {
         let body = body();
         assert_mm(body.outer_width_mm, 167.5);
         assert_mm(body.outer_depth_mm, 167.5);
-        assert_mm(body.total_height_mm, 42.0);
+        assert_mm(body.total_height_mm, 46.4);
         assert_mm(body.interior_width_mm, 163.5);
         assert_mm(body.interior_depth_mm, 163.5);
-        assert_mm(body.interior_height_mm, 32.45);
-        assert_mm(body.divider_height_mm, 22.45);
+        assert_mm(body.interior_height_mm, 36.45);
+        assert_mm(body.divider_height_mm, 26.45);
 
         let small = small_body();
         assert_mm(small.outer_width_mm, 41.5);
-        assert_mm(small.total_height_mm, 21.0);
+        assert_mm(small.total_height_mm, 25.4);
         assert_mm(small.interior_width_mm, 37.5);
         assert_mm(small.interior_depth_mm, 37.5);
-        assert_mm(small.interior_height_mm, 11.45);
-        assert_mm(small.divider_height_mm, 9.45);
+        assert_mm(small.interior_height_mm, 15.45);
+        assert_mm(small.divider_height_mm, 13.45);
     }
 
-    /// The fixed-architecture constants mirror the frozen SYS-1.0 standard
+    /// The fixed-architecture constants mirror the frozen SYS-2.0 standard
     /// (`docs/spec/docs/standard.md`). They are pinned against the document,
     /// not against each other, so a silent re-typing fails here instead of
     /// becoming a second source of truth.
@@ -1114,7 +1118,8 @@ mod tests {
         assert_eq!(BASE_HEIGHT_MM, 4.75);
         assert_eq!(FLOOR_MM, 0.8);
         assert_eq!(FLOOR_TOP_MM, 5.55);
-        assert_eq!(LIP_HEIGHT_MM, 4.0);
+        assert_eq!(LIP_HEIGHT_MM, 4.4);
+        assert_eq!(STACK_SEAT_MM, 0.35);
         assert_eq!(WALL_MM, 2.0);
         assert_eq!(OUTER_RADIUS_MM, 3.75);
         assert_eq!(INNER_RADIUS_MM, 1.75);
@@ -1363,7 +1368,10 @@ mod tests {
             leaf("C"),
         ));
 
-        assert_mm(report.divider_volume_mm3, 7341.15 + 3592.0);
+        assert_mm(
+            report.divider_volume_mm3,
+            (7341.15 + 3592.0) * 26.45 / 22.45,
+        );
     }
 
     #[test]
@@ -1373,12 +1381,12 @@ mod tests {
         let without_lid = body().estimate(report.divider_volume_mm3, false);
 
         assert!(
-            (300.0..500.0).contains(&with_lid.mass_g),
+            (300.0..550.0).contains(&with_lid.mass_g),
             "mass {} g",
             with_lid.mass_g
         );
         assert!(
-            (10.0..20.0).contains(&with_lid.print_hours),
+            (10.0..22.0).contains(&with_lid.print_hours),
             "print time {} h",
             with_lid.print_hours
         );
@@ -1422,7 +1430,7 @@ mod tests {
     const DIVIDE_SPEC: &str = include_str!("../tests/fixtures/4x4-6u.yaml");
 
     const DIVIDE_SIMPLE_SPEC: &str = "\
-system: SYS-1.0
+system: SYS-2.0
 id: 4x4-6U-divide-simple-v1
 footprint: [4, 4]
 height_u: 6
@@ -1435,7 +1443,7 @@ divisions:
 ";
 
     const DIVIDE_LEAF_SPEC: &str = "\
-system: SYS-1.0
+system: SYS-2.0
 id: 1x1-3u-divide-v1
 footprint: [1, 1]
 height_u: 3
@@ -1444,7 +1452,7 @@ divisions: { compartment: \"Bits\" }
 ";
 
     const DIVIDE_UNNAMED_LEAF_SPEC: &str = "\
-system: SYS-1.0
+system: SYS-2.0
 id: 1x1-3u-divide-v1
 footprint: [1, 1]
 height_u: 3
@@ -1486,7 +1494,7 @@ divisions: {}
     #[test]
     fn divide_handles_a_flow_style_parent() {
         let text = "\
-system: SYS-1.0
+system: SYS-2.0
 id: 4x4-6U-divide-flow-v1
 footprint: [4, 4]
 height_u: 6
@@ -1741,7 +1749,7 @@ divisions: { axis: x, at_mm: 80, near: { compartment: \"A\" }, far: { compartmen
     fn divide_rejects_a_tree_deeper_than_thirty_two() {
         let depth = usize::try_from(MAX_TREE_DEPTH).expect("depth fits usize");
         let text = format!(
-            "system: SYS-1.0\nid: 4x4-6u-deep-v1\nfootprint: [4, 4]\nheight_u: 6\nlid: false\ndivisions:\n{}",
+            "system: SYS-2.0\nid: 4x4-6u-deep-v1\nfootprint: [4, 4]\nheight_u: 6\nlid: false\ndivisions:\n{}",
             deep_divisions(depth)
         );
         let path = format!("root{}", ".near".repeat(depth));
