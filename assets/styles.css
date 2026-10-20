@@ -486,6 +486,12 @@ button.badge {
   pointer-events: none;
 }
 
+.plan-svg .divide-preview-line {
+  fill: var(--accent);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .plan-svg .leaf-name {
   fill: var(--ink);
   text-anchor: middle;
@@ -589,6 +595,30 @@ button.badge {
 .divide-count:focus-visible {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+.divide-count.warned {
+  border-color: var(--custom);
+}
+
+.divide-warn-dot {
+  display: inline-block;
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: 0.25rem;
+  border-radius: 50%;
+  background: var(--custom);
+  vertical-align: middle;
+}
+
+.divide-caption {
+  margin: 0.55rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.divide-caption.warned {
+  color: var(--custom);
 }
 
 /* ---- sidebar panels ---- */
