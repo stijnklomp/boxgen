@@ -1,5 +1,6 @@
 // The SVG division editor: the plan view, compartment selection, split
-// (toolbar buttons and side drags), rename, merge, and divider drags.
+// (toolbar buttons and side drags), the wall-side Add dividers chooser, rename,
+// merge, and divider drags.
 //
 // Every edit is a design mutation that app.js sends to `/api/plan`; the
 // editor never decides validity. The one local arithmetic is the *drag and
@@ -12,9 +13,22 @@ import * as panels from "./panels.js";
 
 let ctx = null;
 
+/** The one open **Add dividers** chooser, or null. */
+let divideChooser = null;
+
 /** Wires the editor to the app store and actions. */
 export function setEditorContext(context) {
   ctx = context;
+}
+
+/** Closes the wall-side chooser; app.js calls this from every render so an
+ * open chooser can never apply a stale plan. */
+export function closeDivideChooser() {
+  if (!divideChooser) return;
+  const { element, controller } = divideChooser;
+  divideChooser = null;
+  controller.abort();
+  element.remove();
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -275,9 +289,10 @@ function planSvgHtml() {
   return `<svg id="plan" class="plan-svg" viewBox="${-pad} ${-pad} ${body.outer_width_mm + 2 * pad} ${body.outer_depth_mm + 2 * pad}" role="img" aria-label="division tree plan">${parts.join("")}</svg>`;
 }
 
-/** The four side drag handles of one compartment: left/right edges add an x
- * division, top/bottom edges a y division. They sit inside the compartment
- * and clear the corners so every hit is unambiguous. */
+/** The four side handles of one compartment: left/right edges work on the x
+ * axis, top/bottom on y. Dragging adds one divider; a click on a wall side
+ * opens the even-divide chooser. They sit inside the compartment and clear the
+ * corners so every hit is unambiguous. */
 function edgeHandlesHtml(leaf, wall) {
   const parts = [];
   const x = wall + leaf.x_mm;
@@ -286,18 +301,19 @@ function edgeHandlesHtml(leaf, wall) {
   const depth = leaf.depth_mm;
   const t = HANDLE_MM;
   if (canSplit(width) && depth > 2 * t) {
-    parts.push(handleHtml(leaf, "x", x, y + t, t, depth - 2 * t));
-    parts.push(handleHtml(leaf, "x", x + width - t, y + t, t, depth - 2 * t));
+    parts.push(handleHtml(leaf, "x", "near", x, y + t, t, depth - 2 * t));
+    parts.push(handleHtml(leaf, "x", "far", x + width - t, y + t, t, depth - 2 * t));
   }
   if (canSplit(depth) && width > 2 * t) {
-    parts.push(handleHtml(leaf, "y", x + t, y, width - 2 * t, t));
-    parts.push(handleHtml(leaf, "y", x + t, y + depth - t, width - 2 * t, t));
+    parts.push(handleHtml(leaf, "y", "near", x + t, y, width - 2 * t, t));
+    parts.push(handleHtml(leaf, "y", "far", x + t, y + depth - t, width - 2 * t, t));
   }
   return parts;
 }
 
-function handleHtml(leaf, axis, x, y, width, height) {
-  return `<rect class="edge-handle" data-edge-handle data-axis="${axis}" data-edge-leaf="${escapeHtml(leaf.path)}" x="${x}" y="${y}" width="${width}" height="${height}"/>`;
+/** One side band; `side` is `near` (origin/-x/-y) or `far` (+x/+y). */
+function handleHtml(leaf, axis, side, x, y, width, height) {
+  return `<rect class="edge-handle" data-edge-handle data-axis="${axis}" data-edge-side="${side}" data-edge-leaf="${escapeHtml(leaf.path)}" x="${x}" y="${y}" width="${width}" height="${height}"/>`;
 }
 
 /** The selection toolbar below the plan. */
@@ -308,7 +324,7 @@ function selectionToolbarHtml() {
   if (!plan) return "";
 
   if (!selection) {
-    return `<div class="selection-toolbar"><span class="hint">Click a compartment to select it; drag from any side to add a division (a click adds one in the middle); drag a divider (or click it) to move it to an exact position. Hold Shift while dragging to snap to 25%, 50%, or 75%.</span></div>`;
+    return `<div class="selection-toolbar"><span class="hint">Click a compartment to select it; click a wall side to add dividers evenly; drag from any side to add one divider at the release position; drag a divider or click it to set an exact position. Hold Shift while dragging to snap to 25%, 50%, or 75%.</span></div>`;
   }
 
   if (selection.kind === "leaf") {
@@ -356,7 +372,8 @@ function bindPlan(root) {
   if (!svg) return;
 
   svg.addEventListener("click", (event) => {
-    // A side click adds a division; it never doubles as a selection.
+    // A side press is a drag or the wall-side chooser; it never doubles as a
+    // selection.
     if (event.target.closest("[data-edge-handle]")) return;
     const leaf = event.target.closest("[data-leaf]");
     if (leaf) {
@@ -571,16 +588,114 @@ function startDrag(svg, element, event) {
   element.addEventListener("pointercancel", finish);
 }
 
-/** Drags from a compartment side to add a division: the pointer sets the
- * position and releasing commits it; a plain click splits in the middle.
- * The position is clamped to the same legal range as the divider drags, and
- * holding Shift adds the same magnetic quarter targets. */
+/** The plan's even-divide block for one leaf and axis, or null. */
+function divideBlock(leaf, axis) {
+  const block = leaf?.divide?.[axis] ?? null;
+  return block && Array.isArray(block.options) && block.options.length > 0 ? block : null;
+}
+
+/** True when the clicked side lies on an inner wall face. */
+function isWallSide(block, side) {
+  return side === "near" ? block.near_wall === true : block.far_wall === true;
+}
+
+/** Opens the anchored, non-modal Add dividers chooser for one wall side.
+ * Every count, span, and the replacement subtree comes from the plan; this
+ * function only renders them. */
+function openDivideChooser(path, axis, side, pointer) {
+  const { state } = ctx;
+  const leaf = state.plan?.leaves?.find((candidate) => candidate.path === path) ?? null;
+  const block = divideBlock(leaf, axis);
+  if (!leaf || !block || !isWallSide(block, side)) return;
+
+  closeDivideChooser();
+
+  const controller = new AbortController();
+  const element = document.createElement("div");
+  element.className = "divide-chooser";
+  element.setAttribute("role", "dialog");
+  element.setAttribute("aria-label", "Add dividers");
+  element.style.left = `${pointer.clientX + 8}px`;
+  element.style.top = `${pointer.clientY + 8}px`;
+
+  const header = document.createElement("div");
+  header.className = "divide-chooser-header";
+  const title = document.createElement("span");
+  title.className = "title";
+  title.textContent = leaf.compartment ? `Compartment “${leaf.compartment}”` : "Compartment";
+  const span = document.createElement("span");
+  span.className = "range";
+  span.textContent =
+    axis === "x" ? `${mm(leaf.width_mm)} mm wide` : `${mm(leaf.depth_mm)} mm deep`;
+  header.append(title, span);
+
+  const grid = document.createElement("div");
+  grid.className = "divide-count-grid";
+  for (const option of block.options) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "divide-count";
+    button.textContent = String(option.count);
+    button.title = option.count === 1 ? "Add one divider" : `Add ${option.count} dividers`;
+    button.setAttribute("aria-label", button.title);
+    button.addEventListener("click", () => {
+      closeDivideChooser();
+      ctx.actions.applyDivide(leaf.path, option.division);
+    });
+    grid.append(button);
+  }
+  element.append(header, grid);
+  document.body.append(element);
+
+  // Measure first, then keep the panel inside the viewport.
+  const margin = 8;
+  const panel = element.getBoundingClientRect();
+  const left = Math.max(
+    margin,
+    Math.min(pointer.clientX + 8, window.innerWidth - panel.width - margin),
+  );
+  const top = Math.max(
+    margin,
+    Math.min(pointer.clientY + 8, window.innerHeight - panel.height - margin),
+  );
+  element.style.left = `${left}px`;
+  element.style.top = `${top}px`;
+
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Escape") closeDivideChooser();
+    },
+    { signal: controller.signal },
+  );
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (!element.contains(event.target)) closeDivideChooser();
+    },
+    { signal: controller.signal },
+  );
+  window.addEventListener("scroll", closeDivideChooser, {
+    capture: true,
+    signal: controller.signal,
+  });
+  window.addEventListener("resize", closeDivideChooser, { signal: controller.signal });
+
+  divideChooser = { element, controller };
+}
+
+/** Drags from a compartment side to add one divider at the release position,
+ * with the same legal clamp and Shift quarter snapping as a divider drag. A
+ * no-move release is a click: on a wall side it opens the Add dividers
+ * chooser, and on a divider side it does nothing. */
 function startSplitDrag(svg, handle, event) {
   const { state } = ctx;
   const leaf = state.plan.leaves.find((candidate) => candidate.path === handle.dataset.edgeLeaf);
   if (!leaf) return;
 
   const horizontal = handle.dataset.axis === "x";
+  const axis = horizontal ? "x" : "y";
+  const side = handle.dataset.edgeSide === "far" ? "far" : "near";
   const size = horizontal ? leaf.width_mm : leaf.depth_mm;
   if (!canSplit(size)) return;
 
@@ -588,12 +703,11 @@ function startSplitDrag(svg, handle, event) {
   const thickness = state.standard.dividers.thickness_mm;
   const wall = interiorOffset();
   const origin = horizontal ? leaf.x_mm : leaf.y_mm;
-  const middle = clamp(Math.round((size - thickness) / 2), minimum, maximum);
   const unit = Math.max(state.plan.body.outer_width_mm, state.plan.body.outer_depth_mm) / 40;
 
   const rect = svg.getBoundingClientRect();
   const scale = svgScale(svg, rect);
-  const slop = 4 / scale; // movement below ~4 px is still a click
+  const slop = 4 / scale; // movement below ~4 px along the split axis is still a click
   const snapRadiusMm = SNAP_RADIUS_PX / scale;
 
   const pointerAt = (moveEvent) => {
@@ -602,7 +716,7 @@ function startSplitDrag(svg, handle, event) {
   };
   const startAt = pointerAt(event);
   let moved = false;
-  let current = middle;
+  let current = clamp(Math.round((size - thickness) / 2), minimum, maximum);
   let percent = null;
 
   try {
@@ -616,6 +730,7 @@ function startSplitDrag(svg, handle, event) {
   preview.setAttribute("class", "divider-preview");
   preview.setAttribute("width", String(horizontal ? thickness : leaf.width_mm));
   preview.setAttribute("height", String(horizontal ? leaf.depth_mm : thickness));
+  preview.setAttribute("visibility", "hidden");
   svg.append(preview);
 
   const guide = document.createElementNS(SVG_NS, "line");
@@ -626,6 +741,7 @@ function startSplitDrag(svg, handle, event) {
   const label = document.createElementNS(SVG_NS, "text");
   label.setAttribute("class", "drag-label");
   label.setAttribute("font-size", String(unit * 1.3));
+  label.setAttribute("visibility", "hidden");
   svg.append(label);
 
   const draw = () => {
@@ -666,24 +782,36 @@ function startSplitDrag(svg, handle, event) {
     percent = resolved.percent;
     draw();
   };
-  draw();
+
+  const show = () => {
+    preview.setAttribute("visibility", "visible");
+    label.setAttribute("visibility", "visible");
+  };
 
   const update = (moveEvent) => {
     const raw = pointerAt(moveEvent);
     if (!moved && Math.abs(raw - startAt) >= slop) moved = true;
-    if (moved) apply(raw, moveEvent.shiftKey);
+    if (!moved) return;
+    show();
+    apply(raw, moveEvent.shiftKey);
   };
 
-  const finish = (commit, event) => {
+  const finish = (commit, finishEvent) => {
     handle.removeEventListener("pointermove", update);
     handle.removeEventListener("pointerup", onUp);
     handle.removeEventListener("pointercancel", onCancel);
     handle.classList.remove("dragging");
-    if (commit && moved) apply(pointerAt(event), event.shiftKey);
+    const dragged = moved;
+    if (commit && dragged && finishEvent) apply(pointerAt(finishEvent), finishEvent.shiftKey);
     preview.remove();
     guide.remove();
     label.remove();
-    if (commit) ctx.actions.splitLeaf(leaf.path, horizontal ? "x" : "y", current);
+    if (!commit) return;
+    if (dragged) {
+      ctx.actions.splitLeaf(leaf.path, axis, current);
+      return;
+    }
+    if (finishEvent) openDivideChooser(leaf.path, axis, side, finishEvent);
   };
   const onUp = (event) => finish(true, event);
   const onCancel = () => finish(false, null);
