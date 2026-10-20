@@ -3,11 +3,14 @@
 // merge, and divider drags.
 //
 // Every edit is a design mutation that app.js sends to `/api/plan`; the
-// editor never decides validity. The one local arithmetic is the *drag and
-// split clamp*: it derives the legal integer range from `/api/standard`
-// (minimum compartment and divider thickness) and the parent rectangle the
-// plan response carries, so a pointer can never leave the SYS-2.0 model
-// (ADR-0002; the server still validates every committed edit).
+// editor never decides validity and owns no schema or SYS-2.0 rule. The local
+// arithmetic only places what the plan already decided: the *drag and split
+// clamp* derives the legal integer range from `/api/standard` (minimum
+// compartment and divider thickness) and the parent rectangle the plan
+// response carries, so a pointer can never leave the SYS-2.0 model; the
+// even-divide preview draws the plan's own divider rectangles and its caption
+// takes the span range straight from the plan's spans. The server still
+// validates every committed edit (ADR-0002).
 
 import * as panels from "./panels.js";
 
@@ -325,7 +328,7 @@ function selectionToolbarHtml() {
   if (!plan) return "";
 
   if (!selection) {
-    return `<div class="selection-toolbar"><span class="hint">Click a compartment to select it; click a wall side to add dividers evenly; drag from any side to add one divider at the release position; drag a divider or click it to set an exact position. Hold Shift while dragging to snap to 25%, 50%, or 75%.</span></div>`;
+    return `<div class="selection-toolbar"><span class="hint">Click a compartment to select it; click a wall side to open Add dividers; a divider-side click does nothing; drag from any side to add one divider at the release position; drag a divider or click it to set an exact position. Hold Shift while dragging to snap to 25%, 50%, or 75%.</span></div>`;
   }
 
   if (selection.kind === "leaf") {
@@ -604,7 +607,7 @@ function isWallSide(block, side) {
 const DIVIDE_CAPTION_IDLE = "Hover a count to preview";
 
 /** The caption for one option: its count, compartment count, and span range.
- * A warned option names the 15 mm threshold from the plan; the editor never
+ * A warned option names the warning threshold from the plan; the editor never
  * recomputes the warning from the spans or the perpendicular dimension. */
 function divideCaption(option) {
   const count = option.count;
@@ -614,13 +617,11 @@ function divideCaption(option) {
   if (spans.length > 0) {
     const minimum = Math.min(...spans);
     const maximum = Math.max(...spans);
-    const range =
-      maximum - minimum <= 0.05
-        ? `${mm(minimum)} mm each`
-        : `${mm(minimum)}–${mm(maximum)} mm each`;
-    caption += ` · ${range}`;
+    caption += ` · ${mm(minimum)}–${mm(maximum)} mm each`;
   }
-  if (option.warned) caption += " · below the 15 mm warning threshold";
+  if (option.warned) {
+    caption += ` · below the ${mm(ctx.state.standard.dividers.warn_leaf_mm)} mm warning threshold`;
+  }
   return caption;
 }
 
@@ -642,9 +643,8 @@ function clearDividePreview() {
 function previewDivideOption(option) {
   clearDividePreview();
   const svg = document.getElementById("plan");
-  const body = ctx.state.plan?.body;
-  if (!svg || !body) return;
-  const wall = (body.outer_width_mm - body.interior_width_mm) / 2;
+  if (!svg || !ctx.state.plan?.body) return;
+  const wall = interiorOffset();
   for (const divider of option.dividers ?? []) {
     const line = document.createElementNS(SVG_NS, "rect");
     line.setAttribute("class", "divide-preview-line");
@@ -698,7 +698,8 @@ function openDivideChooser(path, axis, side, pointer) {
     button.className = "divide-count";
     button.textContent = String(option.count);
     const label = option.count === 1 ? "Add one divider" : `Add ${option.count} dividers`;
-    button.title = option.warned ? `${label} (below the 15 mm warning)` : label;
+    const warning = `below the ${mm(state.standard.dividers.warn_leaf_mm)} mm warning`;
+    button.title = option.warned ? `${label} (${warning})` : label;
     button.setAttribute("aria-label", button.title);
     if (option.warned) {
       button.classList.add("warned");
@@ -764,7 +765,9 @@ function openDivideChooser(path, axis, side, pointer) {
 /** Drags from a compartment side to add one divider at the release position,
  * with the same legal clamp and Shift quarter snapping as a divider drag. A
  * no-move release is a click: on a wall side it opens the Add dividers
- * chooser, and on a divider side it does nothing. */
+ * chooser, and on a divider side it does nothing. The preview stays hidden
+ * until the pointer crosses the slop, so that click never flashes a divider at
+ * the middle position. */
 function startSplitDrag(svg, handle, event) {
   const { state } = ctx;
   const leaf = state.plan.leaves.find((candidate) => candidate.path === handle.dataset.edgeLeaf);

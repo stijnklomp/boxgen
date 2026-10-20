@@ -880,6 +880,16 @@ fn assert_rect(rect: &Value, expected: [f64; 4]) {
     assert_eq!(actual, expected, "{rect}");
 }
 
+/// The plan's `warned` decision for one even-divide count.
+fn warned_count(options: &[Value], count: u64) -> bool {
+    options
+        .iter()
+        .find(|option| option["count"] == count)
+        .unwrap_or_else(|| panic!("count {count}"))["warned"]
+        .as_bool()
+        .expect("warned")
+}
+
 /// The plan is the golden tree's compartments, rectangles, and divider
 /// faces, driven from the fixture through open — exactly what the 2D preview
 /// draws. The whole response is pinned by the golden document, and the faces
@@ -1027,17 +1037,9 @@ async fn plan_even_divide_offers_counts_up_to_the_limits() {
         .collect();
     assert_eq!(counts, (1..=10).collect::<Vec<_>>());
 
-    let warned = |count: u64| {
-        options
-            .iter()
-            .find(|option| option["count"] == count)
-            .unwrap_or_else(|| panic!("count {count}"))["warned"]
-            .as_bool()
-            .expect("warned")
-    };
-    assert!(!warned(8), "16 mm strips must not warn");
-    assert!(warned(9), "14 mm strips must warn");
-    assert!(warned(10));
+    assert!(!warned_count(options, 8), "16 mm strips must not warn");
+    assert!(warned_count(options, 9), "14 mm strips must warn");
+    assert!(warned_count(options, 10));
 
     let (status, plan) = json(
         &router,
@@ -1247,16 +1249,8 @@ async fn plan_even_divide_warned_ignores_the_perpendicular_warning() {
     let options = plan["leaves"][0]["divide"]["x"]["options"]
         .as_array()
         .expect("x options");
-    let warned = |count: u64| {
-        options
-            .iter()
-            .find(|option| option["count"] == count)
-            .unwrap_or_else(|| panic!("count {count}"))["warned"]
-            .as_bool()
-            .expect("warned")
-    };
-    assert!(!warned(8), "16 mm x strips are not warned");
-    assert!(warned(9), "14 mm x strips are warned");
+    assert!(!warned_count(options, 8), "16 mm x strips are not warned");
+    assert!(warned_count(options, 9), "14 mm x strips are warned");
 }
 
 /// The centre cell of a 3 x 3 grid has a divider on all four sides: no wall
