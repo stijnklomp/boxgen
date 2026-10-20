@@ -9,7 +9,7 @@
 // 4 × 4 · 6U · lid + ribs.
 
 import { api, ApiError } from "./api.js";
-import { renderEditorView, setEditorContext } from "./editor.js";
+import { closeDivideChooser, renderEditorView, setEditorContext } from "./editor.js";
 import { renderStandardView, setPanelsContext } from "./panels.js";
 import { mountViewer } from "./viewer3d.js";
 
@@ -340,6 +340,20 @@ function setDividerAt(path, at) {
     const node = nodeAtPath(design.divisions, path);
     if (node && node.type === "split") node.at_mm = at;
   });
+}
+
+/** Applies one even-divide option from the plan: the leaf is replaced by the
+ * plan's division subtree verbatim, in one undo step. */
+function applyDivide(path, division) {
+  if (!division) return;
+  mutate((design) => {
+    const node = nodeAtPath(design.divisions, path);
+    if (!node || node.type !== "leaf") return;
+    const replacement = clone(division);
+    if (path === "divisions") design.divisions = replacement;
+    else replaceNodeAtPath(design.divisions, path, replacement);
+  });
+  state.selection = null;
 }
 
 function pathSteps(path) {
@@ -840,6 +854,7 @@ async function ensureStandard() {
 // -------------------------------------------------------------- views
 
 function render() {
+  closeDivideChooser();
   const app = document.getElementById("app");
   if (!app) return;
   const openDetails = new Set();
@@ -1085,6 +1100,7 @@ const actions = {
   renameLeaf,
   mergeLeaf,
   setDividerAt,
+  applyDivide,
   applyFitCandidate,
 };
 

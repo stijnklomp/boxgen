@@ -536,6 +536,61 @@ button.badge {
   font-size: 0.85rem;
 }
 
+/* ---- add dividers chooser ---- */
+
+.divide-chooser {
+  position: fixed;
+  z-index: 40;
+  min-width: 11rem;
+  max-width: 20rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
+
+.divide-chooser-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.2rem 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.divide-chooser-header .title {
+  font-weight: 600;
+}
+
+.divide-chooser-header .range {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.divide-count-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.divide-count {
+  min-width: 2rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.divide-count:hover,
+.divide-count:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 /* ---- sidebar panels ---- */
 
 .sidebar {
