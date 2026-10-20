@@ -339,7 +339,7 @@ pub(crate) struct BodyDto {
     pub divider_top_mm: f64,
 }
 
-/// One compartment as an absolute rectangle.
+/// One compartment as an absolute rectangle, with its even-divide options.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub(crate) struct LeafRectDto {
     /// Dotted schema path, for example `divisions.near.far`.
@@ -354,6 +354,47 @@ pub(crate) struct LeafRectDto {
     pub width_mm: f64,
     /// Depth (y span).
     pub depth_mm: f64,
+    /// Even-divide options for the Serve editor, one block per axis.
+    pub divide: DivideDto,
+}
+
+/// One leaf's even-divide options.
+///
+/// A block is null on an axis when the leaf has no wall side there, is below
+/// the 12 mm minimum in the perpendicular direction, or has no legal count.
+/// The planner is [`crate::tree::even_divide`]; this DTO only projects it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub(crate) struct DivideDto {
+    /// Options along x, or null.
+    pub x: Option<DivideAxisDto>,
+    /// Options along y, or null.
+    pub y: Option<DivideAxisDto>,
+}
+
+/// The even-divide options along one axis.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub(crate) struct DivideAxisDto {
+    /// True when the leaf starts on the -x (or -y) inner wall face.
+    pub near_wall: bool,
+    /// True when the leaf ends on the +x (or +y) inner wall face.
+    pub far_wall: bool,
+    /// Legal counts in increasing order.
+    pub options: Vec<DivideOptionDto>,
+}
+
+/// One legal even-divide layout.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub(crate) struct DivideOptionDto {
+    /// Number of dividers, so `count + 1` compartments.
+    pub count: u32,
+    /// Strip widths in origin order, in millimetres.
+    pub spans_mm: Vec<f64>,
+    /// True when a strip is below the 15 mm warning threshold.
+    pub warned: bool,
+    /// The exact subtree that replaces the leaf.
+    pub division: Division,
+    /// Preview rectangles for the dividers, in the interior frame.
+    pub dividers: Vec<RectDto>,
 }
 
 /// One divider plate as an absolute rectangle.
@@ -419,8 +460,10 @@ impl BodyDto {
     }
 }
 
-impl From<&crate::tree::Leaf> for LeafRectDto {
-    fn from(leaf: &crate::tree::Leaf) -> Self {
+impl LeafRectDto {
+    /// Projects one validated leaf, resolving its even-divide options against
+    /// the body interior.
+    pub(crate) fn from_leaf(leaf: &crate::tree::Leaf, body: &crate::tree::BodyGeometry) -> Self {
         Self {
             path: leaf.path.clone(),
             compartment: leaf.compartment.clone(),
@@ -428,6 +471,49 @@ impl From<&crate::tree::Leaf> for LeafRectDto {
             y_mm: leaf.y_mm,
             width_mm: leaf.width_mm,
             depth_mm: leaf.depth_mm,
+            divide: DivideDto::from(&crate::tree::even_divide(body, leaf)),
+        }
+    }
+}
+
+impl From<&crate::tree::EvenDivide> for DivideDto {
+    fn from(divide: &crate::tree::EvenDivide) -> Self {
+        Self {
+            x: divide.x.as_ref().map(DivideAxisDto::from),
+            y: divide.y.as_ref().map(DivideAxisDto::from),
+        }
+    }
+}
+
+impl From<&crate::tree::AxisDivide> for DivideAxisDto {
+    fn from(axis: &crate::tree::AxisDivide) -> Self {
+        Self {
+            near_wall: axis.near_wall,
+            far_wall: axis.far_wall,
+            options: axis.options.iter().map(DivideOptionDto::from).collect(),
+        }
+    }
+}
+
+impl From<&crate::tree::DivideOption> for DivideOptionDto {
+    fn from(option: &crate::tree::DivideOption) -> Self {
+        Self {
+            count: option.count,
+            spans_mm: option.spans_mm.clone(),
+            warned: option.warned,
+            division: Division::from(&option.division),
+            dividers: option.dividers.iter().map(RectDto::from).collect(),
+        }
+    }
+}
+
+impl From<&crate::tree::Rect> for RectDto {
+    fn from(rect: &crate::tree::Rect) -> Self {
+        Self {
+            x_mm: rect.x_mm,
+            y_mm: rect.y_mm,
+            width_mm: rect.width_mm,
+            depth_mm: rect.depth_mm,
         }
     }
 }
@@ -441,12 +527,7 @@ impl From<&crate::tree::Divider> for DividerRectDto {
             y_mm: divider.y_mm,
             width_mm: divider.width_mm,
             depth_mm: divider.depth_mm,
-            parent: RectDto {
-                x_mm: divider.parent.x_mm,
-                y_mm: divider.parent.y_mm,
-                width_mm: divider.parent.width_mm,
-                depth_mm: divider.parent.depth_mm,
-            },
+            parent: RectDto::from(&divider.parent),
         }
     }
 }
