@@ -48,6 +48,14 @@ _Avoid_: placeholder, fake, mock.
 The `boxgen divide` helper: edit one split in a spec's division tree in place, addressed by a `root`/`.near`/`.far` path, then re-validate before writing. A leaf target becomes a split; a named leaf keeps its compartment on the near child.
 _Avoid_: split command, tree editor.
 
+**Even divide**:
+One compartment replaced in the Serve editor by N+1 compartments of equal usable width along one axis, started from a wall side. The near (origin) strip keeps the original compartment name.
+_Avoid_: divide by, multi-split, quick divide.
+
+**Wall side**:
+A compartment edge that lies on the body's outer wall rather than on a divider. Only a wall side starts an even divide.
+_Avoid_: outer edge, border, boundary.
+
 **Serve**:
 The `boxgen serve` command: the one local web UI (v2, ADR-0002) over the same terms as the CLI — Spec, Division tree, Body, Compartment, Lid. The API's `design` field is the wire name for a Spec (the ticket #16 name for the same object, not a separate concept). It binds `127.0.0.1` only (one local user, no auth), serves the embedded frontend, and answers every edit through the Rust validator and every build through the one build pipeline: it owns no geometry and no rules.
 _Avoid_: web app, frontend, dashboard.
