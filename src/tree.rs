@@ -366,6 +366,8 @@ pub struct Estimate {
 pub struct Leaf {
     /// Dotted schema path, for example `divisions.near.far`.
     pub path: String,
+    /// Splits on the root-to-leaf path; the root leaf is level 0.
+    pub level: u32,
     /// Optional compartment name.
     pub compartment: Option<String>,
     /// Leaf origin x (the min corner) in the body interior, millimetres from
@@ -507,7 +509,7 @@ fn axis_divide(body: &BodyGeometry, leaf: &Leaf, axis: Axis) -> Option<AxisDivid
     }
 
     // A leaf at depth d replaced by N nested splits has deepest depth d + N.
-    let depth_room = MAX_TREE_DEPTH.saturating_sub(leaf_path_depth(&leaf.path));
+    let depth_room = MAX_TREE_DEPTH.saturating_sub(leaf.level);
     let mut options = Vec::new();
     for count in 1..=depth_room {
         let Some(spans_mm) = even_spans(span, count) else {
@@ -536,11 +538,6 @@ fn axis_divide(body: &BodyGeometry, leaf: &Leaf, axis: Axis) -> Option<AxisDivid
         far_wall,
         options,
     })
-}
-
-/// The number of `.near`/`.far` steps in a leaf's schema path.
-fn leaf_path_depth(path: &str) -> u32 {
-    u32::try_from(path.split('.').skip(1).count()).unwrap_or(u32::MAX)
 }
 
 /// Lays out `count` dividers over `span_mm`, origin first.
@@ -593,24 +590,21 @@ fn even_division(axis: Axis, widths: &[f64], compartment: Option<&str>) -> Node 
 /// The divider preview rectangles for one layout, in the interior frame.
 fn divide_rects(leaf: &Leaf, axis: Axis, widths: &[f64]) -> Vec<Rect> {
     let count = widths.len() - 1;
+    let region = Region {
+        width: leaf.width_mm,
+        depth: leaf.depth_mm,
+        x: leaf.x_mm,
+        y: leaf.y_mm,
+    };
     let mut dividers = Vec::with_capacity(count);
     let mut offset = 0.0;
     for width in &widths[..count] {
         offset += width;
-        dividers.push(match axis {
-            Axis::X => Rect {
-                x_mm: leaf.x_mm + offset,
-                y_mm: leaf.y_mm,
-                width_mm: DIVIDER_MM,
-                depth_mm: leaf.depth_mm,
-            },
-            Axis::Y => Rect {
-                x_mm: leaf.x_mm,
-                y_mm: leaf.y_mm + offset,
-                width_mm: leaf.width_mm,
-                depth_mm: DIVIDER_MM,
-            },
-        });
+        let position = match axis {
+            Axis::X => leaf.x_mm + offset,
+            Axis::Y => leaf.y_mm + offset,
+        };
+        dividers.push(divider_rect(axis, position, region));
         offset += DIVIDER_MM;
     }
     dividers
@@ -677,6 +671,38 @@ struct Region {
     y: f64,
 }
 
+impl Region {
+    /// The region as the public [`Rect`] the plan carries.
+    fn rect(self) -> Rect {
+        Rect {
+            x_mm: self.x,
+            y_mm: self.y,
+            width_mm: self.width,
+            depth_mm: self.depth,
+        }
+    }
+}
+
+/// The plate footprint for a divider at `position` on `axis`: [`DIVIDER_MM`]
+/// thick on the split axis and spanning the whole parent `region` across it.
+fn divider_rect(axis: Axis, position: f64, region: Region) -> Rect {
+    let parent = region.rect();
+    match axis {
+        Axis::X => Rect {
+            x_mm: position,
+            y_mm: parent.y_mm,
+            width_mm: DIVIDER_MM,
+            depth_mm: parent.depth_mm,
+        },
+        Axis::Y => Rect {
+            x_mm: parent.x_mm,
+            y_mm: position,
+            width_mm: parent.width_mm,
+            depth_mm: DIVIDER_MM,
+        },
+    }
+}
+
 struct Walker<'a> {
     report: &'a mut TreeReport,
     divider_height_mm: f64,
@@ -712,6 +738,7 @@ impl Walker<'_> {
 
                 self.report.leaves.push(Leaf {
                     path: path.to_owned(),
+                    level,
                     compartment: compartment.clone(),
                     x_mm: region.x,
                     y_mm: region.y,
@@ -753,31 +780,15 @@ impl Walker<'_> {
                     Axis::Y => (region.width, DIVIDER_MM),
                 };
                 self.report.divider_volume_mm3 += thickness * span * self.divider_height_mm;
-                let parent = Rect {
-                    x_mm: region.x,
-                    y_mm: region.y,
-                    width_mm: region.width,
-                    depth_mm: region.depth,
-                };
-                let divider = match axis {
-                    Axis::X => Divider {
-                        path: path.to_owned(),
-                        axis: *axis,
-                        x_mm: position,
-                        y_mm: region.y,
-                        width_mm: DIVIDER_MM,
-                        depth_mm: region.depth,
-                        parent,
-                    },
-                    Axis::Y => Divider {
-                        path: path.to_owned(),
-                        axis: *axis,
-                        x_mm: region.x,
-                        y_mm: position,
-                        width_mm: region.width,
-                        depth_mm: DIVIDER_MM,
-                        parent,
-                    },
+                let plate = divider_rect(*axis, position, region);
+                let divider = Divider {
+                    path: path.to_owned(),
+                    axis: *axis,
+                    x_mm: plate.x_mm,
+                    y_mm: plate.y_mm,
+                    width_mm: plate.width_mm,
+                    depth_mm: plate.depth_mm,
+                    parent: region.rect(),
                 };
                 self.report.dividers.push(divider);
 
@@ -1624,6 +1635,8 @@ mod tests {
     fn placed_leaf(compartment: Option<&str>, path: &str, rect: [f64; 4]) -> Leaf {
         Leaf {
             path: path.to_owned(),
+            // The synthetic path names the level; only the walker derives it.
+            level: u32::try_from(path.matches('.').count()).expect("level fits u32"),
             compartment: compartment.map(str::to_owned),
             x_mm: rect[0],
             y_mm: rect[1],
@@ -1652,6 +1665,16 @@ mod tests {
                 positions
             }
         }
+    }
+
+    /// The plan's `warned` decision for one count.
+    fn warned_count(block: &AxisDivide, count: u32) -> bool {
+        block
+            .options
+            .iter()
+            .find(|option| option.count == count)
+            .unwrap_or_else(|| panic!("count {count}"))
+            .warned
     }
 
     #[test]
@@ -1711,16 +1734,9 @@ mod tests {
         let counts: Vec<u32> = x.options.iter().map(|option| option.count).collect();
         assert_eq!(counts, (1..=10).collect::<Vec<_>>());
 
-        let warned = |count: u32| {
-            x.options
-                .iter()
-                .find(|option| option.count == count)
-                .unwrap_or_else(|| panic!("count {count}"))
-                .warned
-        };
-        assert!(!warned(8), "a 16 mm strip must not warn");
-        assert!(warned(9), "a 14 mm strip must warn");
-        assert!(warned(10));
+        assert!(!warned_count(&x, 8), "a 16 mm strip must not warn");
+        assert!(warned_count(&x, 9), "a 14 mm strip must warn");
+        assert!(warned_count(&x, 10));
     }
 
     #[test]
@@ -1814,15 +1830,8 @@ mod tests {
         let divide = even_divide(&body(), &leaf);
 
         let x = divide.x.expect("x block");
-        let warned = |count: u32| {
-            x.options
-                .iter()
-                .find(|option| option.count == count)
-                .unwrap_or_else(|| panic!("count {count}"))
-                .warned
-        };
-        assert!(!warned(8), "x strips of 16 mm are not warned");
-        assert!(warned(9), "x strips of 14 mm are warned");
+        assert!(!warned_count(&x, 8), "x strips of 16 mm are not warned");
+        assert!(warned_count(&x, 9), "x strips of 14 mm are warned");
         assert!(
             divide.y.is_none(),
             "a 13 mm span has no legal y count, despite the 163.5 mm depth"
@@ -1845,7 +1854,7 @@ mod tests {
         let report = validate_tree(&wide, &deep);
         assert!(report.errors.is_empty(), "{:?}", report.errors);
         let leaf = report.leaves.last().expect("deepest leaf");
-        assert_eq!(leaf_path_depth(&leaf.path), 31);
+        assert_eq!(leaf.level, 31);
 
         let divide = even_divide(&wide, leaf);
         let x = divide.x.expect("x block");
@@ -1861,13 +1870,7 @@ mod tests {
         }
         let applied = validate_tree(&wide, &applied);
         assert!(applied.errors.is_empty(), "{:?}", applied.errors);
-        assert_eq!(
-            applied
-                .leaves
-                .last()
-                .map(|leaf| leaf_path_depth(&leaf.path)),
-            Some(32)
-        );
+        assert_eq!(applied.leaves.last().map(|leaf| leaf.level), Some(32));
 
         // At depth 32 there is no room for another split.
         let mut deepest = unnamed();
@@ -1877,7 +1880,7 @@ mod tests {
         let report = validate_tree(&wide, &deepest);
         assert!(report.errors.is_empty(), "{:?}", report.errors);
         let leaf = report.leaves.last().expect("deepest leaf");
-        assert_eq!(leaf_path_depth(&leaf.path), 32);
+        assert_eq!(leaf.level, 32);
         let divide = even_divide(&wide, leaf);
         assert!(divide.x.is_none(), "no depth room left");
         assert!(divide.y.is_none(), "no depth room left");
