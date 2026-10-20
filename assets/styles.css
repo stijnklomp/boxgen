@@ -621,6 +621,10 @@ button.badge {
   color: var(--custom);
 }
 
+.divider-chooser .toolbar-actions {
+  margin-top: 0.55rem;
+}
+
 /* ---- sidebar panels ---- */
 
 .sidebar {

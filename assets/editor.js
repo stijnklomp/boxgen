@@ -1,6 +1,6 @@
 // The SVG division editor: the plan view, compartment selection, split
-// (toolbar buttons and side drags), the wall-side Add dividers chooser, rename,
-// merge, and divider drags.
+// (toolbar buttons and side drags), the wall-side Add dividers chooser, the
+// divider menu opened by a no-move click, rename, merge, and divider drags.
 //
 // Every edit is a design mutation that app.js sends to `/api/plan`; the
 // editor never decides validity and owns no schema or SYS-2.0 rule. The local
@@ -19,18 +19,36 @@ let ctx = null;
 /** The one open **Add dividers** chooser, or null. */
 let divideChooser = null;
 
+/** The one open divider menu (a no-move click on a divider), or null. */
+let dividerMenu = null;
+
 /** Wires the editor to the app store and actions. */
 export function setEditorContext(context) {
   ctx = context;
 }
 
-/** Closes the wall-side chooser; app.js calls this from every render so an
- * open chooser can never apply a stale plan. */
-export function closeDivideChooser() {
+/** Closes both anchored editor panels; app.js calls this from every render so
+ * an open panel can never apply a stale plan. */
+export function closeEditorPopovers() {
+  closeDivideChooser();
+  closeDividerMenu();
+}
+
+/** Closes the wall-side Add dividers chooser. */
+function closeDivideChooser() {
   if (!divideChooser) return;
   const { element, controller } = divideChooser;
   clearDividePreview();
   divideChooser = null;
+  controller.abort();
+  element.remove();
+}
+
+/** Closes the divider menu. */
+function closeDividerMenu() {
+  if (!dividerMenu) return;
+  const { element, controller } = dividerMenu;
+  dividerMenu = null;
   controller.abort();
   element.remove();
 }
@@ -328,7 +346,7 @@ function selectionToolbarHtml() {
   if (!plan) return "";
 
   if (!selection) {
-    return `<div class="selection-toolbar"><span class="hint">Click a compartment to select it; click a wall side to open Add dividers; a divider-side click does nothing; drag from any side to add one divider at the release position; drag a divider or click it to set an exact position. Hold Shift while dragging to snap to 25%, 50%, or 75%.</span></div>`;
+    return `<div class="selection-toolbar"><span class="hint">Click a compartment to select it; click a wall side to open Add dividers; drag from any side to add one divider at the release position; click a divider to select it and open its menu; drag a divider or type a position to move it. Hold Shift while dragging to snap to 25%, 50%, or 75%.</span></div>`;
   }
 
   if (selection.kind === "leaf") {
@@ -366,6 +384,7 @@ function selectionToolbarHtml() {
       <input type="number" id="divider-at" min="${minimum}" max="${maximum}" step="1" value="${at}" data-divider-path="${escapeHtml(divider.path)}">
     </label>
     <button type="button" class="btn small" data-editor="apply-divider">Apply</button>
+    <button type="button" class="btn small danger" data-editor="remove-divider" title="Collapse this divider's whole region into one compartment">Remove divider</button>
     <span class="range">legal range ${minimum}–${maximum} mm from the compartment edge; hold Shift to snap to 25 / 50 / 75%</span>
   </div>`;
 }
@@ -376,21 +395,21 @@ function bindPlan(root) {
   if (!svg) return;
 
   svg.addEventListener("click", (event) => {
-    // A side press is a drag or the wall-side chooser; it never doubles as a
-    // selection.
+    // A side press is a drag or the wall-side chooser; a divider press is a
+    // drag or the divider menu. Both are handled on pointerup, so a click here
+    // must not re-render and close the panel that pointerup just opened.
     if (event.target.closest("[data-edge-handle]")) return;
+    if (event.target.closest("[data-divider]")) return;
     const leaf = event.target.closest("[data-leaf]");
     if (leaf) {
       const point = svgPoint(svg, event);
       const wall = interiorOffset();
       ctx.actions.selectLeaf(leaf.dataset.leaf, { x: point.x - wall, y: point.y - wall });
-      return;
     }
-    const divider = event.target.closest("[data-divider]");
-    if (divider) ctx.actions.selectDivider(divider.dataset.divider);
   });
 
   svg.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
     const divider = event.target.closest("[data-divider]");
     if (divider) {
       startDrag(svg, divider, event);
@@ -411,6 +430,7 @@ function bindSelectionToolbar(root) {
   on("split-y", () => splitSelected("y"));
   on("rename", renameSelected);
   on("merge", mergeSelected);
+  on("remove-divider", removeSelectedDivider);
 
   const input = root.querySelector("#divider-at");
   const apply = root.querySelector('[data-editor="apply-divider"]');
@@ -464,6 +484,13 @@ function mergeSelected() {
   ctx.actions.mergeLeaf(leaf.path);
 }
 
+function removeSelectedDivider() {
+  const { state } = ctx;
+  if (state.selection?.kind !== "divider") return;
+  closeEditorPopovers();
+  ctx.actions.removeDivider(state.selection.path);
+}
+
 /** The wall band width: `(outer - interior) / 2`. */
 function interiorOffset() {
   const body = ctx.state.plan.body;
@@ -506,6 +533,10 @@ function startDrag(svg, element, event) {
   const origin = horizontal ? parent.x_mm : parent.y_mm;
   const wall = interiorOffset();
   const startAt = Math.round(horizontal ? divider.x_mm - origin : divider.y_mm - origin);
+  const pointerStart = horizontal
+    ? svgPoint(svg, event).x - wall - origin
+    : svgPoint(svg, event).y - wall - origin;
+  const slop = 4 / svgScale(svg); // movement below ~4 px is still a click
   const snapRadiusMm = SNAP_RADIUS_PX / svgScale(svg);
   let current = startAt;
   let percent = null;
@@ -563,9 +594,10 @@ function startDrag(svg, element, event) {
   };
 
   const update = (moveEvent) => {
-    moved = true;
     const point = svgPoint(svg, moveEvent);
     const raw = horizontal ? point.x - wall - origin : point.y - wall - origin;
+    if (!moved && Math.abs(raw - pointerStart) < slop) return;
+    moved = true;
     apply(raw, moveEvent.shiftKey, point);
   };
 
@@ -584,6 +616,12 @@ function startDrag(svg, element, event) {
     if (moved) {
       if (current !== startAt) ctx.actions.setDividerAt(divider.path, current);
       ctx.actions.selectDivider(divider.path);
+    } else if (event?.type === "pointerup") {
+      // A click, not a drag: select the divider and offer the one removal
+      // action at the pointer. The re-render from selectDivider happens before
+      // the menu is appended, so the menu survives.
+      ctx.actions.selectDivider(divider.path);
+      openDividerMenu(divider, event);
     }
   };
 
@@ -660,6 +698,48 @@ function previewDivideOption(option) {
   caption.classList.toggle("warned", option.warned === true);
 }
 
+/** Appends one floating panel near the pointer, keeps it inside the viewport,
+ * and wires the shared dismissal gestures. Returns the listener controller. */
+function anchorFloatingPanel(element, pointer, close) {
+  document.body.append(element);
+
+  // Measure first, then keep the panel inside the viewport.
+  const margin = 8;
+  const panel = element.getBoundingClientRect();
+  const left = Math.max(
+    margin,
+    Math.min(pointer.clientX + 8, window.innerWidth - panel.width - margin),
+  );
+  const top = Math.max(
+    margin,
+    Math.min(pointer.clientY + 8, window.innerHeight - panel.height - margin),
+  );
+  element.style.left = `${left}px`;
+  element.style.top = `${top}px`;
+
+  const controller = new AbortController();
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Escape") close();
+    },
+    { signal: controller.signal },
+  );
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (!element.contains(event.target)) close();
+    },
+    { signal: controller.signal },
+  );
+  window.addEventListener("scroll", close, {
+    capture: true,
+    signal: controller.signal,
+  });
+  window.addEventListener("resize", close, { signal: controller.signal });
+  return controller;
+}
+
 /** Opens the anchored, non-modal Add dividers chooser for one wall side.
  * Every count, span, and the replacement subtree comes from the plan; this
  * function only renders them. */
@@ -669,15 +749,12 @@ function openDivideChooser(path, axis, side, pointer) {
   const block = divideBlock(leaf, axis);
   if (!leaf || !block || !isWallSide(block, side)) return;
 
-  closeDivideChooser();
+  closeEditorPopovers();
 
-  const controller = new AbortController();
   const element = document.createElement("div");
   element.className = "divide-chooser";
   element.setAttribute("role", "dialog");
   element.setAttribute("aria-label", "Add dividers");
-  element.style.left = `${pointer.clientX + 8}px`;
-  element.style.top = `${pointer.clientY + 8}px`;
 
   const header = document.createElement("div");
   header.className = "divide-chooser-header";
@@ -723,43 +800,64 @@ function openDivideChooser(path, axis, side, pointer) {
   caption.className = "divide-caption";
   caption.textContent = DIVIDE_CAPTION_IDLE;
   element.append(header, grid, caption);
-  document.body.append(element);
 
-  // Measure first, then keep the panel inside the viewport.
-  const margin = 8;
-  const panel = element.getBoundingClientRect();
-  const left = Math.max(
-    margin,
-    Math.min(pointer.clientX + 8, window.innerWidth - panel.width - margin),
-  );
-  const top = Math.max(
-    margin,
-    Math.min(pointer.clientY + 8, window.innerHeight - panel.height - margin),
-  );
-  element.style.left = `${left}px`;
-  element.style.top = `${top}px`;
-
-  document.addEventListener(
-    "keydown",
-    (event) => {
-      if (event.key === "Escape") closeDivideChooser();
-    },
-    { signal: controller.signal },
-  );
-  document.addEventListener(
-    "pointerdown",
-    (event) => {
-      if (!element.contains(event.target)) closeDivideChooser();
-    },
-    { signal: controller.signal },
-  );
-  window.addEventListener("scroll", closeDivideChooser, {
-    capture: true,
-    signal: controller.signal,
-  });
-  window.addEventListener("resize", closeDivideChooser, { signal: controller.signal });
-
+  const controller = anchorFloatingPanel(element, pointer, closeDivideChooser);
   divideChooser = { element, controller, caption };
+}
+
+/** Opens the anchored divider menu for one split. A no-move click opens it;
+ * dragging never does. Removing collapses the split's whole region into one
+ * compartment, so the plan's leaves say how many compartments that joins. */
+function openDividerMenu(divider, pointer) {
+  closeEditorPopovers();
+
+  const leaves = (ctx.state.plan?.leaves ?? []).filter((leaf) =>
+    leaf.path.startsWith(`${divider.path}.`),
+  ).length;
+  const position = Math.round(
+    divider.axis === "x"
+      ? divider.x_mm - divider.parent.x_mm
+      : divider.y_mm - divider.parent.y_mm,
+  );
+
+  const element = document.createElement("div");
+  element.className = "divide-chooser divider-chooser";
+  element.setAttribute("role", "dialog");
+  element.setAttribute("aria-label", "Divider");
+
+  const header = document.createElement("div");
+  header.className = "divide-chooser-header";
+  const title = document.createElement("span");
+  title.className = "title";
+  title.textContent = `Divider ${divider.axis}`;
+  const range = document.createElement("span");
+  range.className = "range";
+  range.textContent = `${mm(position)} mm from the edge`;
+  header.append(title, range);
+
+  const caption = document.createElement("p");
+  caption.className = "divide-caption";
+  caption.textContent =
+    leaves > 2
+      ? `Removes this divider and its inner dividers, joining ${leaves} compartments into one.`
+      : "Removes the divider and joins both compartments into one.";
+
+  const actions = document.createElement("div");
+  actions.className = "toolbar-actions";
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "btn small danger";
+  remove.textContent = "Remove divider";
+  remove.title = "Collapse this divider's whole region into one compartment";
+  remove.addEventListener("click", () => {
+    closeDividerMenu();
+    ctx.actions.removeDivider(divider.path);
+  });
+  actions.append(remove);
+
+  element.append(header, caption, actions);
+  const controller = anchorFloatingPanel(element, pointer, closeDividerMenu);
+  dividerMenu = { element, controller };
 }
 
 /** Drags from a compartment side to add one divider at the release position,

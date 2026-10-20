@@ -9,7 +9,7 @@
 // 4 × 4 · 6U · lid + ribs.
 
 import { api, ApiError } from "./api.js";
-import { closeDivideChooser, renderEditorView, setEditorContext } from "./editor.js";
+import { closeEditorPopovers, renderEditorView, setEditorContext } from "./editor.js";
 import { renderStandardView, setPanelsContext } from "./panels.js";
 import { mountViewer } from "./viewer3d.js";
 
@@ -26,6 +26,9 @@ const POLL_MS = 400;
 const POLL_LIMIT = 3000; // about 20 minutes
 const DRAFT_PREFIX = "boxgen.draft.";
 const PREVIEW_PREFIX = "boxgen.preview.";
+
+/** The "keep the merged compartment unnamed" answer in a name chooser. */
+const NO_NAME = Symbol("no name");
 
 export const state = {
   view: "boxes",
@@ -335,6 +338,38 @@ async function mergeLeaf(path) {
   state.selection = null;
 }
 
+/** Collapses one divider's whole region into a single compartment. The split
+ * and every divider inside it go away, so the named compartments at risk are
+ * offered for the surviving name. One undo step, like every other edit. */
+async function removeDivider(path) {
+  if (!state.design) return;
+  const node = nodeAtPath(state.design.divisions, path);
+  if (!node || node.type !== "split") return;
+
+  const names = compartmentNames(node);
+  let keep = names.length === 1 ? names[0] : null;
+  if (names.length > 1) {
+    const choice = await choose(
+      "This region has more than one named compartment. Which name should survive?",
+      [
+        ...names.map((name) => ({ label: `Keep “${name}”`, value: name })),
+        { label: "Keep no name", value: NO_NAME },
+      ],
+    );
+    if (choice === null) return;
+    keep = choice === NO_NAME ? null : choice;
+  }
+
+  mutate((design) => {
+    const target = nodeAtPath(design.divisions, path);
+    if (!target || target.type !== "split") return;
+    const replacement = { type: "leaf", compartment: keep };
+    if (path === "divisions") design.divisions = replacement;
+    else replaceNodeAtPath(design.divisions, path, replacement);
+  });
+  state.selection = null;
+}
+
 function setDividerAt(path, at) {
   mutate((design) => {
     const node = nodeAtPath(design.divisions, path);
@@ -367,6 +402,18 @@ function nodeAtPath(root, path) {
     node = node[step];
   }
   return node ?? null;
+}
+
+/** Every named compartment under one division node, in tree order. */
+function compartmentNames(node, names = []) {
+  if (!node || typeof node !== "object") return names;
+  if (node.type === "leaf") {
+    if (node.compartment) names.push(node.compartment);
+  } else if (node.type === "split") {
+    compartmentNames(node.near, names);
+    compartmentNames(node.far, names);
+  }
+  return names;
 }
 
 function replaceNodeAtPath(root, path, replacement) {
@@ -854,7 +901,7 @@ async function ensureStandard() {
 // -------------------------------------------------------------- views
 
 function render() {
-  closeDivideChooser();
+  closeEditorPopovers();
   const app = document.getElementById("app");
   if (!app) return;
   const openDetails = new Set();
@@ -1099,6 +1146,7 @@ const actions = {
   splitLeaf,
   renameLeaf,
   mergeLeaf,
+  removeDivider,
   setDividerAt,
   applyDivide,
   applyFitCandidate,
