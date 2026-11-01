@@ -3228,8 +3228,8 @@
     }
   ],
   "estimate": {
-    "volume_mm3": 348949.7875,
-    "mass_g": 443.16623,
-    "print_hours": 17.623727
+    "volume_mm3": 150953.435274,
+    "mass_g": 191.710863,
+    "print_hours": 5.241439
   }
 }

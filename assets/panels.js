@@ -392,8 +392,9 @@ function fitResultsHtml(fit, item) {
   const weight = fit.weight_ok
     ? ""
     : `<p class="warnings">The item is above the 10 kg per-body limit; the weight must come down.</p>`;
+  const maxHeightU = Math.max(...(ctx.state.standard?.limits?.heights_u ?? [18]));
   if (fit.viable.length === 0) {
-    return `${weight}<p class="hint">No footprint up to 4 × 4 and height up to 12U fits this item with the ${
+    return `${weight}<p class="hint">No footprint up to 4 × 4 and height up to ${maxHeightU}U fits this item with the ${
       fit.soft ? "soft" : "rigid"
     } clearances (${mm(fit.clearances.per_side_mm)} mm per side, ${mm(
       fit.clearances.height_clearance_mm,

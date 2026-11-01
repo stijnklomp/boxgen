@@ -35,7 +35,7 @@ SYS-2.0 adopts the official Gridfinity 4.4 mm stacking lip and height convention
 
 **Fixed:** Gridfinity base and stacking lip; 2.0 mm walls; solid 4.75 mm base zone with a 0.8 mm floor slab (ADR-0013, ADR-0014); 2.0 mm integral dividers; inset friction lid; PETG Basic print recipe; 10 kg per body, maximum 3 high; same-footprint stacking; no labels.
 
-**Variable:** footprint 1 × 1 to 4 × 4; height 3U, 6U, 9U, or 12U (default 6U); the recursive division tree.
+**Variable:** footprint 1 × 1 to 4 × 4; height 3U, 6U, 9U, 12U, 15U, or 18U (default 6U); the recursive division tree.
 
 A change to a fixed property is a system version bump plus an ADR; ADR-0013 and ADR-0014 are the pre-release exceptions (the solid base and the floor slab, still SYS-2.0, because the checkpoints had only exercised the 1 × 1 coupon). A new compartment layout is a new spec, not a design change.
 

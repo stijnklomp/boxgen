@@ -662,7 +662,8 @@ pub(crate) struct DividersDto {
     pub warn_leaf_mm: u32,
     /// Maximum splits on one root-to-leaf path.
     pub max_depth: u32,
-    /// Per-height divider top, above the bed (3U/6U/9U/12U: 19/32/53/74).
+    /// Per-height divider top, above the bed (3U/6U/9U/12U/15U/18U:
+    /// 19/32/53/74/95/116).
     pub tops_mm: Vec<DividerTopDto>,
 }
 

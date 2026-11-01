@@ -77,6 +77,8 @@ fn every_contract_height_is_valid() {
         "4x4-6u.yaml",
         "height-9u.yaml",
         "height-12u.yaml",
+        "height-15u.yaml",
+        "height-18u.yaml",
     ] {
         validate(fixture_name)
             .success()
@@ -188,11 +190,11 @@ fn mass_and_print_time_warnings_do_not_fail() {
         .stderr(predicate::str::is_empty())
         .stdout(predicate::str::contains("estimated mass"))
         .stdout(predicate::str::contains(
-            "exceeds the 550 g warning threshold",
+            "exceeds the 500 g warning threshold",
         ))
         .stdout(predicate::str::contains("estimated print time"))
         .stdout(predicate::str::contains(
-            "exceeds the 22 h warning threshold",
+            "exceeds the 20 h warning threshold",
         ));
 }
 

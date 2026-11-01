@@ -78,7 +78,7 @@ The v1 CLI may expose a helper such as `boxgen divide <spec> --path root --axis 
 The spec must pass every rule in [`standard.md`](standard.md):
 
 - footprint 1 × 1 to 4 × 4;
-- height 3U, 6U, 9U, or 12U;
+- height 3U, 6U, 9U, 12U, 15U, or 18U;
 - interior depth fits the item plus clearance;
 - diagonal rule for long items;
 - stack group footprint matches the destination stack;

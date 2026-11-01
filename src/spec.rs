@@ -101,7 +101,7 @@ pub struct Spec {
     pub id: String,
     /// Footprint `[N, M]` in Gridfinity units.
     pub footprint: [u32; 2],
-    /// Height in Gridfinity units: 3, 6, 9 or 12.
+    /// Height in Gridfinity units: 3, 6, 9, 12, 15 or 18.
     pub height_u: u32,
     /// Whether the build includes a lid.
     pub lid: bool,
@@ -417,9 +417,9 @@ impl Spec {
         }
 
         let estimate_parts = if self.lid {
-            "shell + dividers + lid"
+            "printed body + dividers + lid"
         } else {
-            "shell + dividers"
+            "printed body + dividers"
         };
         let _ = writeln!(
             out,
@@ -981,13 +981,13 @@ divisions: { compartment: Bits }
     }
 
     #[test]
-    fn height_is_one_of_three_six_nine_twelve() {
-        for height in [3, 6, 9, 12] {
+    fn height_is_one_of_the_six_contract_heights() {
+        for height in [3, 6, 9, 12, 15, 18] {
             let yaml = MINIMAL.replace("height_u: 3", &format!("height_u: {height}"));
             assert!(validation(&yaml).is_valid(), "{height}U must be valid");
         }
 
-        for height in [0, 1, 7, 15] {
+        for height in [0, 1, 7, 13, 21] {
             let yaml = MINIMAL.replace("height_u: 3", &format!("height_u: {height}"));
             assert_error(&yaml, "height_u");
         }
@@ -1333,12 +1333,25 @@ divisions: { compartment: Bits }
     }
 
     #[test]
-    fn a_4x4_12u_body_warns_about_mass_and_print_time() {
+    fn a_4x4_12u_body_is_below_both_estimate_thresholds() {
         let yaml = MINIMAL
             .replace("footprint: [1, 1]", "footprint: [4, 4]")
             .replace("height_u: 3", "height_u: 12")
             .replace("lid: false", "lid: true");
         let validation = validation(&yaml);
+
+        assert!(validation.is_valid(), "{:?}", validation.errors);
+        assert!(
+            validation.warnings.is_empty(),
+            "the corrected estimate must not warn: {:?}",
+            validation.warnings
+        );
+    }
+
+    #[test]
+    fn a_heavy_divided_body_warns_about_mass_and_print_time() {
+        let spec = parse_ok(include_str!("../tests/fixtures/warning-estimates.yaml"));
+        let validation = spec.validate();
 
         assert!(validation.is_valid(), "{:?}", validation.errors);
         assert!(

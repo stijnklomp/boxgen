@@ -18,7 +18,7 @@ A 3D-printed storage system for household equipment: Gridfinity-compatible bodie
 
 **Variable — the data:**
 - Footprint (1 × 1 to 4 × 4 Gridfinity units).
-- Height (3U, 6U, 9U, 12U; default 6U).
+- Height (3U, 6U, 9U, 12U, 15U, 18U; default 6U).
 - Compartment division tree (recursive splits with positions in millimetres).
 
 The fixed part is the "one strong design"; the variable part is generated per box. A change to the fixed part is a system version change and invalidates previously printed bodies.

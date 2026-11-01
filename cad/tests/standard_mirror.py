@@ -34,6 +34,9 @@ def main() -> int:
             "clearance_per_side_mm": gridfinity.CLEARANCE,
             "base_height_mm": gridfinity.BASE_HEIGHT,
             "lip_height_mm": gridfinity.LIP_HEIGHT,
+            "lip_bottom_chamfer_mm": gridfinity.LIP_BOTTOM_CHAMFER,
+            "lip_vertical_mm": gridfinity.LIP_VERTICAL,
+            "lip_top_chamfer_mm": gridfinity.LIP_TOP_CHAMFER,
             "outer_radius_mm": gridfinity.OUTER_RADIUS,
         },
         "shell": {
@@ -65,6 +68,8 @@ def main() -> int:
         "estimate": {
             "density_g_per_cm3": build.PETG_DENSITY_G_PER_CM3,
             "effective_flow_mm3_per_s": build.EFFECTIVE_FLOW_MM3_PER_S,
+            "print_skin_mm": build.PRINT_SKIN_MM,
+            "effective_infill_fraction": build.EFFECTIVE_INFILL_FRACTION,
         },
     }
     harness.emit(report)

@@ -45,6 +45,27 @@ pub const BASE_HEIGHT_MM: f64 = 4.75;
 /// height; it is not subtracted from the interior.
 pub const LIP_HEIGHT_MM: f64 = 4.4;
 
+/// Stacking-lip bottom chamfer; mirrors
+/// `cad/gridfinity.py::LIP_BOTTOM_CHAMFER`.
+pub const LIP_BOTTOM_CHAMFER_MM: f64 = 0.7;
+
+/// Stacking-lip vertical section; mirrors `cad/gridfinity.py::LIP_VERTICAL`.
+pub const LIP_VERTICAL_MM: f64 = 1.8;
+
+/// Stacking-lip top chamfer; mirrors `cad/gridfinity.py::LIP_TOP_CHAMFER`.
+pub const LIP_TOP_CHAMFER_MM: f64 = 1.9;
+
+/// Cross-section area of the printed lip ring, per millimetre of perimeter.
+///
+/// The lip is a ring, not a cap: its material width measured inward from the
+/// outer face is 2.6 mm at the lip bottom, 1.9 mm through the vertical
+/// section, and zero at the sharp top edge. Integrating those three linear
+/// segments gives 6.8 mm2.
+pub const LIP_RING_MM2: f64 =
+    0.5 * LIP_BOTTOM_CHAMFER_MM * (LIP_TOP_CHAMFER_MM + LIP_BOTTOM_CHAMFER_MM + LIP_TOP_CHAMFER_MM)
+        + LIP_VERTICAL_MM * LIP_TOP_CHAMFER_MM
+        + 0.5 * LIP_TOP_CHAMFER_MM * LIP_TOP_CHAMFER_MM;
+
 /// Floor slab above the pinned base profile, standard §4; mirrors
 /// `cad/shell.py::FLOOR`. The profile's top face cannot be continuous across
 /// the per-cell feet (the 0.5 mm grooves must stay open to the baseplate's
@@ -99,19 +120,33 @@ pub const MAX_TREE_DEPTH: u32 = 32;
 /// `cad/build.py::PETG_DENSITY_G_PER_CM3`.
 pub const PETG_DENSITY_G_PER_CM3: f64 = 1.27;
 
-/// Conservative effective extrusion throughput used by the estimate.
+/// Solid skins on the printed base zone: 5 bottom plus 5 top shells at
+/// 0.20 mm each (standard §5). The base zone is the only region thicker than
+/// the 2.0 mm wall, so it is the only region the slicer fills with infill.
+/// Mirrored by `cad/build.py::PRINT_SKIN_MM`.
+pub const PRINT_SKIN_MM: f64 = 2.0;
+
+/// Effective solid fraction of the standard 40% gyroid infill inside the base
+/// zone. Calibrated against the measured 4 × 4 × 12U slicer result (234 g,
+/// 6h26m at the standard recipe, body only); the gyroid's actual material
+/// fraction is about half its nominal density. Mirrored by
+/// `cad/build.py::EFFECTIVE_INFILL_FRACTION`.
+pub const EFFECTIVE_INFILL_FRACTION: f64 = 0.21;
+
+/// Effective extrusion throughput used by the estimate.
 ///
 /// PETG on a 0.4 mm nozzle at 0.20 mm layers does not sustain the slicer's
 /// peak volumetric flow over a whole print. This figure averages walls,
-/// shells, infill and travel; it is an estimate input, not a slicer setting.
-/// Mirrored by `cad/build.py::EFFECTIVE_FLOW_MM3_PER_S`.
-pub const EFFECTIVE_FLOW_MM3_PER_S: f64 = 5.5;
+/// shells, infill and travel, and is calibrated against the same 4 × 4 × 12U
+/// slicer result (234 g in 6h26m). It is an estimate input, not a slicer
+/// setting. Mirrored by `cad/build.py::EFFECTIVE_FLOW_MM3_PER_S`.
+pub const EFFECTIVE_FLOW_MM3_PER_S: f64 = 8.0;
 
 /// Estimated mass above this value is a warning (contract §7).
-pub const MAX_MASS_G: f64 = 550.0;
+pub const MAX_MASS_G: f64 = 500.0;
 
 /// Estimated print time above this value is a warning (contract §7).
-pub const MAX_PRINT_HOURS: f64 = 22.0;
+pub const MAX_PRINT_HOURS: f64 = 20.0;
 
 /// Smallest footprint side the schema accepts, in Gridfinity units (contract §3).
 pub const MIN_FOOTPRINT_UNITS: u32 = 1;
@@ -120,8 +155,8 @@ pub const MIN_FOOTPRINT_UNITS: u32 = 1;
 /// standard §9/§12).
 pub const MAX_FOOTPRINT_UNITS: u32 = 4;
 
-/// Heights the schema accepts (contract §3).
-pub const HEIGHTS_U: [u32; 4] = [3, 6, 9, 12];
+/// Heights the schema accepts (contract §3, standard §2/§4.2).
+pub const HEIGHTS_U: [u32; 6] = [3, 6, 9, 12, 15, 18];
 
 /// Default height for a new box (standard §9: 6U is the universal default).
 pub const DEFAULT_HEIGHT_U: u32 = 6;
@@ -313,34 +348,64 @@ impl BodyGeometry {
         violations
     }
 
-    /// Simple, deliberately conservative print estimate for one body and lid.
+    /// Area of the rounded outer footprint, in square millimetres.
+    fn footprint_area_mm2(&self) -> f64 {
+        let corner_loss = 4.0 - std::f64::consts::PI;
+        self.outer_width_mm * self.outer_depth_mm - corner_loss * OUTER_RADIUS_MM.powi(2)
+    }
+
+    /// Area of the rounded interior opening, in square millimetres.
+    fn interior_area_mm2(&self) -> f64 {
+        let corner_loss = 4.0 - std::f64::consts::PI;
+        self.interior_width_mm * self.interior_depth_mm - corner_loss * INNER_RADIUS_MM.powi(2)
+    }
+
+    /// Outer perimeter of the rounded footprint, in millimetres.
+    fn outer_perimeter_mm(&self) -> f64 {
+        let corner_loss = 8.0 - 2.0 * std::f64::consts::PI;
+        2.0 * (self.outer_width_mm + self.outer_depth_mm) - corner_loss * OUTER_RADIUS_MM
+    }
+
+    /// Estimated printed material and print time for one body and lid.
     ///
-    /// Assumptions:
-    /// - The body is a closed prism: outer box volume minus the interior
-    ///   cavity. The base zone below the floor is solid (ADR-0013) and the
-    ///   0.8 mm floor slab sits on it (ADR-0014), so the
-    ///   estimate treats the interior as a single void; the rounded corners,
-    ///   the base grooves, and the lip still make it an overestimate.
-    /// - Every divider is 2.0 mm thick, spans its parent rectangle, and is
-    ///   [`BodyGeometry::divider_height_mm`] tall.
-    /// - The lid adds a 2.0 mm plate plus a 2.0 mm x 2.0 mm skirt; the 20 mm
-    ///   finger hole is ignored.
-    /// - PETG Basic density is 1.27 g/cm3.
-    /// - Effective extrusion throughput is 5.5 mm3/s. Travel, acceleration,
-    ///   cooling and slicer settings are not modelled.
+    /// The estimate models the standard §5 print recipe, not the solid model:
+    /// - The body wall and every divider are 2.0 mm, exactly five 0.4 mm
+    ///   loops, so they print solid.
+    /// - The lip is a ring, not a cap: [`LIP_RING_MM2`] per millimetre of
+    ///   footprint perimeter, printed solid.
+    /// - The solid base zone (ADR-0013/0014) is 5.55 mm thick, so the slicer
+    ///   gives it 1.0 mm bottom and 1.0 mm top skins and fills the remaining
+    ///   3.55 mm with the standard 40% gyroid at
+    ///   [`EFFECTIVE_INFILL_FRACTION`] effective material.
+    /// - Dividers are passed in as their solid plate volume; the junction
+    ///   coves are ignored (about 1% of a plate).
+    /// - The lid is a 2.0 mm plate plus a 2.0 mm × 2.0 mm skirt, printed
+    ///   solid; the 20 mm finger hole is ignored.
+    /// - PETG Basic density is 1.27 g/cm3 and effective throughput is
+    ///   [`EFFECTIVE_FLOW_MM3_PER_S`]. Travel, acceleration, cooling and
+    ///   slicer differences are not modelled.
+    ///
+    /// The 4 × 4 × 12U body comes out at 234 g and 6.4 h, matching the
+    /// measured slicer result (234 g, 6h26m).
     pub fn estimate(&self, divider_volume_mm3: f64, lid: bool) -> Estimate {
-        let outer_volume_mm3 = self.outer_width_mm * self.outer_depth_mm * self.total_height_mm;
-        let interior_volume_mm3 = self.interior_width_mm.max(0.0)
-            * self.interior_depth_mm.max(0.0)
+        let footprint_area_mm2 = self.footprint_area_mm2();
+        let wall_volume_mm3 = (footprint_area_mm2 - self.interior_area_mm2()).max(0.0)
             * self.interior_height_mm.max(0.0);
-        let shell_volume_mm3 = (outer_volume_mm3 - interior_volume_mm3).max(0.0);
+        let base_printed_mm =
+            PRINT_SKIN_MM + EFFECTIVE_INFILL_FRACTION * (FLOOR_TOP_MM - PRINT_SKIN_MM).max(0.0);
+        let base_volume_mm3 = footprint_area_mm2 * base_printed_mm;
+        let lip_volume_mm3 = self.outer_perimeter_mm() * LIP_RING_MM2;
         let lid_volume_mm3 = if lid {
-            self.outer_width_mm * self.outer_depth_mm * LID_PLATE_MM
-                + 2.0 * (self.outer_width_mm + self.outer_depth_mm) * LID_SKIRT_MM * LID_SKIRT_MM
+            footprint_area_mm2 * LID_PLATE_MM
+                + self.outer_perimeter_mm() * LID_SKIRT_MM * LID_SKIRT_MM
         } else {
             0.0
         };
-        let volume_mm3 = shell_volume_mm3 + divider_volume_mm3.max(0.0) + lid_volume_mm3;
+        let volume_mm3 = base_volume_mm3
+            + wall_volume_mm3
+            + lip_volume_mm3
+            + divider_volume_mm3.max(0.0)
+            + lid_volume_mm3;
 
         Estimate {
             volume_mm3,
@@ -350,10 +415,11 @@ impl BodyGeometry {
     }
 }
 
-/// Estimated printed mass and time for one body and lid.
+/// Estimated printed material and time for one body and lid.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Estimate {
-    /// Estimated solid volume in cubic millimetres.
+    /// Estimated printed material volume in cubic millimetres (not the solid
+    /// model volume).
     pub volume_mm3: f64,
     /// Estimated mass in grams.
     pub mass_g: f64,
@@ -1342,7 +1408,7 @@ mod tests {
         assert_eq!(LID_FINGER_HOLE_EDGE_DISTANCE_MM, 14.0);
         assert_eq!(LID_RIB_MM, 0.15);
         assert_eq!((MIN_FOOTPRINT_UNITS, MAX_FOOTPRINT_UNITS), (1, 4));
-        assert_eq!(HEIGHTS_U, [3, 6, 9, 12]);
+        assert_eq!(HEIGHTS_U, [3, 6, 9, 12, 15, 18]);
         assert_eq!(DEFAULT_HEIGHT_U, 6);
         assert_eq!(MIN_LEAF_MM, 12);
         assert_eq!(WARN_LEAF_MM, 15);
@@ -1586,17 +1652,45 @@ mod tests {
         let without_lid = body().estimate(report.divider_volume_mm3, false);
 
         assert!(
-            (300.0..550.0).contains(&with_lid.mass_g),
+            (180.0..320.0).contains(&with_lid.mass_g),
             "mass {} g",
             with_lid.mass_g
         );
         assert!(
-            (10.0..22.0).contains(&with_lid.print_hours),
+            (4.0..10.0).contains(&with_lid.print_hours),
             "print time {} h",
             with_lid.print_hours
         );
         assert!(without_lid.mass_g < with_lid.mass_g);
         assert!(without_lid.print_hours < with_lid.print_hours);
+    }
+
+    /// The calibration point: a 4 × 4 × 12U body with no dividers and no lid
+    /// matches the measured slicer result (234 g, 6h26m).
+    #[test]
+    fn the_4x4_12u_estimate_matches_the_slicer() {
+        let estimate = BodyGeometry::new([4, 4], 12).estimate(0.0, false);
+
+        assert!((233.0..236.0).contains(&estimate.mass_g), "{estimate:?}");
+        assert!((6.3..6.5).contains(&estimate.print_hours), "{estimate:?}");
+    }
+
+    #[test]
+    fn every_accepted_height_has_a_sane_estimate() {
+        for height_u in HEIGHTS_U {
+            let estimate = BodyGeometry::new([4, 4], height_u).estimate(0.0, false);
+
+            assert!(
+                estimate.mass_g > 100.0,
+                "{height_u}U mass {} g",
+                estimate.mass_g
+            );
+            assert!(
+                estimate.print_hours < MAX_PRINT_HOURS,
+                "{height_u}U time {} h",
+                estimate.print_hours
+            );
+        }
     }
 
     #[test]

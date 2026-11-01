@@ -31,10 +31,12 @@ Interior diagonal: **231.2 mm** for 4 × 4. An item can lie diagonally if its le
 | 6U | 42.0 mm | 46.4 mm | 36.45 mm | Default: pens, measuring equipment, hand tools |
 | 9U | 63.0 mm | 67.4 mm | 57.45 mm | Cables, medium tools, power supplies |
 | 12U | 84.0 mm | 88.4 mm | 78.45 mm | Bulky cables, large tools; shelf or deep drawer |
+| 15U | 105.0 mm | 109.4 mm | 99.45 mm | Deep drawer storage; cable rolls, tall tools |
+| 18U | 126.0 mm | 130.4 mm | 120.45 mm | Maximum height; deep drawer or open shelf only |
 
 The body height is `U × 7`; the official 4.4 mm lip sits above it. Stack pitch is `U × 7 − 0.35 mm`, and lids are top-only.
 
-Maximum height is 12U. 6U is the most universally compatible height and the default for new boxes. See [`docs/research/furniture-dimensions.md`](research/furniture-dimensions.md).
+Maximum height is 18U. 6U is the most universally compatible height and the default for new boxes; 15U and 18U are exceptions for deep drawers and open shelves. See [`docs/research/furniture-dimensions.md`](research/furniture-dimensions.md).
 
 ## 3. Recommended combinations
 
@@ -47,6 +49,7 @@ Maximum height is 12U. 6U is the most universally compatible height and the defa
 | Measuring equipment | 3 × 3 or 4 × 4 | 6U | Custom divisions per instrument |
 | USB and power cables | 2 × 4 or 4 × 4 | 9U | Two to four medium compartments |
 | Bulky cables and power bricks | 4 × 4 | 12U | One or two large compartments |
+| Cable rolls and tall tools | 4 × 4 | 15U or 18U | One or two large compartments; open shelf or deep drawer |
 
 ## 4. Stack groups
 
@@ -61,7 +64,7 @@ Bodies stack only with the same footprint. Mixed footprints tile a 4 × 4 basepl
 | E | 1 × 4 | 3 high | Thin long tools |
 | F | smaller footprints | 3 high | Light contents; keep stacks shallow |
 
-For 12U bodies, prefer 2-high stacks on shelves with limited clearance; 2 × 12U = 172.05 mm. Do not mix SYS-1.0 legacy bodies (12U = 84 mm) with SYS-2.0 bodies in one height-critical stack.
+For 12U bodies, prefer 2-high stacks on shelves with limited clearance; 2 × 12U = 172.05 mm. A 15U body is 109.4 mm and an 18U body 130.4 mm, so plan them as a single layer unless the shelf is unusually tall (2 × 18U = 259.6 mm). Do not mix SYS-1.0 legacy bodies (12U = 84 mm) with SYS-2.0 bodies in one height-critical stack.
 
 ## 5. Baseplates
 

@@ -22,7 +22,7 @@ The system is:
 | Fixed (the architecture) | Variable (per-box data) |
 | --- | --- |
 | Gridfinity base profile | Footprint N × M (1 × 1 to 4 × 4) |
-| Gridfinity stacking lip | Height U (3U, 6U, 9U, 12U; default 6U) |
+| Gridfinity stacking lip | Height U (3U, 6U, 9U, 12U, 15U, 18U; default 6U) |
 | 2.0 mm walls; solid 4.75 mm base zone + 0.8 mm floor slab | Compartment division tree |
 | 2.0 mm integral dividers | Notes and contents record |
 | Inset friction lid | |
@@ -98,8 +98,10 @@ interior_depth = U × 7 − 4.75 (solid base profile) − 0.8 (floor slab) = U �
 | 6U | 42.0 mm | 46.4 mm | 36.45 mm | Universal default: pens, tools, measuring equipment |
 | 9U | 63.0 mm | 67.4 mm | 57.45 mm | Cables, medium tools, power supplies |
 | 12U | 84.0 mm | 88.4 mm | 78.45 mm | Bulky cables, large tools; shelf or deep drawer only |
+| 15U | 105.0 mm | 109.4 mm | 99.45 mm | Deep drawer storage; rolls of cable, tall tools |
+| 18U | 126.0 mm | 130.4 mm | 120.45 mm | Maximum height; deep drawer or open shelf only |
 
-The floor is the top of the 0.8 mm slab at 5.55 mm; the base profile below it is solid and its 0.5 mm grooves stay open to the baseplate plane. The lip does not reduce the interior. The lid skirt intrudes 1.0 mm below the lip bottom; the sizing rules leave 2 mm below the lid, which covers it. The generator reports the exact usable depth from the model; the table is the design figure. The default height is **6U**; see section 9.
+The floor is the top of the 0.8 mm slab at 5.55 mm; the base profile below it is solid and its 0.5 mm grooves stay open to the baseplate plane. The lip does not reduce the interior. The lid skirt intrudes 1.0 mm below the lip bottom; the sizing rules leave 2 mm below the lid, which covers it. The generator reports the exact usable depth from the model; the table is the design figure. The default height is **6U**; see section 9. The 15U and 18U heights were added to the SYS-2.0 set on 2026-11-01; they change nothing about the architecture.
 
 ### 4.3 Compartment division tree
 
@@ -181,11 +183,11 @@ Every body, lid, and coupon uses the same recipe. The recipe is part of the desi
 | Drying | 65 °C for 8 h if the spool was exposed to >50% RH for >72 h |
 | Removal | Let the plate cool before removing parts; remove the brim and deburr |
 
-- With 5 wall loops and 5 top/bottom shells at 0.2 mm, the 2.0 mm walls are fully solid and the solid base zone prints its 1 mm bottom and top shells around 40% infill; the infill setting only matters for that base band and any other region thicker than the shells.
+- With 5 wall loops and 5 top/bottom shells at 0.2 mm, the 2.0 mm walls are fully solid and the solid base zone prints its 1 mm bottom and top shells around 40% infill; the infill setting only matters for that base band and any other region thicker than the shells. The 40% gyroid setting consumes about 21% solid material in that band, which is the effective fraction the generator's estimate uses (calibrated on the 4 × 4 × 12U body: 234 g, 6 h 26 min).
 - Do not substitute PLA, ABS, PETG-CF, or PETG HF for production bodies. PETG Basic is the standard because its impact and layer strengths are known and validated by the coupon.
 - Do not use variable layer height or adaptive layers on the lip or lid interface.
 - The 4 × 4 body is 167.5 mm wide and leaves about 44 mm per side on the X2D bed, so the 5 mm brim fits comfortably.
-- Expect roughly 200–550 g and 8–22 hours per body depending on height; the generator reports exact estimates.
+- Expect roughly 130–380 g and 3.5–10.5 hours per 4 × 4 body depending on height (including the optional lid at the top of that range); smaller footprints are lighter. The generator reports exact estimates.
 
 ## 6. Tolerances and fit classes
 
@@ -227,8 +229,8 @@ The system is designed to fit common furniture without knowing the current shelv
 | IKEA Kallax cube | 336 × 336 × 390 mm | Two 2 × 4 bodies (167 mm) or four 2 × 2 bodies; a 4 × 4 body with room to spare |
 | IKEA Kallax drawer insert | ~70 mm interior height | A single 6U body (46.4 mm) easily; 9U (67.4 mm) with little clearance; not 12U |
 | IKEA Billy bookcase | Adjustable shelves, typically ≥200 mm; 30 kg per shelf | A 3-high stack of 6U (129.7 mm) or 9U (192.7 mm); 12U prefers 2-high (172.05 mm) |
-| Kitchen / desk drawers | Roughly 70–200 mm | 6U and 9U in most; 12U only in deep drawers |
-| Open shelf | ≥200 mm | 3-high 6U or 9U; 2-high 12U |
+| Kitchen / desk drawers | Roughly 70–200 mm | 6U and 9U in most; 12U and 15U only in deep drawers; 18U needs at least 130.4 mm |
+| Open shelf | ≥200 mm | 3-high 6U or 9U; 2-high 12U; a single 18U |
 
 **Default height: 6U.** It is the most universally compatible single height, and three stacked are 129.7 mm. Taller boxes are exceptions for cables and bulky items, not the default.
 
@@ -259,7 +261,7 @@ The step-by-step workflow, the generator contract, and the FreeCAD patterns are 
 
 ## 12. Confirmed decisions
 
-`SYS-2.0` was approved as the default on 2026-10-20; all nine calibration tests are considered complete. All of the following are locked; any change requires a system version bump and an ADR.
+`SYS-2.0` was approved as the default on 2026-10-20; all nine calibration tests are considered complete. All of the following are locked; any change requires a system version bump and an ADR. The 15U and 18U heights (added 2026-11-01) are a recorded exception: they widen the variable height set and change no fixed property, so they stay under SYS-2.0.
 
 SYS-2.0 supersedes SYS-1.0. It adopts the official Gridfinity 4.4 mm stacking lip and height convention ([ADR-0015](adr/0015-official-gridfinity-height-and-lip.md)) and makes lids top-only ([ADR-0016](adr/0016-top-only-lids-and-stack-pitch.md)). SYS-1.0 bodies are legacy: they remain mechanically stackable with each other and fit baseplates, but they are not SYS-2.0 height classes. SYS-1.0's 12U is 84.0 mm; SYS-2.0's is 88.4 mm. Old lids fit both because the lid's shape relative to the lip bottom is unchanged. The SYS-1.0 calibration record remains history; the SYS-2.0 calibration is accepted as complete (owner sign-off 2026-10-20). The two pre-release corrections [ADR-0013](adr/0013-solid-base.md) and [ADR-0014](adr/0014-floor-slab-above-base-profile.md) remain in force.
 
@@ -270,6 +272,8 @@ SYS-2.0 supersedes SYS-1.0. It adopts the official Gridfinity 4.4 mm stacking li
 | 6U | 42.0 mm | 46.4 mm |
 | 9U | 63.0 mm | 67.4 mm |
 | 12U | 84.0 mm | 88.4 mm |
+| 15U | — | 109.4 mm |
+| 18U | — | 130.4 mm |
 
 Do not mix SYS-1.0 and SYS-2.0 bodies in one height-critical stack. A 4.4 mm riser under a SYS-1.0 body of height U matches the SYS-2.0 outer height of the same U on a shelf, but it does not add interior depth and does not change the legacy lip. Old SYS-1.0 lids fit SYS-2.0 bodies; keep them for the top body.
 
@@ -279,7 +283,7 @@ Do not mix SYS-1.0 and SYS-2.0 bodies in one height-critical stack. A 4.4 mm ris
 | 1a | Gridfinity interface | Official 4.4 mm lip (0.7 + 1.8 + 1.9); body height `U × 7` excludes the lip; overall `U × 7 + 4.4` (ADR-0015) |
 | 2 | Compartment model | Recursive division tree with 1 mm positions |
 | 3 | Divider height | Interior depth − 10 mm; 3U uses interior depth − 2 mm |
-| 4 | Default height | 6U; 3U/9U/12U as exceptions |
+| 4 | Default height | 6U; 3U/9U/12U/15U/18U as exceptions |
 | 5 | Floor | 0.8 mm slab above the base profile; no deflection fallback (ADR-0014) |
 | 6 | Corner radii | Outer 3.75, inner 1.75, joints 2.0, lid 1.40 |
 | 7 | Generator | Rust CLI, YAML specs, FreeCAD Python master, `freecadcmd` |

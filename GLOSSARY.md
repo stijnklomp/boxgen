@@ -61,5 +61,5 @@ The `boxgen serve` command: the one local web UI (v2, ADR-0002) over the same te
 _Avoid_: web app, frontend, dashboard.
 
 **Standard preset**:
-The UI editor's fixed starting design: 4 × 4 · 6U · lid · ribs. The SYS-1.0 calibration is historical; SYS-2.0 is approved as the default (2026-10-20), with its nine calibration tests accepted as complete. Every legal deviation (3/9/12U, another footprint, lid or ribs off) shows an amber "custom" badge with a diff; red is reserved for invalid, and resetting to the preset is always one click.
+The UI editor's fixed starting design: 4 × 4 · 6U · lid · ribs. The SYS-1.0 calibration is historical; SYS-2.0 is approved as the default (2026-10-20), with its nine calibration tests accepted as complete. Every legal deviation (3/9/12/15/18U, another footprint, lid or ribs off) shows an amber "custom" badge with a diff; red is reserved for invalid, and resetting to the preset is always one click.
 _Avoid_: default box, sample, template.

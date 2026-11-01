@@ -45,7 +45,7 @@ The Rust template's layering, typed config, logging, error contract, and `just` 
 system: SYS-2.0
 id: 4x4-6U-usb-cables-v1
 footprint: [4, 4]        # units, 1..4 each
-height_u: 6              # 3, 6, 9, or 12
+height_u: 6              # 3, 6, 9, 12, 15, or 18
 lid: true
 notes: "USB-C and power cables"
 
@@ -71,7 +71,7 @@ Fields:
 | `system` | yes | Must be `SYS-2.0` for this contract. |
 | `id` | yes | `^[a-z0-9]+(-[a-z0-9]+)*$`; used as the folder name. |
 | `footprint` | yes | `[N, M]`, each 1–4. The larger number is not required to be first; the body is generated as given. |
-| `height_u` | yes | 3, 6, 9, or 12. Counts the nominal body height to the lip bottom; the official 4.4 mm lip is above it. |
+| `height_u` | yes | 3, 6, 9, 12, 15, or 18. Counts the nominal body height to the lip bottom; the official 4.4 mm lip is above it. |
 | `lid` | yes | `true` or `false`. |
 | `notes` | no | Free text for `notes.md`. |
 | `divisions` | yes | Root division node; see section 4. |
@@ -186,7 +186,7 @@ The generator enforces the standard:
 | --- | --- |
 | `system == SYS-2.0` | error otherwise |
 | `footprint` each 1–4 | error otherwise |
-| `height_u` in {3, 6, 9, 12} | error otherwise |
+| `height_u` in {3, 6, 9, 12, 15, 18} | error otherwise |
 | `lid` boolean | error otherwise |
 | Division tree valid | error/warning per section 4 |
 | Body fits the X2D | error if outer > 200 mm in any direction (the 4 × 4 maximum is 167.5 mm, so this is a guard) |

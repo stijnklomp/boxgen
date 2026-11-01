@@ -1503,7 +1503,7 @@ async fn fit_matches_the_spec_contents_cases() {
 
         for n in 1..=4u32 {
             for m in 1..=4u32 {
-                for height_u in [3u32, 6, 9, 12] {
+                for height_u in boxgen::tree::HEIGHTS_U {
                     let clean = contents_warning_free(&FitCase {
                         n,
                         m,

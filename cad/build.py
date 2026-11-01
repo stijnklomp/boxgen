@@ -28,15 +28,20 @@ T-divider from :func:`cad.dividers.build_coupon_divider` into the shell and
 records it in the report's ``coupon`` section. The closed user schema never
 accepts the flag; only ``boxgen coupon`` sets it.
 
-Mass and print-time estimates use the measured body and lid volume with the
-same documented constants as ``src/tree.rs``: PETG 1.27 g/cm3 and 5.5 mm3/s
-effective flow. Using the built volume is more accurate than the analytic
-estimate and keeps ``report.json`` a description of the geometry that was
-actually produced.
+Mass and print-time estimates model the standard print recipe, not the solid
+geometry: the base zone is the only region thicker than the 2.0 mm wall, so it
+prints with 1.0 mm top and bottom skins around the 40% gyroid infill, while the
+wall, lip ring, dividers, and lid print solid. The measured body volume is
+reduced by the difference between its solid base zone and that printed
+equivalent, so ``report.json`` keeps the measured geometry facts and reports
+the material the slicer actually lays down. The constants are mirrored from
+``src/tree.rs``: PETG 1.27 g/cm3, 2.0 mm skins, 0.21 effective infill fraction,
+8.0 mm3/s effective flow.
 """
 
 from __future__ import annotations
 
+import math
 import os
 
 import FreeCAD as App
@@ -44,6 +49,7 @@ import Import
 import MeshPart
 
 from . import dividers as dividers_module
+from . import gridfinity
 from . import lid as lid_module
 from . import shell
 
@@ -52,9 +58,17 @@ __all__ = ["build"]
 #: PETG Basic density, mirrored from ``tree::PETG_DENSITY_G_PER_CM3``.
 PETG_DENSITY_G_PER_CM3 = 1.27
 
-#: Conservative effective extrusion throughput, mirrored from
+#: Effective extrusion throughput, mirrored from
 #: ``tree::EFFECTIVE_FLOW_MM3_PER_S``.
-EFFECTIVE_FLOW_MM3_PER_S = 5.5
+EFFECTIVE_FLOW_MM3_PER_S = 8.0
+
+#: Solid top plus bottom skins on the printed base zone, mirrored from
+#: ``tree::PRINT_SKIN_MM`` (5 + 5 shells at 0.20 mm).
+PRINT_SKIN_MM = 2.0
+
+#: Effective solid fraction of the standard 40% gyroid in the base zone,
+#: mirrored from ``tree::EFFECTIVE_INFILL_FRACTION``.
+EFFECTIVE_INFILL_FRACTION = 0.21
 
 #: STL tessellation. A 0.05 mm chord error is invisible at a 0.4 mm nozzle
 #: and produces a watertight, deterministic binary mesh.
@@ -76,6 +90,36 @@ def _bbox(shape) -> dict[str, float]:
         "z_min": _round(box.ZMin),
         "z_max": _round(box.ZMax),
     }
+
+
+def _footprint_area_mm2(units_x: int, units_y: int) -> float:
+    """Rounded footprint area, the same formula as ``tree.rs``."""
+    width = gridfinity.outer_width(units_x)
+    depth = gridfinity.outer_width(units_y)
+    corner_loss = 4.0 - math.pi
+    return width * depth - corner_loss * gridfinity.OUTER_RADIUS**2
+
+
+def _printed_volume_mm3(
+    body_volume_mm3: float,
+    lid_volume_mm3: float,
+    units_x: int,
+    units_y: int,
+) -> float:
+    """Convert the measured solid volume to the material the slicer prints.
+
+    Only the solid base zone carries infill: 1.0 mm bottom plus 1.0 mm top
+    skins around ``EFFECTIVE_INFILL_FRACTION`` of the remaining thickness. The
+    wall, lip ring, dividers, and lid are all at most 2.0 mm and print solid.
+    """
+    area_mm2 = _footprint_area_mm2(units_x, units_y)
+    solid_base_mm3 = area_mm2 * shell.FLOOR_TOP
+    printed_base_mm = PRINT_SKIN_MM + EFFECTIVE_INFILL_FRACTION * max(
+        shell.FLOOR_TOP - PRINT_SKIN_MM, 0.0
+    )
+    printed_base_mm3 = area_mm2 * printed_base_mm
+    printed_body_mm3 = body_volume_mm3 - max(solid_base_mm3 - printed_base_mm3, 0.0)
+    return max(printed_body_mm3, 0.0) + lid_volume_mm3
 
 
 def _check_spec(spec: dict) -> tuple[shell.BodySpec, bool, bool, bool]:
@@ -246,7 +290,13 @@ def build(spec: dict, out_dir: str) -> dict:
         )
         lid_mesh.write(lid_stl_path)
 
-    volume_mm3 = body.Volume + (lid_shape.Volume if lid_shape is not None else 0.0)
+    lid_volume_mm3 = lid_shape.Volume if lid_shape is not None else 0.0
+    printed_volume_mm3 = _printed_volume_mm3(
+        body.Volume,
+        lid_volume_mm3,
+        body_spec.units_x,
+        body_spec.units_y,
+    )
     shells = body.Shells
     floor_fillet_mm = float(body_result.floor_fillet_mm)
     warnings = []
@@ -286,9 +336,9 @@ def build(spec: dict, out_dir: str) -> dict:
             "box_step_bytes": os.path.getsize(step_path),
             "body_stl_bytes": os.path.getsize(stl_path),
         },
-        "mass_g": _round(volume_mm3 / 1000.0 * PETG_DENSITY_G_PER_CM3, 2),
+        "mass_g": _round(printed_volume_mm3 / 1000.0 * PETG_DENSITY_G_PER_CM3, 2),
         "print_time_h": _round(
-            volume_mm3 / EFFECTIVE_FLOW_MM3_PER_S / 3600.0, 2
+            printed_volume_mm3 / EFFECTIVE_FLOW_MM3_PER_S / 3600.0, 2
         ),
         "warnings": warnings,
     }

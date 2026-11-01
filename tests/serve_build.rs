@@ -1280,7 +1280,7 @@ fn the_cli_build_summary_is_byte_identical_to_the_pinned_block() {
              floor fillet: 2.0 mm (standard 2.0, fallback 1.0)\n\
              stl: 1 facets, 1.0 mm3, watertight\n\
              mass: 23.4 g (body only; PETG 1.27 g/cm3)\n\
-             print time: 0.93 h (at 5.5 mm3/s effective flow)\n\
+             print time: 0.93 h (at 8.0 mm3/s effective flow)\n\
              warnings: none\n\
              artifacts: box.step (1 bytes), body.stl (1 bytes)\n",
             out = out.display()

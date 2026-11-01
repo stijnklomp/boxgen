@@ -43,6 +43,12 @@ fn the_rust_constants_and_the_python_master_agree() {
     );
     assert_mirror("gridfinity.base_height_mm", tree::BASE_HEIGHT_MM);
     assert_mirror("gridfinity.lip_height_mm", tree::LIP_HEIGHT_MM);
+    assert_mirror(
+        "gridfinity.lip_bottom_chamfer_mm",
+        tree::LIP_BOTTOM_CHAMFER_MM,
+    );
+    assert_mirror("gridfinity.lip_vertical_mm", tree::LIP_VERTICAL_MM);
+    assert_mirror("gridfinity.lip_top_chamfer_mm", tree::LIP_TOP_CHAMFER_MM);
     assert_mirror("gridfinity.outer_radius_mm", tree::OUTER_RADIUS_MM);
 
     assert_mirror("shell.wall_mm", tree::WALL_MM);
@@ -78,5 +84,10 @@ fn the_rust_constants_and_the_python_master_agree() {
     assert_mirror(
         "estimate.effective_flow_mm3_per_s",
         tree::EFFECTIVE_FLOW_MM3_PER_S,
+    );
+    assert_mirror("estimate.print_skin_mm", tree::PRINT_SKIN_MM);
+    assert_mirror(
+        "estimate.effective_infill_fraction",
+        tree::EFFECTIVE_INFILL_FRACTION,
     );
 }

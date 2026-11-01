@@ -1,6 +1,38 @@
 system: SYS-2.0
-id: 4x4-12u-heavy-v1
+id: 4x4-18u-heavy-v1
 footprint: [4, 4]
-height_u: 12
+height_u: 18
 lid: true
-divisions: { compartment: "Everything" }
+divisions:
+  axis: x
+  at_mm: 16
+  near: { compartment: S0 }
+  far:
+    axis: x
+    at_mm: 16
+    near: { compartment: S1 }
+    far:
+      axis: x
+      at_mm: 16
+      near: { compartment: S2 }
+      far:
+        axis: x
+        at_mm: 16
+        near: { compartment: S3 }
+        far:
+          axis: x
+          at_mm: 16
+          near: { compartment: S4 }
+          far:
+            axis: x
+            at_mm: 16
+            near: { compartment: S5 }
+            far:
+              axis: x
+              at_mm: 16
+              near: { compartment: S6 }
+              far:
+                axis: x
+                at_mm: 16
+                near: { compartment: S7 }
+                far: { compartment: S8 }

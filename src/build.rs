@@ -1317,9 +1317,9 @@ pub struct BuildReport {
     pub lid_stl: Option<StlReport>,
     /// Sizes of the exported print files, measured by the master.
     pub artifacts: ArtifactSizes,
-    /// Measured mass estimate.
+    /// Estimated printed mass for the standard recipe.
     pub mass_g: f64,
-    /// Measured print-time estimate.
+    /// Estimated print time at the standard effective flow.
     pub print_time_h: f64,
     /// Advisory findings (Python-side and Rust validation warnings).
     #[serde(default)]
@@ -1987,7 +1987,7 @@ mod tests {
              floor fillet: 2.0 mm (standard 2.0, fallback 1.0)\n\
              stl: 1234 facets, 18301.0 mm3, watertight\n\
              mass: 23.4 g (body only; PETG 1.27 g/cm3)\n\
-             print time: 0.93 h (at 5.5 mm3/s effective flow)\n\
+             print time: 0.93 h (at 8.0 mm3/s effective flow)\n\
              warnings: none\n\
              artifacts: box.step (123456 bytes), body.stl (234567 bytes)\n"
         );
@@ -2040,7 +2040,7 @@ mod tests {
              floor fillet: 2.0 mm (standard 2.0, fallback 1.0)\n\
              stl: 999 facets, 99000.0 mm3, watertight\n\
              mass: 130.0 g (body + lid; PETG 1.27 g/cm3)\n\
-             print time: 5.25 h (at 5.5 mm3/s effective flow)\n\
+             print time: 5.25 h (at 8.0 mm3/s effective flow)\n\
              warnings:\n  - lid.roundover_mm: the 1.0 mm roundover was rejected; the plate is sharp\n\
              artifacts: box.step (123456 bytes), body.stl (234567 bytes), lid.stl (345678 bytes)\n"
         );
