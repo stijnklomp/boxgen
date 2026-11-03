@@ -99,9 +99,9 @@ pub(crate) async fn open(
 
 /// `POST /api/boxes/{id}/save` — validate and write the canonical spec.
 ///
-/// The `:id` path segment is the registry key: it must be a valid box id and
-/// must equal the design's id (renaming is a non-goal). A missing folder is
-/// created.
+/// The `:id` path segment is the registry key: it must be one OS-safe file name
+/// (see [`spec::is_valid_id`]) and must equal the design's id (renaming is a
+/// non-goal). A missing folder is created.
 pub(crate) async fn save(
     State(workspace): State<Workspace>,
     UrlPath(id): UrlPath<String>,
@@ -111,10 +111,8 @@ pub(crate) async fn save(
 
     if !spec::is_valid_id(&id) {
         return Err(ApiError::invalid(
-            format!("registry key {id:?} is not a valid box id"),
-            vec![format!(
-                "id: {id:?} must be lowercase kebab-case or the standard <N>x<M>-<height>U-<slug>-<rev> form (for example 4x4-6U-usb-cables-v1)"
-            )],
+            format!("registry key {id:?} is not a safe file name"),
+            vec![format!("id: {id:?} {}", spec::ID_RULE_HINT)],
         ));
     }
     if design.id != id {
@@ -186,11 +184,11 @@ fn list_folders(boxes: &Path) -> std::io::Result<Vec<PathBuf>> {
 
 /// Resolves the registry folder for a box id.
 ///
-/// The direct-path shortcut only runs for a valid box id — no separators, so
+/// The direct-path shortcut only runs for an OS-safe name — no separators, so
 /// it can never leave `boxes/`. Because `boxgen index` allows folder names
 /// that differ from the spec id, a miss falls back to scanning the registry
 /// for a spec whose id matches (a pure string comparison). A folder whose name
-/// is not a valid box id is matched by folder name too, so a broken spec
+/// is not an OS-safe id is matched by folder name too, so a broken spec
 /// (whose id cannot be read) is still openable.
 pub(crate) fn find_box(boxes: &Path, id: &str) -> Option<PathBuf> {
     if spec::is_valid_id(id) {

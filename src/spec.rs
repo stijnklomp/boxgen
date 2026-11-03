@@ -455,10 +455,9 @@ impl Spec {
         }
 
         if !is_valid_id(&self.id) {
-            validation.errors.push(format!(
-                "id: {:?} must be lowercase kebab-case or the standard <N>x<M>-<height>U-<slug>-<rev> form (for example 4x4-6U-usb-cables-v1)",
-                self.id
-            ));
+            validation
+                .errors
+                .push(format!("id: {:?} {ID_RULE_HINT}", self.id));
         }
 
         for (index, side) in self.footprint.iter().enumerate() {
@@ -626,58 +625,73 @@ fn write_node(out: &mut String, node: &Node, indent: usize) {
     }
 }
 
-/// Checks the box ID rule, accepting both the contract and standard forms.
+/// The shared explanation of the box ID rule, used by both validators.
 ///
-/// The generator contract §3 states the generic lowercase kebab-case rule
-/// `^[a-z0-9]+(-[a-z0-9]+)*$`, but the frozen SYS-2.0 standard §10 names boxes
-/// `<footprint>-<height>-<slug>-<rev>` with an uppercase height unit, for
-/// example `4x4-6U-usb-cables-v1`. The standard wins, so both forms are valid:
+/// The id is also the registry and build folder name, so this is the one place
+/// the user-facing constraint is spelled out (`validate` and the UI's `save`).
+pub const ID_RULE_HINT: &str = "must be one OS-safe file name: no `/` or `\\`, no control characters, no Windows-reserved characters (`< > : \" | ? *`) or device names (`CON`, `NUL`, `COM1`-`COM9`, ...), no trailing space or dot, and at most 255 bytes";
+
+/// The usual per-component file name limit (`NAME_MAX` on Linux and macOS).
+const MAX_ID_BYTES: usize = 255;
+
+/// Checks the box ID rule: any single, OS-safe file name.
 ///
-/// - generic: `^[a-z0-9]+(-[a-z0-9]+)*$`
-/// - standard: `^[0-9]+x[0-9]+-(3|6|9|12)U-[a-z0-9]+(-[a-z0-9]+)*$`
+/// The id is also the registry folder (`boxes/<id>/`) and the build directory
+/// (`build/<id>/`), so it must be one path component every supported OS can
+/// store. Everything a normal file name may contain is allowed — spaces,
+/// uppercase, dots, underscores, parentheses, and non-ASCII letters — and the
+/// historical kebab-case and standard `<N>x<M>-<height>U-<slug>-<rev>` forms
+/// are just special cases of that.
 ///
-/// Arbitrary uppercase, empty segments, and path separators remain invalid.
+/// Only names that would genuinely break path handling or the file system are
+/// rejected:
+///
+/// - empty, `.`, and `..`
+/// - path separators `/` and `\`
+/// - control characters (NUL, newlines, and the rest)
+/// - the Windows-reserved characters `< > : " | ? *`
+/// - a trailing space or dot (Windows silently drops them)
+/// - Windows device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`,
+///   `LPT1`-`LPT9`, with or without an extension)
+/// - more than 255 bytes
 pub fn is_valid_id(id: &str) -> bool {
-    is_lowercase_kebab(id) || is_standard_box_id(id)
+    !id.is_empty()
+        && id.len() <= MAX_ID_BYTES
+        && id != "."
+        && id != ".."
+        && !id.ends_with(' ')
+        && !id.ends_with('.')
+        && !id.chars().any(is_forbidden_name_char)
+        && !is_windows_device_name(id)
 }
 
-fn is_lowercase_kebab(id: &str) -> bool {
-    id.split('-').all(is_lowercase_alphanumeric_segment)
+fn is_forbidden_name_char(character: char) -> bool {
+    character.is_control()
+        || matches!(
+            character,
+            '/' | '\\' | '<' | '>' | ':' | '"' | '|' | '?' | '*'
+        )
 }
 
-fn is_standard_box_id(id: &str) -> bool {
-    let mut parts = id.split('-');
-    let Some(footprint) = parts.next() else {
-        return false;
-    };
-    let Some(height) = parts.next() else {
-        return false;
-    };
-    let slug = parts.collect::<Vec<_>>();
+fn is_windows_device_name(id: &str) -> bool {
+    let stem = id
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_uppercase();
 
-    is_standard_footprint(footprint)
-        && matches!(height, "3U" | "6U" | "9U" | "12U")
-        && !slug.is_empty()
-        && slug.into_iter().all(is_lowercase_alphanumeric_segment)
-}
+    if matches!(
+        stem.as_str(),
+        "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$" | "CLOCK$"
+    ) {
+        return true;
+    }
 
-fn is_standard_footprint(footprint: &str) -> bool {
-    let Some((width, depth)) = footprint.split_once('x') else {
-        return false;
-    };
-
-    !width.is_empty()
-        && !depth.is_empty()
-        && !depth.contains('x')
-        && width.bytes().all(|byte| byte.is_ascii_digit())
-        && depth.bytes().all(|byte| byte.is_ascii_digit())
-}
-
-fn is_lowercase_alphanumeric_segment(segment: &str) -> bool {
-    !segment.is_empty()
-        && segment
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+    let bytes = stem.as_bytes();
+    bytes.len() == 4
+        && (stem.starts_with("COM") || stem.starts_with("LPT"))
+        && bytes[3].is_ascii_digit()
+        && bytes[3] != b'0'
 }
 
 #[derive(Debug, Deserialize)]
@@ -909,7 +923,7 @@ divisions: { compartment: Bits }
     }
 
     #[test]
-    fn ids_accept_the_generic_and_standard_forms() {
+    fn ids_accept_any_os_safe_file_name() {
         for id in [
             "4x4-6U-usb-cables-v1",
             "4x4-6u-usb-cables-v1",
@@ -919,6 +933,19 @@ divisions: { compartment: Bits }
             "a",
             "1",
             "a-b-c-1",
+            "4x4-6U-USB-v1",
+            "Legacy Box",
+            "My Box v2",
+            "USB cables",
+            "under_score",
+            "double--dash",
+            "trailing-",
+            "a.b",
+            "box (2)",
+            "café",
+            "ÄÖÜ",
+            ".hidden",
+            "100%",
         ] {
             assert!(is_valid_id(id), "{id} must be accepted");
 
@@ -932,25 +959,45 @@ divisions: { compartment: Bits }
     }
 
     #[test]
-    fn invalid_ids_are_rejected() {
+    fn unsafe_file_names_are_rejected() {
         for id in [
-            "4x4-6U-USB-v1",
-            "4x4-6U-",
-            "-4x4-6U-v1",
-            "4x4-6U-a--b-v1",
+            "",
+            ".",
+            "..",
             "4x4-6U-a/b-v1",
             "4x4-6U-a\\b-v1",
-            "4x4-6X-usb-v1",
-            "4x4-6U-usb_cables-v1",
-            "Uppercase",
-            "under_score",
-            "double--dash",
-            "trailing-",
-            "has space",
+            "has\u{0}nul",
+            "has\nnewline",
+            "has\ttab",
+            "4x4-6U-bad:name",
+            "bad<name>",
+            "bad|name",
+            "bad?name",
+            "bad*name",
+            "bad\"name",
+            "trailing ",
+            "trailing.",
+            "CON",
+            "nul",
+            "Nul.txt",
+            "COM1",
+            "com9.log",
+            "LPT1",
+            "lpt9.txt",
+            "CONIN$",
+            "CONOUT$",
+            "CLOCK$",
         ] {
-            assert!(!is_valid_id(id), "{id} must be rejected");
+            assert!(!is_valid_id(id), "{id:?} must be rejected");
+        }
 
-            let yaml = MINIMAL.replace("1x1-3u-bits-v1", id);
+        // The length limit is bytes, not characters.
+        assert!(is_valid_id(&"a".repeat(MAX_ID_BYTES)));
+        assert!(!is_valid_id(&"a".repeat(MAX_ID_BYTES + 1)));
+        assert!(!is_valid_id(&"é".repeat(MAX_ID_BYTES / 2 + 1)));
+
+        for id in ["a/b", "a\\b", "bad:name", "CON", "trailing.", "trailing "] {
+            let yaml = MINIMAL.replace("1x1-3u-bits-v1", &format!("{id:?}"));
             assert_error(&yaml, "id");
         }
     }
@@ -1389,7 +1436,7 @@ divisions: { compartment: Bits }
     fn schema_errors_are_collected_together() {
         let yaml = MINIMAL
             .replace("system: SYS-2.0", "system: SYS-9.9")
-            .replace("1x1-3u-bits-v1", "Bad_ID")
+            .replace("1x1-3u-bits-v1", "bad/name")
             .replace("footprint: [1, 1]", "footprint: [5, 4]")
             .replace("height_u: 3", "height_u: 7");
         let errors = errors(&yaml);

@@ -581,35 +581,53 @@ async fn save_rejects_invalid_designs_with_schema_paths() {
     assert!(!temp.path().join("boxes/4x4-6u-bad-v1/spec.yaml").exists());
 }
 
-/// Save follows the standard layout: a legacy folder name is not a registry
-/// key, so saving through it is refused and the file on disk is untouched.
-/// Open still works for the legacy folder; Save as creates `boxes/<id>/`.
+/// A registry key is one OS-safe file name, so spaces and uppercase are fine:
+/// the folder is created from the name as typed. Only names that would break
+/// path handling or the file system are refused, and the file stays untouched.
 #[tokio::test]
-async fn save_refuses_a_legacy_folder_key() {
+async fn save_accepts_any_os_safe_file_name() {
     let temp = tempfile::tempdir().expect("tempdir");
-    let legacy = fixture("minimal.yaml");
-    write_box(temp.path(), "Legacy Box", &legacy);
     let router = app(workspace(temp.path()));
 
     let (status, body) = json(
         &router,
         "POST",
         "/api/boxes/Legacy%20Box/save",
-        Some(serde_json::json!({ "design": minimal_design("1x1-3u-bits-v1") })),
+        Some(serde_json::json!({ "design": minimal_design("Legacy Box") })),
     )
     .await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert!(
-        body["error"]
-            .as_str()
-            .is_some_and(|error| error.contains("not a valid box id")),
-        "{body}"
-    );
-    assert_eq!(
-        std::fs::read_to_string(temp.path().join("boxes/Legacy Box/spec.yaml")).unwrap(),
-        legacy,
-        "a refused save must not touch the file"
-    );
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["id"], "Legacy Box");
+
+    let written = std::fs::read_to_string(temp.path().join("boxes/Legacy Box/spec.yaml"))
+        .expect("the named folder holds the spec");
+    let spec = boxgen::spec::parse(&written).expect("the saved spec parses");
+    assert_eq!(spec.id, "Legacy Box");
+
+    // Truly unsafe names are still refused, and nothing is written.
+    for (key, design_id) in [
+        ("CON", "CON"),
+        ("a%2Fb", "a/b"),
+        ("%2E%2E", ".."),
+        ("bad%3Aname", "bad:name"),
+    ] {
+        let (status, body) = json(
+            &router,
+            "POST",
+            &format!("/api/boxes/{key}/save"),
+            Some(serde_json::json!({ "design": minimal_design(design_id) })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+        assert!(
+            body["error"]
+                .as_str()
+                .is_some_and(|error| error.contains("safe file name")),
+            "{body}"
+        );
+    }
+    assert!(!temp.path().join("boxes/CON").exists());
+    assert!(!temp.path().join("boxes/a").exists());
 }
 
 #[tokio::test]
@@ -774,7 +792,7 @@ async fn open_an_unknown_box_is_not_found() {
 
 /// A broken spec is listed *and* openable: the editor shows the raw text and
 /// the parse or rule errors, and the file is never lost. A folder whose name
-/// is not a valid box id still resolves by folder name.
+/// differs from the spec id still resolves by folder name.
 #[tokio::test]
 async fn open_shows_errors_for_a_broken_spec() {
     let temp = tempfile::tempdir().expect("tempdir");
@@ -825,7 +843,7 @@ async fn open_shows_errors_for_a_broken_spec() {
         "{body}"
     );
 
-    // A folder name that is not a valid box id resolves by folder name.
+    // A folder name that differs from the spec id resolves by folder name.
     let (status, body) = json(&router, "POST", "/api/boxes/Legacy%20Box/open", None).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["valid"], true);

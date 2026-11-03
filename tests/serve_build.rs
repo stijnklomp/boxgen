@@ -1019,11 +1019,11 @@ async fn publish_verifies_every_artifact_before_the_first_copy() {
     );
 }
 
-/// Publish follows the CLI rule: the target is `boxes/<id>`, so a registry
-/// folder with a legacy name is refused even when the spec inside it matches.
-/// Open and save still tolerate the legacy name; publish never does.
+/// Publish follows the CLI rule: the target is `boxes/<id>`, so a folder that
+/// is not named after the spec id is refused even when the name is OS-safe.
+/// Open and save tolerate the rename; publish never does.
 #[tokio::test]
-async fn publish_refuses_a_legacy_folder_name() {
+async fn publish_refuses_a_folder_not_named_after_the_id() {
     let temp = tempfile::tempdir().expect("tempdir");
     let launcher = launcher(temp.path(), &fake_report("1x1-6U-minimal-v1", false), false);
     let router = app(workspace_with(temp.path(), &launcher));

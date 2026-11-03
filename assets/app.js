@@ -542,12 +542,15 @@ async function openBox(key) {
 
 async function newBoxAction() {
   const answer = window.prompt(
-    "New box id (lowercase kebab-case or <N>x<M>-<height>U-<slug>-<rev>)",
+    "New box name (any file name; letters, spaces, and most punctuation are fine)",
     "1x1-6U-new-box-v1",
   );
   if (answer === null) return;
   const id = answer.trim();
-  if (!id) return;
+  if (!id) {
+    toast("A box needs a name.", { error: true });
+    return;
+  }
   state.key = id;
   state.id = id;
   state.design = presetDesign(id);
@@ -584,7 +587,7 @@ async function duplicateBoxAction(key) {
       });
       return;
     }
-    const answer = window.prompt("Duplicate as a new box id", `${opened.id}-v2`);
+    const answer = window.prompt("Duplicate as a new box name", `${opened.id}-v2`);
     if (answer === null) return;
     const id = answer.trim();
     if (!id || id === opened.id) return;

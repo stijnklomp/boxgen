@@ -1,5 +1,5 @@
 system: SYS-9.9
-id: Bad_ID
+id: bad/name
 footprint: [5, 4]
 height_u: 7
 lid: false

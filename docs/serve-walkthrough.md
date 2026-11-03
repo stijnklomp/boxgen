@@ -30,7 +30,7 @@ walking.
 | # | Step | Expected observation | Result |
 | --- | --- | --- | --- |
 | 1 | Start the UI and open the printed URL. | The browser shows the box list, `SYS-2.0` in the header, and no console errors. | |
-| 2 | Click **New box**, give it an id such as `1x1-6U-walkthrough-v1`. | The editor opens on the calibrated preset: badge `preset: 4 × 4 · 6U · lid · ribs`, amber `unsaved changes`. | |
+| 2 | Click **New box**, give it a name such as `1x1-6U-walkthrough-v1` (any OS-safe file name works). | The editor opens on the calibrated preset: badge `preset: 4 × 4 · 6U · lid · ribs`, amber `unsaved changes`. | |
 | 3 | In **Spec**, set footprint 2 × 4 and height 9U. | The badge turns amber `custom: …` with a one-line diff; the plan redraws; the **Estimate** line under the outer/interior readout updates its mass and print time. | |
 | 4 | Click **Reset to preset**. | The badge returns to the standard preset and the diff disappears. Reset is visible the whole time. | |
 | 5 | Set footprint 2 × 4 · 6U, keep lid + ribs. | The outer/interior readout matches 83.5 × 167.5 mm. | |

@@ -128,9 +128,10 @@ pub(crate) async fn export(
     let ExportRequest { base } = parse_body(&body)?;
     if !spec::is_valid_id(&base) {
         return Err(ApiError::invalid(
-            format!("export base {base:?} is not a valid box id"),
+            format!("export base {base:?} is not a safe file name"),
             vec![format!(
-                "base: {base:?} must be a box id so the build at build/<base> is found and exports/<base> stays inside the workspace"
+                "base: {base:?} {} so the build at build/<base> is found and exports/<base> stays inside the workspace",
+                spec::ID_RULE_HINT
             )],
         ));
     }

@@ -191,9 +191,8 @@ pub fn build(
 
 /// The coupon id, internal and fixed by this module.
 ///
-/// The coupon is not a user box, so the user-facing id rule (kebab-case or
-/// `<N>x<M>-<height>U-<slug>-<rev>`) does not apply and `boxgen coupon` never
-/// runs the user-spec validator. The id is still the report id and the name
+/// The coupon is not a user box, so the user-facing id rule (an OS-safe file
+/// name) does not apply and `boxgen coupon` never runs the user-spec validator. The id is still the report id and the name
 /// the summary prints.
 pub const COUPON_ID: &str = "coupon-1x1-6U-v1";
 
